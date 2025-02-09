@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity 0.8.28;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { AddressBook } from "../system/AddressBook.sol";
+
+// TODO: copy contract to dao token rewards
 
 /// @title Platform Staking Contract
 /// @notice Implements proportional share distribution based on token balance

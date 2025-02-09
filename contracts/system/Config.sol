@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity 0.8.28;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -47,10 +47,10 @@ contract Config is UUPSUpgradeable {
     IERC20 public holdToken;
 
     /// @notice Fee for creating RWA
-    uint256 public createRWAFee;
+    uint256 public createRWAFee; // todo -> %
     
     /// @notice Fee for creating pool
-    uint256 public createPoolFee;
+    uint256 public createPoolFee; // todo -> %
 
     /// @notice Percentage fee for buying
     uint256 public buyFeePercent;

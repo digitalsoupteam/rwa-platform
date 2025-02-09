@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity 0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
@@ -86,6 +86,7 @@ contract Router is ERC1155Holder, ReentrancyGuard {
         uint256 amountOut,
         address indexed pool
     );
+    // tide add emergencyt cakll
 
     /// @notice Contract constructor
     /// @param _addressBook Address of AddressBook contract

@@ -12,12 +12,6 @@ contract DaoToken is UUPSUpgradeable, ERC20Upgradeable {
     /// @notice Address book contract reference
     AddressBook public addressBook;
 
-    /// @notice Emitted when tokens are minted
-    /// @param operator Address performing the mint
-    /// @param to Recipient address
-    /// @param amount Amount minted
-    event TokensMinted(address indexed operator, address indexed to, uint256 amount);
-
     /// @notice Constructor that disables initializers
     constructor() {
         _disableInitializers();
@@ -27,23 +21,23 @@ contract DaoToken is UUPSUpgradeable, ERC20Upgradeable {
     /// @param initialAddressBook Address of AddressBook contract
     /// @param initialName Token name
     /// @param initialSymbol Token symbol
+    /// @param initialHolders List of initail holders (users/contracts)
+    /// @param initialSymbol List of initial amount (index to holders)
     function initialize(
         address initialAddressBook,
         string calldata initialName,
-        string calldata initialSymbol
+        string calldata initialSymbol,
+        address[] calldata initialHolders,
+        uint256[] calldata initialAmounts
     ) external initializer {
         __UUPSUpgradeable_init();
         __ERC20_init(initialName, initialSymbol);
         addressBook = AddressBook(initialAddressBook);
-    }
 
-    /// @notice Mints new tokens
-    /// @param to Address to receive tokens
-    /// @param amount Amount to mint
-    function mint(address to, uint256 amount) external {
-        addressBook.requireTimelock(msg.sender);
-        _mint(to, amount);
-        emit TokensMinted(msg.sender, to, amount);
+        require(initialHolders.length == initialAmounts.length, "initialHolders length!");
+        for (uint256 i; i < initialHolders.length; ++i) {
+            _mint(initialHolders[i], initialAmounts[i]);
+        }
     }
 
     /// @notice Authorizes upgrade

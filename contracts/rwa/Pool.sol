@@ -72,6 +72,9 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     /// @notice Emergency stop flag
     bool public paused;
 
+    /// @notice Can buy tokens after strike
+    bool public speculationsEnabled;
+
     /// @notice Emitted when tokens are swapped
     /// @param sender Address performing the swap
     /// @param holdAmount Amount of HOLD tokens
@@ -146,6 +149,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     /// @param intialProfitPercent Expected profit percent
     /// @param intialInvestmentExpired Investment period expiration
     /// @param intialRealiseExpired Realise period expiration
+    /// @param speculationsEnabledInitial Can buy tokens after strike
     function initialize(
         address initialAddressBook,
         address initialHoldToken,
@@ -158,7 +162,8 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         uint256 intialTargetAmount,
         uint256 intialProfitPercent,
         uint256 intialInvestmentExpired,
-        uint256 intialRealiseExpired
+        uint256 intialRealiseExpired,
+        bool speculationsEnabledInitial
     ) external initializer {
         require(initialAddressBook != address(0), "Zero address book");
         require(initialHoldToken != address(0), "Zero hold token");
@@ -186,6 +191,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         repaidAmount = 0;
         profitRepaid = 0;
         profitDistributed = 0;
+        speculationsEnabled = speculationsEnabledInitial;
     }
 
     /// @notice Calculates output amount for swap
@@ -237,6 +243,12 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         require(exactAmountIn > 0, "INSUFFICIENT_INPUT_AMOUNT");
         require(isRWAIn || salesEnabled, "SALES_DISABLED");
         require(block.timestamp <= realiseExpired, "REALISE_PERIOD_EXPIRED");
+
+        if (speculationsEnabled == false) {
+            if (block.timestamp > investmentExpired) {
+                require(block.timestamp > realiseExpired, "Speculations disabled");
+            }
+        }
 
         if (isRWAIn) {
             amountOut = getAmountOut(exactAmountIn, isRWAIn);
@@ -314,6 +326,12 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         require(isRWAIn || salesEnabled, "SALES_DISABLED");
         require(block.timestamp <= realiseExpired, "REALISE_PERIOD_EXPIRED");
 
+        if (speculationsEnabled == false) {
+            if (block.timestamp > investmentExpired) {
+                require(block.timestamp > realiseExpired, "Speculations disabled");
+            }
+        }
+
         if (isRWAIn) {
             amountIn = getAmountIn(exactAmountOut, isRWAIn);
             require(amountIn <= maxAmountIn, "EXCESSIVE_INPUT_AMOUNT");
@@ -390,7 +408,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         require(msg.sender == rwa.productOwner(), "Only product owner!");
         require(block.timestamp > investmentExpired, "INVESTMENT_PERIOD_EXPIRED");
         require(amount > 0, "INVALID_AMOUNT");
-        
+
         transferHoldFromUser(msg.sender, amount);
 
         uint256 totalRequired = targetAmount + totalProfitRequired;
@@ -399,13 +417,13 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
 
         // First fill target amount if needed
         uint256 targetRemaining = targetAmount - repaidAmount;
-        if(targetRemaining > 0) {
+        if (targetRemaining > 0) {
             uint256 toTarget = amount > targetRemaining ? targetRemaining : amount;
             repaidAmount += toTarget;
-            
+
             // If there's remaining after target, it goes to profit
             uint256 remainingAmount = amount - toTarget;
-            if(remainingAmount > 0) {
+            if (remainingAmount > 0) {
                 profitRepaid += remainingAmount;
             }
         } else {
@@ -415,7 +433,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
 
         // Update reserves
         realHoldReserve += amount;
-        if(virtualHoldReserve >= amount) {
+        if (virtualHoldReserve >= amount) {
             virtualHoldReserve -= amount;
         }
 

@@ -64,7 +64,8 @@ contract Factory is UUPSUpgradeable {
         uint256 profitPercent, 
         uint256 investmentDuration,
         uint256 realiseDuration,
-        uint256 expired
+        uint256 expired,
+        bool isStabilityPool
     ) external returns (address proxy) {
         require(block.timestamp <= expired, "Request has expired");
 
@@ -106,7 +107,8 @@ contract Factory is UUPSUpgradeable {
                     profitPercent,
                     investmentDuration,
                     realiseDuration,
-                    expired
+                    expired,
+                    isStabilityPool
                 )
             )
         );

@@ -54,9 +54,6 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     /// @notice Amount available for product owner to withdraw
     uint256 public productOwnerBalance;
 
-    /// @notice Whether sales are enabled
-    bool public salesEnabled = true;
-
     /// @notice Total profit amount that should be returned to the pool
     uint256 public totalProfitRequired;
 
@@ -74,6 +71,8 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
 
     /// @notice Can buy tokens after strike
     bool public speculationsEnabled;
+
+    bool public isStriked;
 
     /// @notice Emitted when tokens are swapped
     /// @param sender Address performing the swap
@@ -106,31 +105,11 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     event InvestmentRepaid(uint256 amount);
 
     /// @notice Emitted when profit is distributed
+    /// @param user Bonus recipient
     /// @param amount Amount of profit distributed
-    event ProfitDistributed(uint256 amount);
+    event ProfitDistributed(address indexed user, uint256 amount);
 
-    /// @notice Modifier to check if contract is not paused
-    modifier whenNotPaused() {
-        require(!paused, "Contract is paused");
-        _;
-    }
-    /// @notice Returns current pool state
-    /// @return _realHoldReserve Current real HOLD reserve
-    /// @return intialVirtualHoldReserve Current virtual HOLD reserve
-    /// @return intialVirtualRwaReserve Current virtual RWA reserve
-    /// @return _salesEnabled Whether sales are enabled
-    function getPoolState()
-        external
-        view
-        returns (
-            uint256 _realHoldReserve,
-            uint256 intialVirtualHoldReserve,
-            uint256 intialVirtualRwaReserve,
-            bool _salesEnabled
-        )
-    {
-        return (realHoldReserve, virtualHoldReserve, virtualRwaReserve, salesEnabled);
-    }
+    event TargetReached(uint256 timestamp);
 
     constructor() {
         _disableInitializers();
@@ -163,7 +142,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         uint256 intialProfitPercent,
         uint256 intialInvestmentExpired,
         uint256 intialRealiseExpired,
-        bool speculationsEnabledInitial
+        bool initialSpeculationsEnabled
     ) external initializer {
         require(initialAddressBook != address(0), "Zero address book");
         require(initialHoldToken != address(0), "Zero hold token");
@@ -188,28 +167,44 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         realiseExpired = intialRealiseExpired;
 
         totalProfitRequired = (intialTargetAmount * intialProfitPercent) / 1000;
-        repaidAmount = 0;
-        profitRepaid = 0;
-        profitDistributed = 0;
-        speculationsEnabled = speculationsEnabledInitial;
+        speculationsEnabled = initialSpeculationsEnabled;
+    }
+
+    function validateTrading(bool isRWAIn) public view {
+        require(!paused, "Pool: paused");
+
+        if (!isRWAIn) {
+            require(block.timestamp <= realiseExpired, "Pool: realise period expired");
+        }
+
+        if (!isRWAIn && block.timestamp > investmentExpired) {
+            require(isStriked, "Pool: investment target not reached");
+        }
+
+        if (!speculationsEnabled && isStriked) {
+            if (block.timestamp > investmentExpired && block.timestamp <= realiseExpired) {
+                revert("Pool: trading locked until realise period");
+            }
+        }
     }
 
     /// @notice Calculates output amount for swap
     /// @param inputAmount Amount being swapped in
     /// @param isRWAIn True if input is RWA token
     /// @return Amount of tokens to receive
-    function getAmountOut(uint256 inputAmount, bool isRWAIn) public view returns (uint256) {
-        require(inputAmount > 0, "INSUFFICIENT_INPUT_AMOUNT");
+    function getAmountOut(uint256 amountIn, bool isRWAIn) public view returns (uint256) {
+        require(amountIn > 0, "Pool: insufficient input amount");
 
         uint256 inputReserve = isRWAIn ? virtualRwaReserve : virtualHoldReserve + realHoldReserve;
         uint256 outputReserve = isRWAIn ? virtualHoldReserve + realHoldReserve : virtualRwaReserve;
 
-        require(inputReserve > 0 && outputReserve > 0, "INSUFFICIENT_LIQUIDITY");
+        require(inputReserve > 0 && outputReserve > 0, "Pool: insufficient liquidity");
 
         uint256 fee = 1000 - (isRWAIn ? sellFeePercent : buyFeePercent);
-        uint256 inputAmountWithFee = inputAmount * fee;
-        uint256 numerator = inputAmountWithFee * outputReserve;
-        uint256 denominator = (inputReserve * 1000) + inputAmountWithFee;
+        uint256 amountWithFee = amountIn * fee;
+        uint256 numerator = amountWithFee * outputReserve;
+        uint256 denominator = (inputReserve * 1000) + amountWithFee;
+
         return numerator / denominator;
     }
 
@@ -217,99 +212,91 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     /// @param outputAmount Desired output amount
     /// @param isRWAIn True if input is RWA token
     /// @return Required input amount
-    function getAmountIn(uint256 outputAmount, bool isRWAIn) public view returns (uint256) {
-        require(outputAmount > 0, "INSUFFICIENT_OUTPUT_AMOUNT");
+    function getAmountIn(uint256 amountOut, bool isRWAIn) public view returns (uint256) {
+        require(amountOut > 0, "Pool: insufficient output amount");
 
         uint256 inputReserve = isRWAIn ? virtualRwaReserve : virtualHoldReserve + realHoldReserve;
         uint256 outputReserve = isRWAIn ? virtualHoldReserve + realHoldReserve : virtualRwaReserve;
 
-        require(inputReserve > 0 && outputReserve > 0, "INSUFFICIENT_LIQUIDITY");
+        require(inputReserve > 0 && outputReserve > 0, "Pool: insufficient liquidity");
 
         uint256 fee = 1000 - (isRWAIn ? sellFeePercent : buyFeePercent);
-        uint256 numerator = inputReserve * outputAmount * 1000;
-        uint256 denominator = (outputReserve - outputAmount) * fee;
+        uint256 numerator = inputReserve * amountOut * 1000;
+        uint256 denominator = (outputReserve - amountOut) * fee;
+
         return (numerator / denominator) + 1;
     }
+
+    function handleHoldSwap(address user, uint256 amountIn, uint256 amountOut) internal {
+        transferHoldFromUser(user, amountIn);
+        mintRwaToUser(user, amountOut);
+
+        uint256 feeAmount = (amountIn * buyFeePercent) / 1000;
+        handleFees(feeAmount);
+
+        realHoldReserve += amountIn - feeAmount;
+        virtualRwaReserve -= amountOut;
+
+        checkAndHandleTargetReached();
+    }
+
+    function handleRwaSwap(address user, uint256 amountIn, uint256 amountOut) internal {
+        uint256 availableBonus = calculateBonus(amountIn);
+
+        burnRwaFromUser(user, amountIn);
+        transferHoldToUser(user, amountOut);
+
+        uint256 feeAmount = (amountOut * sellFeePercent) / 1000;
+        handleFees(feeAmount);
+
+        virtualRwaReserve += amountIn;
+        realHoldReserve -= (amountOut + feeAmount);
+
+        if (availableBonus > 0) {
+            IERC20(holdToken).transfer(user, availableBonus);
+            profitDistributed += availableBonus;
+            emit ProfitDistributed(user, availableBonus);
+        }
+    }
+
+    function checkAndHandleTargetReached() internal {
+        if (block.timestamp <= investmentExpired && realHoldReserve >= targetAmount) {
+            isStriked = true;
+            emit TargetReached(block.timestamp);
+            productOwnerBalance = targetAmount;
+            virtualHoldReserve += targetAmount;
+            realHoldReserve -= targetAmount;
+            emit ProductOwnerBalanceUpdated(targetAmount);
+        }
+    }
+
+    function handleSwap(address user, uint256 amountIn, uint256 amountOut, bool isRWAIn) internal {
+        if (isRWAIn) {
+            require(amountOut <= realHoldReserve, "Pool: insufficient real hold");
+            handleRwaSwap(user, amountIn, amountOut);
+        } else {
+            handleHoldSwap(user, amountIn, amountOut);
+        }
+
+        emit Swap(user, isRWAIn ? amountOut : amountIn, isRWAIn ? amountIn : amountOut, isRWAIn);
+        emit ReservesUpdated(realHoldReserve, virtualHoldReserve, virtualRwaReserve);
+    }
+
     /// @notice Swaps exact input amount for output tokens
     /// @param exactAmountIn Amount of input tokens
     /// @param minAmountOut Minimum amount of output tokens to receive
     /// @param isRWAIn True if input is RWA token
     /// @return amountOut Amount of tokens received
     function swapExactInput(
-        uint256 exactAmountIn,
+        uint256 amountIn,
         uint256 minAmountOut,
         bool isRWAIn
-    ) external nonReentrant whenNotPaused returns (uint256 amountOut) {
-        require(exactAmountIn > 0, "INSUFFICIENT_INPUT_AMOUNT");
-        require(isRWAIn || salesEnabled, "SALES_DISABLED");
-        require(block.timestamp <= realiseExpired, "REALISE_PERIOD_EXPIRED");
-
-        if (speculationsEnabled == false) {
-            if (block.timestamp > investmentExpired) {
-                require(block.timestamp > realiseExpired, "Speculations disabled");
-            }
-        }
-
-        if (isRWAIn) {
-            amountOut = getAmountOut(exactAmountIn, isRWAIn);
-            require(amountOut >= minAmountOut, "INSUFFICIENT_OUTPUT_AMOUNT");
-            require(amountOut <= realHoldReserve, "INSUFFICIENT_REAL_HOLD");
-
-            // Calculate available bonus
-            uint256 availableBonus = 0;
-            if (block.timestamp > realiseExpired && profitRepaid > profitDistributed) {
-                availableBonus = profitRepaid - profitDistributed;
-                uint256 calculatedBonus = (exactAmountIn * totalProfitRequired) / 1_000_000;
-                if (calculatedBonus < availableBonus) {
-                    availableBonus = calculatedBonus;
-                }
-            }
-
-            // Execute AMM swap
-            burnRwaFromUser(msg.sender, exactAmountIn);
-            transferHoldToUser(msg.sender, amountOut);
-
-            uint256 feeAmount = (amountOut * sellFeePercent) / 1000;
-            handleFees(feeAmount, sellFeePercent);
-
-            virtualRwaReserve += exactAmountIn;
-            realHoldReserve -= (amountOut + feeAmount);
-
-            // Handle bonus separately if available
-            if (availableBonus > 0) {
-                IERC20(holdToken).transfer(msg.sender, availableBonus);
-                profitDistributed += availableBonus;
-                emit ProfitDistributed(availableBonus);
-            }
-
-            emit ReservesUpdated(realHoldReserve, virtualHoldReserve, virtualRwaReserve);
-        } else {
-            transferHoldFromUser(msg.sender, exactAmountIn);
-            mintRwaToUser(msg.sender, amountOut);
-
-            uint256 feeAmount = (exactAmountIn * buyFeePercent) / 1000;
-            handleFees(feeAmount, buyFeePercent);
-
-            realHoldReserve += exactAmountIn - feeAmount;
-            virtualRwaReserve -= amountOut;
-
-            if (block.timestamp <= investmentExpired) {
-                if (realHoldReserve >= targetAmount) {
-                    productOwnerBalance = targetAmount;
-                    virtualHoldReserve += targetAmount;
-                    realHoldReserve -= targetAmount;
-                } else if (block.timestamp == investmentExpired) {
-                    salesEnabled = false;
-                }
-            }
-        }
-
-        emit Swap(
-            msg.sender,
-            isRWAIn ? amountOut : exactAmountIn,
-            isRWAIn ? exactAmountIn : amountOut,
-            isRWAIn
-        );
+    ) external nonReentrant returns (uint256 amountOut) {
+        validateTrading(isRWAIn);
+        amountOut = getAmountOut(amountIn, isRWAIn);
+        require(amountOut >= minAmountOut, "Pool: insufficient output amount");
+        handleSwap(msg.sender, amountIn, amountOut, isRWAIn);
+        return amountOut;
     }
 
     /// @notice Swaps tokens for exact output amount
@@ -318,147 +305,93 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     /// @param isRWAIn True if input is RWA token
     /// @return amountIn Amount of input tokens used
     function swapExactOutput(
-        uint256 exactAmountOut,
+        uint256 amountOut,
         uint256 maxAmountIn,
         bool isRWAIn
-    ) external nonReentrant whenNotPaused returns (uint256 amountIn) {
-        require(exactAmountOut > 0, "INSUFFICIENT_OUTPUT_AMOUNT");
-        require(isRWAIn || salesEnabled, "SALES_DISABLED");
-        require(block.timestamp <= realiseExpired, "REALISE_PERIOD_EXPIRED");
-
-        if (speculationsEnabled == false) {
-            if (block.timestamp > investmentExpired) {
-                require(block.timestamp > realiseExpired, "Speculations disabled");
-            }
-        }
-
-        if (isRWAIn) {
-            amountIn = getAmountIn(exactAmountOut, isRWAIn);
-            require(amountIn <= maxAmountIn, "EXCESSIVE_INPUT_AMOUNT");
-            require(exactAmountOut <= realHoldReserve, "INSUFFICIENT_REAL_HOLD");
-
-            // Calculate available bonus
-            uint256 availableBonus = 0;
-            if (block.timestamp > realiseExpired && profitRepaid > profitDistributed) {
-                availableBonus = profitRepaid - profitDistributed;
-                uint256 calculatedBonus = (amountIn * totalProfitRequired) / 1_000_000;
-                if (calculatedBonus < availableBonus) {
-                    availableBonus = calculatedBonus;
-                }
-            }
-
-            // Execute AMM swap
-            burnRwaFromUser(msg.sender, amountIn);
-            transferHoldToUser(msg.sender, exactAmountOut);
-
-            uint256 feeAmount = (exactAmountOut * sellFeePercent) / 1000;
-            handleFees(feeAmount, sellFeePercent);
-
-            virtualRwaReserve += amountIn;
-            realHoldReserve -= (exactAmountOut + feeAmount);
-
-            // Handle bonus separately if available
-            if (availableBonus > 0) {
-                IERC20(holdToken).transfer(msg.sender, availableBonus);
-                profitDistributed += availableBonus;
-                emit ProfitDistributed(availableBonus);
-            }
-
-            emit ReservesUpdated(realHoldReserve, virtualHoldReserve, virtualRwaReserve);
-        } else {
-            transferHoldFromUser(msg.sender, amountIn);
-            mintRwaToUser(msg.sender, exactAmountOut);
-
-            uint256 feeAmount = (amountIn * buyFeePercent) / 1000;
-            handleFees(feeAmount, buyFeePercent);
-
-            realHoldReserve += amountIn - feeAmount;
-            virtualRwaReserve -= exactAmountOut;
-
-            if (block.timestamp <= investmentExpired) {
-                if (realHoldReserve >= targetAmount) {
-                    productOwnerBalance = targetAmount;
-                    virtualHoldReserve += targetAmount;
-                    realHoldReserve -= targetAmount;
-                } else if (block.timestamp == investmentExpired) {
-                    salesEnabled = false;
-                }
-            }
-        }
-
-        emit Swap(
-            msg.sender,
-            isRWAIn ? exactAmountOut : amountIn,
-            isRWAIn ? amountIn : exactAmountOut,
-            isRWAIn
-        );
+    ) external nonReentrant returns (uint256 amountIn) {
+        validateTrading(isRWAIn);
+        amountIn = getAmountIn(amountOut, isRWAIn);
+        require(amountIn <= maxAmountIn, "Pool: excessive input amount");
+        handleSwap(msg.sender, amountIn, amountOut, isRWAIn);
+        return amountIn;
     }
+
+    function calculateBonus(uint256 amount) internal view returns (uint256) {
+        if (block.timestamp > realiseExpired && profitRepaid > profitDistributed) {
+            uint256 availableBonus = profitRepaid - profitDistributed;
+            uint256 calculatedBonus = (amount * totalProfitRequired) / 1_000_000;
+            return calculatedBonus < availableBonus ? calculatedBonus : availableBonus;
+        }
+        return 0;
+    }
+
     /// @notice Handles fee distribution to treasury
     /// @param feeAmount Total fee amount
     /// @param feePercent Fee percentage used (buy or sell)
-    function handleFees(uint256 feeAmount, uint256 feePercent) internal {
-        address _treasury = address(addressBook.treasury());
-        transferHoldToUser(_treasury, feeAmount);
-        emit FeesCollected(feeAmount, _treasury);
+    function handleFees(uint256 amount) internal {
+        address treasury = addressBook.treasury();
+        transferHoldToUser(treasury, amount);
+        emit FeesCollected(amount, treasury);
     }
 
     /// @notice Allows product owner to repay investment and profit
     /// @param amount Amount to repay
-    function repayInvestment(uint256 amount) external nonReentrant whenNotPaused {
-        require(msg.sender == rwa.productOwner(), "Only product owner!");
-        require(block.timestamp > investmentExpired, "INVESTMENT_PERIOD_EXPIRED");
-        require(amount > 0, "INVALID_AMOUNT");
+    function repayInvestment(uint256 amount) external nonReentrant {
+        require(msg.sender == rwa.productOwner(), "Pool: only product owner");
+        require(block.timestamp > investmentExpired, "Pool: investment period not expired");
+        require(amount > 0, "Pool: invalid amount");
 
         transferHoldFromUser(msg.sender, amount);
 
         uint256 totalRequired = targetAmount + totalProfitRequired;
         uint256 totalRemaining = totalRequired - repaidAmount - profitRepaid;
-        require(amount <= totalRemaining, "EXCESS_REPAYMENT");
+        require(amount <= totalRemaining, "Pool: excess repayment");
 
-        // First fill target amount if needed
         uint256 targetRemaining = targetAmount - repaidAmount;
+        uint256 toTarget = 0;
+        uint256 toProfit = 0;
+
         if (targetRemaining > 0) {
-            uint256 toTarget = amount > targetRemaining ? targetRemaining : amount;
+            toTarget = amount > targetRemaining ? targetRemaining : amount;
             repaidAmount += toTarget;
 
-            // If there's remaining after target, it goes to profit
-            uint256 remainingAmount = amount - toTarget;
-            if (remainingAmount > 0) {
-                profitRepaid += remainingAmount;
+            uint256 remaining = amount - toTarget;
+            if (remaining > 0) {
+                toProfit = remaining;
+                profitRepaid += remaining;
             }
         } else {
-            // All goes to profit if target is met
+            toProfit = amount;
             profitRepaid += amount;
         }
 
-        // Update reserves
         realHoldReserve += amount;
         if (virtualHoldReserve >= amount) {
             virtualHoldReserve -= amount;
         }
 
-        emit InvestmentRepaid(amount);
+        emit InvestmentRepaid(amount, toTarget, toProfit);
         emit ReservesUpdated(realHoldReserve, virtualHoldReserve, virtualRwaReserve);
     }
 
     /// @notice Allows product owner to claim raised funds
     function claimProductOwnerBalance() external nonReentrant {
-        require(msg.sender == rwa.productOwner(), "Only product owner!");
-        require(productOwnerBalance > 0, "NO_BALANCE");
+        require(msg.sender == rwa.productOwner(), "Pool: only product owner");
+        require(productOwnerBalance > 0, "Pool: no balance");
 
         uint256 amount = productOwnerBalance;
         productOwnerBalance = 0;
-
         transferHoldToUser(msg.sender, amount);
+
         emit ProductOwnerBalanceUpdated(0);
     }
 
     /// @notice Sets emergency pause state
     /// @param value New pause state
-    function setPause(bool value) external {
+    function setPause(bool state) external {
         addressBook.requireGovernance(msg.sender);
-        paused = value;
-        emit EmergencyStop(value);
+        paused = state;
+        emit EmergencyStop(state);
     }
 
     /// @notice Transfers HOLD tokens from user
@@ -467,7 +400,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     function transferHoldFromUser(address from, uint256 amount) internal {
         require(
             IERC20(holdToken).transferFrom(from, address(this), amount),
-            "HOLD_TRANSFER_FROM_FAILED"
+            "Pool: transfer from failed"
         );
     }
 
@@ -475,7 +408,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     /// @param to Address to transfer to
     /// @param amount Amount to transfer
     function transferHoldToUser(address to, uint256 amount) internal {
-        require(IERC20(holdToken).transfer(to, amount), "HOLD_TRANSFER_FAILED");
+        require(IERC20(holdToken).transfer(to, amount), "Pool: transfer failed");
     }
 
     /// @notice Mints RWA tokens to user

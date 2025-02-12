@@ -66,7 +66,7 @@ contract Factory is UUPSUpgradeable {
         uint256 realiseDuration,
         uint256 expired,
         bool isStabilityPool
-    ) external returns (address proxy) {
+    ) external returns (address) {
         require(block.timestamp <= expired, "Request has expired");
 
         Config config = addressBook.config();
@@ -133,7 +133,8 @@ contract Factory is UUPSUpgradeable {
             targetAmount,
             profitPercent,
             investmentDuration, 
-            realiseDuration
+            realiseDuration,
+            true // TODO: replace to speculationEnabled
         );
 
         emit PoolDeployed(address(proxy), msg.sender, address(rwa), rwaId);

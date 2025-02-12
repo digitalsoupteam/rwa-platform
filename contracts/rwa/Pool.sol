@@ -128,7 +128,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     /// @param intialProfitPercent Expected profit percent
     /// @param intialInvestmentExpired Investment period expiration
     /// @param intialRealiseExpired Realise period expiration
-    /// @param speculationsEnabledInitial Can buy tokens after strike
+    /// @param initialSpeculationsEnabled Can buy tokens after strike
     function initialize(
         address initialAddressBook,
         address initialHoldToken,
@@ -189,7 +189,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /// @notice Calculates output amount for swap
-    /// @param inputAmount Amount being swapped in
+    /// @param amountIn Amount being swapped in
     /// @param isRWAIn True if input is RWA token
     /// @return Amount of tokens to receive
     function getAmountOut(uint256 amountIn, bool isRWAIn) public view returns (uint256) {
@@ -209,7 +209,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /// @notice Calculates required input amount for desired output
-    /// @param outputAmount Desired output amount
+    /// @param amountOut Desired output amount
     /// @param isRWAIn True if input is RWA token
     /// @return Required input amount
     function getAmountIn(uint256 amountOut, bool isRWAIn) public view returns (uint256) {
@@ -283,7 +283,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /// @notice Swaps exact input amount for output tokens
-    /// @param exactAmountIn Amount of input tokens
+    /// @param amountIn Amount of input tokens
     /// @param minAmountOut Minimum amount of output tokens to receive
     /// @param isRWAIn True if input is RWA token
     /// @return amountOut Amount of tokens received
@@ -300,7 +300,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /// @notice Swaps tokens for exact output amount
-    /// @param exactAmountOut Desired amount of output tokens
+    /// @param amountOut Desired amount of output tokens
     /// @param maxAmountIn Maximum input amount
     /// @param isRWAIn True if input is RWA token
     /// @return amountIn Amount of input tokens used
@@ -326,10 +326,9 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /// @notice Handles fee distribution to treasury
-    /// @param feeAmount Total fee amount
-    /// @param feePercent Fee percentage used (buy or sell)
+    /// @param amount Total fee amount
     function handleFees(uint256 amount) internal {
-        address treasury = addressBook.treasury();
+        address treasury = address(addressBook.treasury());
         transferHoldToUser(treasury, amount);
         emit FeesCollected(amount, treasury);
     }
@@ -370,7 +369,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
             virtualHoldReserve -= amount;
         }
 
-        emit InvestmentRepaid(amount, toTarget, toProfit);
+        emit InvestmentRepaid(amount);
         emit ReservesUpdated(realHoldReserve, virtualHoldReserve, virtualRwaReserve);
     }
 
@@ -387,7 +386,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     /// @notice Sets emergency pause state
-    /// @param value New pause state
+    /// @param state New pause state
     function setPause(bool state) external {
         addressBook.requireGovernance(msg.sender);
         paused = state;

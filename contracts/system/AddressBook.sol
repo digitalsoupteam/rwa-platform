@@ -94,6 +94,7 @@ contract AddressBook is UUPSUpgradeable {
     function initialize() external initializer {
         __UUPSUpgradeable_init_unchained();
         governance = Governance(msg.sender);
+        timelock = Timelock(payable(msg.sender));
     }
 
     /// @notice Authorizes an upgrade to a new implementation
@@ -256,7 +257,7 @@ contract AddressBook is UUPSUpgradeable {
     /// @dev Can only be called by governance
     /// @param pool The address of the pool to add
     function addPool(Pool pool) external {
-        requireGovernance(msg.sender);
+        require(msg.sender == address(factory), "Only factory!");
         require(!isPool[address(pool)], "Pool already exists");
         pools.push(pool);
         isPool[address(pool)] = true;
@@ -266,9 +267,17 @@ contract AddressBook is UUPSUpgradeable {
     /// @dev Can only be called by governance
     /// @param rwa The address of the RWA to add
     function addRWA(RWA rwa) external {
-        requireGovernance(msg.sender);
+        require(msg.sender == address(factory), "Only factory!");
         require(!isRWA[address(rwa)], "RWA already exists");
         rwas.push(rwa);
         isRWA[address(rwa)] = true;
+    }
+
+    function rwasLength() external view returns(uint256) {
+        return rwas.length;
+    }
+
+    function poolsLength() external view returns(uint256) {
+        return rwas.length;
     }
 }

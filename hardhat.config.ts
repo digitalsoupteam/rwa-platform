@@ -1,9 +1,9 @@
-import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
+import { HardhatUserConfig } from 'hardhat/config'
+import '@nomicfoundation/hardhat-toolbox'
 import '@nomicfoundation/hardhat-ethers'
 import '@nomicfoundation/hardhat-chai-matchers'
-import "@openzeppelin/hardhat-upgrades";
-import "@typechain/hardhat";
+import '@openzeppelin/hardhat-upgrades'
+import '@typechain/hardhat'
 import 'hardhat-deploy'
 
 const config: HardhatUserConfig = {
@@ -20,11 +20,26 @@ const config: HardhatUserConfig = {
       viaIR: true,
     },
   },
+  networks: {
+    hardhat: {
+      chainId: 1337,
+      forking: {
+        url: 'https://rpc.ankr.com/bsc',
+        blockNumber: 46685208,
+      },
+      // blockGasLimit: 30000000,
+      accounts: {
+        count: 10,
+        accountsBalance: '1000000000000000000000000000',
+      },
+      // loggingEnabled: false,
+    },
+  },
 
   typechain: {
     outDir: 'typechain-types',
-    target: 'ethers-v6'
-  }
-};
+    target: 'ethers-v6',
+  },
+}
 
-export default config;
+export default config

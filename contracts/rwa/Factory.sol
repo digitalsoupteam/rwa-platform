@@ -54,6 +54,8 @@ contract Factory is UUPSUpgradeable {
         RWA(address(proxy)).initialize(address(addressBook), msg.sender, ""); // todo rplce token uri
 
         emit RWADeployed(address(proxy), msg.sender);
+
+        addressBook.addRWA(RWA(address(proxy)));
         return address(proxy);
     }
 
@@ -132,12 +134,14 @@ contract Factory is UUPSUpgradeable {
             rwaSupply,
             targetAmount,
             profitPercent,
-            investmentDuration, 
-            realiseDuration,
+            block.timestamp + investmentDuration, 
+            block.timestamp + realiseDuration,
             true // TODO: replace to speculationEnabled
         );
 
         emit PoolDeployed(address(proxy), msg.sender, address(rwa), rwaId);
+
+        addressBook.addPool(Pool(proxy));
         return address(proxy);
     }
 

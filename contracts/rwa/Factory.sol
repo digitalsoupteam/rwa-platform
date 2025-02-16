@@ -34,13 +34,20 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         addressBook = AddressBook(initialAddressBook);
     }
 
-    function deployRWA(bytes calldata signature, uint256 expired) external nonReentrant returns (address) {
+    function deployRWA(
+        bytes calldata signature,
+        uint256 expired
+    ) external nonReentrant returns (address) {
         require(block.timestamp <= expired, "Request has expired");
 
         AddressBook _addressBook = addressBook;
         Config config = _addressBook.config();
 
-        config.holdToken().transferFrom(msg.sender, address(_addressBook.treasury()), config.createRWAFee());
+        config.holdToken().transferFrom(
+            msg.sender,
+            address(_addressBook.treasury()),
+            config.createRWAFee()
+        );
 
         bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(
             keccak256(
@@ -84,24 +91,31 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         );
 
         require(
-            profitPercent >= config.minProfitPercent() && profitPercent <= config.maxProfitPercent(),
+            profitPercent >= config.minProfitPercent() &&
+                profitPercent <= config.maxProfitPercent(),
             "Profit percentage out of allowed range"
         );
 
         require(
-            investmentDuration >= config.minInvestmentDuration() && investmentDuration <= config.maxInvestmentDuration(),
+            investmentDuration >= config.minInvestmentDuration() &&
+                investmentDuration <= config.maxInvestmentDuration(),
             "Investment duration out of allowed range"
         );
 
         require(
-            realiseDuration >= config.minRealiseDuration() && realiseDuration <= config.maxRealiseDuration(),
+            realiseDuration >= config.minRealiseDuration() &&
+                realiseDuration <= config.maxRealiseDuration(),
             "Realise duration out of allowed range"
         );
 
         require(_addressBook.isRWA(address(rwa)), "RWA not registered in system");
         require(rwa.productOwner() == msg.sender, "Caller is not RWA owner");
 
-        config.holdToken().transferFrom(msg.sender, address(_addressBook.treasury()), config.createPoolFee());
+        config.holdToken().transferFrom(
+            msg.sender,
+            address(_addressBook.treasury()),
+            config.createPoolFee()
+        );
 
         bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(
             keccak256(
@@ -112,7 +126,7 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
                     "deployPool",
                     address(rwa),
                     targetAmount,
-                    profitPercent, 
+                    profitPercent,
                     investmentDuration,
                     realiseDuration,
                     expired,
@@ -156,5 +170,6 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
 
     function _authorizeUpgrade(address newImplementation) internal override {
         addressBook.requireGovernance(msg.sender);
+        require(newImplementation.code.length > 0, "ERC1967: new implementation is not a contract");
     }
 }

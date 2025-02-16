@@ -125,7 +125,7 @@ contract Config is UUPSUpgradeable {
         require(_virtualMultiplier > 0, "Invalid multiplier");
         require(_minPartialReturn > 0, "Invalid min partial return");
         require(_holdToken != address(0), "Invalid hold token");
-        require(intialBuyFeePercent <= 100 && intialSellFeePercent <= 100, "Invalid fee percent");
+        require(intialBuyFeePercent <= 1000 && intialSellFeePercent <= 1000, "Invalid fee percent"); // <= 10%
         require(_rwaInitialSupply > 0, "Invalid initial supply");
 
         addressBook = AddressBook(initialAddressBook);

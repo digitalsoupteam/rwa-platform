@@ -166,7 +166,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         investmentExpired = intialInvestmentExpired;
         realiseExpired = intialRealiseExpired;
 
-        totalProfitRequired = (intialTargetAmount * intialProfitPercent) / 1000;
+        totalProfitRequired = (intialTargetAmount * intialProfitPercent) / 10000;
         speculationsEnabled = initialSpeculationsEnabled;
     }
 
@@ -200,10 +200,10 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
 
         require(inputReserve > 0 && outputReserve > 0, "Pool: insufficient liquidity");
 
-        uint256 fee = 1000 - (isRWAIn ? sellFeePercent : buyFeePercent);
+        uint256 fee = 10000 - (isRWAIn ? sellFeePercent : buyFeePercent);
         uint256 amountWithFee = amountIn * fee;
         uint256 numerator = amountWithFee * outputReserve;
-        uint256 denominator = (inputReserve * 1000) + amountWithFee;
+        uint256 denominator = (inputReserve * 10000) + amountWithFee;
 
         return numerator / denominator;
     }
@@ -220,8 +220,8 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
 
         require(inputReserve > 0 && outputReserve > 0, "Pool: insufficient liquidity");
 
-        uint256 fee = 1000 - (isRWAIn ? sellFeePercent : buyFeePercent);
-        uint256 numerator = inputReserve * amountOut * 1000;
+        uint256 fee = 10000 - (isRWAIn ? sellFeePercent : buyFeePercent);
+        uint256 numerator = inputReserve * amountOut * 10000;
         uint256 denominator = (outputReserve - amountOut) * fee;
 
         return (numerator / denominator) + 1;
@@ -231,7 +231,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         transferHoldFromUser(user, amountIn);
         mintRwaToUser(user, amountOut);
 
-        uint256 feeAmount = (amountIn * buyFeePercent) / 1000;
+        uint256 feeAmount = (amountIn * buyFeePercent) / 10000;
         handleFees(feeAmount);
 
         realHoldReserve += amountIn - feeAmount;
@@ -246,7 +246,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         burnRwaFromUser(user, amountIn);
         transferHoldToUser(user, amountOut);
 
-        uint256 feeAmount = (amountOut * sellFeePercent) / 1000;
+        uint256 feeAmount = (amountOut * sellFeePercent) / 10000;
         handleFees(feeAmount);
 
         virtualRwaReserve += amountIn;

@@ -17,8 +17,8 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   const minTargetAmount = ethers.parseEther('10000') // 10,000 USDT
   const maxTargetAmount = ethers.parseEther('150000') // 150,000 USDT
-  const minProfitPercent = 100 // 10%
-  const maxProfitPercent = 200 // 20%
+  const minProfitPercent = 1000 // 10%
+  const maxProfitPercent = 2000 // 20%
   const minInvestmentDuration = 30 * 24 * 60 * 60 // 30 days
   const maxInvestmentDuration = 60 * 24 * 60 * 60 // 60 days
   const minRealiseDuration = 180 * 24 * 60 * 60 // 180 days
@@ -28,8 +28,8 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const holdToken = USDT // USDT address
   const createRWAFee = ethers.parseEther('100') // 100 USDT
   const createPoolFee = ethers.parseEther('200') // 200 USDT
-  const buyFeePercent = 30 // 3%
-  const sellFeePercent = 30 // 3%
+  const buyFeePercent = 300 // 3%
+  const sellFeePercent = 300 // 3%
   const rwaInitialSupply = ethers.parseUnits('21000000', 18) // 21M tokens
 
   const deployment = await deploy('Config', {

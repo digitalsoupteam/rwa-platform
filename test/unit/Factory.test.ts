@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { deployments } from 'hardhat'
-import { time } from '@nomicfoundation/hardhat-network-helpers'
+import { impersonateAccount, time } from '@nomicfoundation/hardhat-network-helpers'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import {
   Factory,
@@ -18,6 +18,10 @@ import {
   IERC20__factory,
   Treasury,
   Treasury__factory,
+  UUPSUpgradeable,
+  UUPSUpgradeable__factory,
+  Governance,
+  Governance__factory,
 } from '../../typechain-types'
 import ERC20Minter from '../utils/ERC20Minter'
 import { BigNumberish, EventLog } from 'ethers'
@@ -259,6 +263,56 @@ describe('Factory', function () {
           false,
         ),
       ).to.be.revertedWith('Caller is not RWA owner')
+    })
+  })
+
+  describe('upgrades', function () {
+    let newFactory: Factory
+    let proxyFactory: UUPSUpgradeable
+    let governance: Governance
+    let impersonateGovernance: SignerWithAddress
+
+    beforeEach(async function () {
+      governance = Governance__factory.connect(await addressBook.governance(), ethers.provider)
+      impersonateAccount(await governance.getAddress())
+      impersonateGovernance = await ethers.getSigner(await governance.getAddress())
+      proxyFactory = UUPSUpgradeable__factory.connect(await factory.getAddress(), ethers.provider)
+      const Factory = await ethers.getContractFactory('Factory')
+      newFactory = await Factory.deploy()
+    })
+
+    it('Should upgrade contract', async function () {
+      await expect(
+        proxyFactory.connect(impersonateGovernance).upgradeToAndCall(await newFactory.getAddress(), '0x'),
+      ).to.not.be.reverted
+
+      expect(await factory.getAddress()).to.equal(await ethers.resolveAddress(factory))
+    })
+
+    it('Should not allow non-owner to upgrade', async function () {
+      await expect(
+        factory.connect(user).upgradeToAndCall(await newFactory.getAddress(), '0x'),
+      ).to.be.revertedWith('Only Governance!')
+    })
+
+    it('Should not allow upgrade to non-contract address', async function () {
+      await expect(factory.connect(impersonateGovernance).upgradeToAndCall(user.address, '0x')).to.be.revertedWith(
+        'ERC1967: new implementation is not a contract',
+      )
+    })
+
+    it('Should preserve state after upgrade', async function () {
+      const addressBookBefore = await factory.addressBook()
+
+      await factory.connect(impersonateGovernance).upgradeToAndCall(await newFactory.getAddress(), '0x')
+
+      expect(await factory.addressBook()).to.equal(addressBookBefore)
+    })
+
+    it('Should emit Upgraded event', async function () {
+      await expect(factory.connect(impersonateGovernance).upgradeToAndCall(await newFactory.getAddress(), '0x'))
+        .to.emit(factory, 'Upgraded')
+        .withArgs(await newFactory.getAddress())
     })
   })
 })

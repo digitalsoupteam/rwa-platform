@@ -257,7 +257,7 @@ contract Config is UUPSUpgradeable {
         uint256 newSellFeePercent
     ) external {
         addressBook.requireGovernance(msg.sender);
-        require(newBuyFeePercent <= 100 && newSellFeePercent <= 100, "Invalid fee percent");
+        require(newBuyFeePercent <= 1000 && newSellFeePercent <= 1000, "Invalid fee percent");
         buyFeePercent = newBuyFeePercent;
         sellFeePercent = newSellFeePercent;
         emit TradingFeesUpdated(newBuyFeePercent, newSellFeePercent);

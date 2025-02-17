@@ -34,15 +34,7 @@ describe('Pool', () => {
   let productOwner: HardhatEthersSigner
   let user1: HardhatEthersSigner
   let user2: HardhatEthersSigner
-
-  const TOKEN_ID = 1n
-  const BUY_FEE = 30n // 3%
-  const SELL_FEE = 30n // 3%
-  const VIRTUAL_HOLD = ethers.parseEther('1000')
-  const VIRTUAL_RWA = ethers.parseEther('1000')
-  const TARGET_AMOUNT = ethers.parseEther('100')
-  const PROFIT_PERCENT = 200n // 20%
-
+  
   beforeEach(async () => {
     const signers = await ethers.getSigners()
     testOwner = signers[0]

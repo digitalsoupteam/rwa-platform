@@ -112,7 +112,7 @@ contract Router is ERC1155Holder, ReentrancyGuard {
     /// @param pool Pool address
     /// @return Address of HOLD token
     function _getHoldToken(address pool) internal view returns (address) {
-        return Pool(pool).holdToken();
+        return address(Pool(pool).holdToken());
     }
 
     /// @notice Performs a token swap with exact input amount

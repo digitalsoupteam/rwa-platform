@@ -30,7 +30,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const createPoolFee = ethers.parseEther('200') // 200 USDT
   const buyFeePercent = 300 // 3%
   const sellFeePercent = 300 // 3%
-  const rwaInitialSupply = ethers.parseUnits('21000000', 18) // 21M tokens
+  const rwaInitialSupply = 21000000
 
   const deployment = await deploy('Config', {
     contract: 'Config',

@@ -27,28 +27,6 @@ contract Timelock is UUPSUpgradeable {
     /// @notice Mapping from operation hash to its state
     mapping(bytes32 => Operation) public operations;
 
-    /// @notice Emitted when operation is scheduled
-    /// @param operationId Operation hash
-    /// @param target Target address for call
-    /// @param value ETH value for call
-    /// @param data Calldata for call
-    /// @param timestamp When operation can be executed
-    event OperationScheduled(
-        bytes32 indexed operationId,
-        address indexed target,
-        uint256 value,
-        bytes data,
-        uint256 timestamp
-    );
-
-    /// @notice Emitted when operation is executed
-    /// @param operationId Operation hash
-    event OperationExecuted(bytes32 indexed operationId);
-
-    /// @notice Emitted when operation is canceled
-    /// @param operationId Operation hash
-    event OperationCanceled(bytes32 indexed operationId);
-
     /// @notice Constructor that disables initializers
     constructor() {
         _disableInitializers();
@@ -90,7 +68,7 @@ contract Timelock is UUPSUpgradeable {
             timestamp: timestamp
         });
 
-        emit OperationScheduled(operationId, target, value, data, timestamp);
+        addressBook.eventEmitter().emitTimelock_OperationScheduled(operationId, target, value, data, timestamp);
     }
 
     /// @notice Executes a scheduled operation
@@ -117,7 +95,7 @@ contract Timelock is UUPSUpgradeable {
         (bool success, ) = target.call{value: value}(data);
         require(success, "Operation execution failed");
 
-        emit OperationExecuted(operationId);
+        addressBook.eventEmitter().emitTimelock_OperationExecuted(operationId);
     }
 
     /// @notice Cancels a scheduled operation
@@ -141,7 +119,7 @@ contract Timelock is UUPSUpgradeable {
         require(!op.canceled, "Operation already canceled");
 
         op.canceled = true;
-        emit OperationCanceled(operationId);
+        addressBook.eventEmitter().emitTimelock_OperationCanceled(operationId);
     }
 
     /// @notice Updates minimum delay

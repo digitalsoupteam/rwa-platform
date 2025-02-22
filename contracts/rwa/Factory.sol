@@ -15,14 +15,7 @@ import { Config } from "../system/Config.sol";
 
 contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     AddressBook public addressBook;
-
-    event RWADeployed(address indexed token, address indexed owner);
-    event PoolDeployed(
-        address indexed pool,
-        address indexed owner,
-        address indexed rwa,
-        uint256 rwaId
-    );
+    
 
     constructor() {
         _disableInitializers();
@@ -64,7 +57,7 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         RWA rwa = RWA(proxy);
         rwa.initialize(address(_addressBook), msg.sender, "");
 
-        emit RWADeployed(proxy, msg.sender);
+        addressBook.eventEmitter().emitFactory_RWADeployed(proxy, msg.sender);
 
         _addressBook.addRWA(rwa);
         return proxy;
@@ -162,7 +155,7 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
             true
         );
 
-        emit PoolDeployed(proxy, msg.sender, address(rwa), rwaId);
+        addressBook.eventEmitter().emitFactory_PoolDeployed(proxy, msg.sender, address(rwa), rwaId);
 
         _addressBook.addPool(pool);
         return proxy;

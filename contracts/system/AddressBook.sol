@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import { Config } from "./Config.sol";
+import { EventEmitter } from "./EventEmitter.sol";
 import { DaoStaking } from "../dao/DaoStaking.sol";
 import { Governance } from "../dao/Governance.sol";
 import { DaoToken } from "../dao/DaoToken.sol";
@@ -28,6 +29,9 @@ contract AddressBook is UUPSUpgradeable {
 
     /// @notice The config contract address
     Config public config;
+
+    /// @notice The eventEmitter contract address
+    EventEmitter public eventEmitter;
 
     /// @notice The DAO token contract address
     DaoToken public daoToken;
@@ -80,6 +84,9 @@ contract AddressBook is UUPSUpgradeable {
     /// @notice Mapping to check if an address is a registered RWA
     mapping(address => bool) public isRWA;
 
+    /// @notice Mapping to check if an address is a registered protocol contract
+    mapping(address => bool) public isProtocolContract;
+
     /// @notice The backend EOA address
     address public backend;
 
@@ -130,7 +137,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newGovernance The address of the new governance
     function setGovernance(Governance newGovernance) external {
         requireGovernance(msg.sender);
+        if (address(governance) != address(0)) {
+            isProtocolContract[address(governance)] = false;
+        }
         governance = newGovernance;
+        isProtocolContract[address(newGovernance)] = true;
     }
 
     /// @notice Sets the config contract address
@@ -138,7 +149,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newConfig The address of the new config contract
     function setConfig(Config newConfig) external {
         requireGovernance(msg.sender);
+        if (address(config) != address(0)) {
+            isProtocolContract[address(config)] = false;
+        }
         config = newConfig;
+        isProtocolContract[address(newConfig)] = true;
     }
 
     /// @notice Sets the DAO token contract address
@@ -146,7 +161,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newDaoToken The address of the new DAO token contract
     function setDaoToken(DaoToken newDaoToken) external {
         requireGovernance(msg.sender);
+        if (address(daoToken) != address(0)) {
+            isProtocolContract[address(daoToken)] = false;
+        }
         daoToken = newDaoToken;
+        isProtocolContract[address(newDaoToken)] = true;
     }
 
     /// @notice Sets the DAO staking contract address
@@ -154,7 +173,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newDaoStaking The address of the new DAO staking contract
     function setDaoStaking(DaoStaking newDaoStaking) external {
         requireGovernance(msg.sender);
+        if (address(daoStaking) != address(0)) {
+            isProtocolContract[address(daoStaking)] = false;
+        }
         daoStaking = newDaoStaking;
+        isProtocolContract[address(newDaoStaking)] = true;
     }
 
     /// @notice Sets the timelock contract address
@@ -162,7 +185,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newTimelock The address of the new timelock contract
     function setTimelock(Timelock newTimelock) external {
         requireGovernance(msg.sender);
+        if (address(timelock) != address(0)) {
+            isProtocolContract[address(timelock)] = false;
+        }
         timelock = newTimelock;
+        isProtocolContract[address(newTimelock)] = true;
     }
 
     /// @notice Sets the treasury contract address
@@ -170,7 +197,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newTreasury The address of the new treasury contract
     function setTreasury(Treasury newTreasury) external {
         requireGovernance(msg.sender);
+        if (address(treasury) != address(0)) {
+            isProtocolContract[address(treasury)] = false;
+        }
         treasury = newTreasury;
+        isProtocolContract[address(newTreasury)] = true;
     }
 
     /// @notice Sets the airdrop contract address
@@ -178,7 +209,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newAirdrop The address of the new airdrop contract
     function setAirdrop(Airdrop newAirdrop) external {
         requireGovernance(msg.sender);
+        if (address(airdrop) != address(0)) {
+            isProtocolContract[address(airdrop)] = false;
+        }
         airdrop = newAirdrop;
+        isProtocolContract[address(newAirdrop)] = true;
     }
 
     /// @notice Sets the platform staking contract address
@@ -186,7 +221,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newPlatformStaking The address of the new platform staking contract
     function setPlatformStaking(PlatformStaking newPlatformStaking) external {
         requireGovernance(msg.sender);
+        if (address(platformStaking) != address(0)) {
+            isProtocolContract[address(platformStaking)] = false;
+        }
         platformStaking = newPlatformStaking;
+        isProtocolContract[address(newPlatformStaking)] = true;
     }
 
     /// @notice Sets the platform staking airdrop contract address
@@ -194,7 +233,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newPlatformStakingAirdrop The address of the new platform staking airdrop contract
     function setPlatformStakingAirdrop(PlatformStakingAirdrop newPlatformStakingAirdrop) external {
         requireGovernance(msg.sender);
+        if (address(platformStakingAirdrop) != address(0)) {
+            isProtocolContract[address(platformStakingAirdrop)] = false;
+        }
         platformStakingAirdrop = newPlatformStakingAirdrop;
+        isProtocolContract[address(newPlatformStakingAirdrop)] = true;
     }
 
     /// @notice Sets the platform token contract address
@@ -202,7 +245,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newPlatformToken The address of the new platform token contract
     function setPlatformToken(PlatformToken newPlatformToken) external {
         requireGovernance(msg.sender);
+        if (address(platformToken) != address(0)) {
+            isProtocolContract[address(platformToken)] = false;
+        }
         platformToken = newPlatformToken;
+        isProtocolContract[address(newPlatformToken)] = true;
     }
 
     /// @notice Sets the referral treasury contract address
@@ -210,7 +257,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newReferralTreasury The address of the new referral treasury contract
     function setReferralTreasury(ReferralTreasury newReferralTreasury) external {
         requireGovernance(msg.sender);
+        if (address(referralTreasury) != address(0)) {
+            isProtocolContract[address(referralTreasury)] = false;
+        }
         referralTreasury = newReferralTreasury;
+        isProtocolContract[address(newReferralTreasury)] = true;
     }
 
     /// @notice Sets the factory contract address
@@ -218,7 +269,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newFactory The address of the new factory contract
     function setFactory(Factory newFactory) external {
         requireGovernance(msg.sender);
+        if (address(factory) != address(0)) {
+            isProtocolContract[address(factory)] = false;
+        }
         factory = newFactory;
+        isProtocolContract[address(newFactory)] = true;
     }
 
     /// @notice Sets the router contract address
@@ -226,7 +281,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newRouter The address of the new router contract
     function setRouter(Router newRouter) external {
         requireGovernance(msg.sender);
+        if (address(router) != address(0)) {
+            isProtocolContract[address(router)] = false;
+        }
         router = newRouter;
+        isProtocolContract[address(newRouter)] = true;
     }
 
     /// @notice Sets the backend EOA address
@@ -237,12 +296,24 @@ contract AddressBook is UUPSUpgradeable {
         backend = newBackend;
     }
 
+    /// @notice Sets the event emitter contract address
+    /// @dev Can only be called by governance
+    /// @param newEventEmitter The address of the new event emitter contract
+    function setEventEmitter(EventEmitter newEventEmitter) external {
+        requireGovernance(msg.sender);
+        eventEmitter = newEventEmitter;
+    }
+
     /// @notice Sets the RWA implementation contract address
     /// @dev Can only be called by governance
     /// @param newImplementation The address of the new RWA implementation
     function setRWAImplementation(address newImplementation) external {
         requireGovernance(msg.sender);
+        if (rwaImplementation != address(0)) {
+            isProtocolContract[rwaImplementation] = false;
+        }
         rwaImplementation = newImplementation;
+        isProtocolContract[newImplementation] = true;
     }
 
     /// @notice Sets the Pool implementation contract address
@@ -250,7 +321,18 @@ contract AddressBook is UUPSUpgradeable {
     /// @param newImplementation The address of the new Pool implementation
     function setPoolImplementation(address newImplementation) external {
         requireGovernance(msg.sender);
+        if (poolImplementation != address(0)) {
+            isProtocolContract[poolImplementation] = false;
+        }
         poolImplementation = newImplementation;
+        isProtocolContract[newImplementation] = true;
+    }
+
+    /// @notice Checks if an address is a registered protocol contract
+    /// @dev Reverts if account is not a protocol contract
+    /// @param account The address to check
+    function requireProtocolContract(address account) public view {
+        require(isProtocolContract[account], "Not a protocol contract!");
     }
 
     /// @notice Adds a new pool to the system

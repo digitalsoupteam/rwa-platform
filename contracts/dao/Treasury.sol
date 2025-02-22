@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { AddressBook } from "../system/AddressBook.sol";
+import { EventEmitter } from "../system/EventEmitter.sol";
 
 /// @title DAO Treasury Contract
 /// @notice Manages DAO funds under timelock control
@@ -14,17 +15,7 @@ contract Treasury is UUPSUpgradeable {
 
     /// @notice Address book contract reference
     AddressBook public addressBook;
-
-    /// @notice Emitted when tokens are withdrawn
-    /// @param token Token address (address(0) for ETH)
-    /// @param to Recipient address
-    /// @param amount Amount withdrawn
-    event Withdrawn(address indexed token, address indexed to, uint256 amount);
-
-    /// @notice Emitted when ETH is received
-    /// @param from Sender address
-    /// @param amount Amount received
-    event ETHReceived(address indexed from, uint256 amount);
+    
 
     /// @notice Constructor that disables initializers
     constructor() {
@@ -51,7 +42,7 @@ contract Treasury is UUPSUpgradeable {
         require(to != address(0), "Zero address recipient");
         
         IERC20(token).safeTransfer(to, amount);
-        emit Withdrawn(token, to, amount);
+        addressBook.eventEmitter().emitTreasury_Withdrawn(token, to, amount);
     }
 
     /// @notice Withdraws ETH
@@ -65,7 +56,7 @@ contract Treasury is UUPSUpgradeable {
         (bool success, ) = to.call{value: amount}("");
         require(success, "ETH transfer failed");
         
-        emit Withdrawn(address(0), to, amount);
+        addressBook.eventEmitter().emitTreasury_Withdrawn(address(0), to, amount);
     }
 
     /// @notice Returns balance of specified ERC20 token
@@ -83,6 +74,6 @@ contract Treasury is UUPSUpgradeable {
 
     /// @notice Allows receiving ETH
     receive() external payable {
-        emit ETHReceived(msg.sender, msg.value);
+        addressBook.eventEmitter().emitTreasury_ETHReceived(msg.sender, msg.value);
     }
 }

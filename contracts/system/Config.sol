@@ -61,18 +61,6 @@ contract Config is UUPSUpgradeable {
     /// @notice Initial supply of RWA tokens
     uint256 public rwaInitialSupply;
 
-    // Events
-    event InvestmentDurationUpdated(uint256 minDuration, uint256 maxDuration);
-    event RealiseDurationUpdated(uint256 minDuration, uint256 maxDuration);
-    event TargetAmountUpdated(uint256 minAmount, uint256 maxAmount);
-    event VirtualMultiplierUpdated(uint256 multiplier);
-    event ProfitPercentUpdated(uint256 minPercent, uint256 maxPercent);
-    event MinPartialReturnUpdated(uint256 amount);
-    event HoldTokenUpdated(IERC20 token);
-    event CreationFeesUpdated(uint256 rwaFee, uint256 poolFee);
-    event TradingFeesUpdated(uint256 buyFee, uint256 sellFee);
-    event RWAInitialSupplyUpdated(uint256 supply);
-
     /// @notice Constructor that disables initializers
     constructor() {
         _disableInitializers();
@@ -149,7 +137,7 @@ contract Config is UUPSUpgradeable {
 
     /// @notice Authorizes an upgrade to a new implementation
     /// @param newImplementation Address of new implementation
-    function _authorizeUpgrade(address newImplementation) internal override {
+    function _authorizeUpgrade(address newImplementation) internal view override {
         addressBook.requireGovernance(msg.sender);
     }
 
@@ -164,7 +152,7 @@ contract Config is UUPSUpgradeable {
         require(newMinTargetAmount < newMaxTargetAmount, "Invalid target amount");
         minTargetAmount = newMinTargetAmount;
         maxTargetAmount = newMaxTargetAmount;
-        emit TargetAmountUpdated(newMinTargetAmount, newMaxTargetAmount);
+        addressBook.eventEmitter().emitConfig_TargetAmountUpdated(newMinTargetAmount, newMaxTargetAmount);
     }
 
     /// @notice Updates virtual multiplier
@@ -173,7 +161,7 @@ contract Config is UUPSUpgradeable {
         addressBook.requireGovernance(msg.sender);
         require(newVirtualMultiplier > 0, "Invalid multiplier");
         virtualMultiplier = newVirtualMultiplier;
-        emit VirtualMultiplierUpdated(newVirtualMultiplier);
+        addressBook.eventEmitter().emitConfig_VirtualMultiplierUpdated(newVirtualMultiplier);
     }
 
     /// @notice Updates profit percent parameters
@@ -187,7 +175,7 @@ contract Config is UUPSUpgradeable {
         require(newMinProfitPercent < newMaxProfitPercent, "Invalid profit percent");
         minProfitPercent = newMinProfitPercent;
         maxProfitPercent = newMaxProfitPercent;
-        emit ProfitPercentUpdated(newMinProfitPercent, newMaxProfitPercent);
+        addressBook.eventEmitter().emitConfig_ProfitPercentUpdated(newMinProfitPercent, newMaxProfitPercent);
     }
 
     /// @notice Updates investment duration parameters
@@ -201,7 +189,7 @@ contract Config is UUPSUpgradeable {
         require(newMinInvestmentDuration < newMaxInvestmentDuration, "Invalid duration");
         minInvestmentDuration = newMinInvestmentDuration;
         maxInvestmentDuration = newMaxInvestmentDuration;
-        emit InvestmentDurationUpdated(newMinInvestmentDuration, newMaxInvestmentDuration);
+        addressBook.eventEmitter().emitConfig_InvestmentDurationUpdated(newMinInvestmentDuration, newMaxInvestmentDuration);
     }
 
     /// @notice Updates realise duration parameters
@@ -215,7 +203,7 @@ contract Config is UUPSUpgradeable {
         require(newMinRealiseDuration < newMaxRealiseDuration, "Invalid duration");
         minRealiseDuration = newMinRealiseDuration;
         maxRealiseDuration = newMaxRealiseDuration;
-        emit RealiseDurationUpdated(newMinRealiseDuration, newMaxRealiseDuration);
+        addressBook.eventEmitter().emitConfig_RealiseDurationUpdated(newMinRealiseDuration, newMaxRealiseDuration);
     }
 
     /// @notice Updates minimum partial return
@@ -224,7 +212,7 @@ contract Config is UUPSUpgradeable {
         addressBook.requireGovernance(msg.sender);
         require(newMinPartialReturn > 0, "Invalid min partial return");
         minPartialReturn = newMinPartialReturn;
-        emit MinPartialReturnUpdated(newMinPartialReturn);
+        addressBook.eventEmitter().emitConfig_MinPartialReturnUpdated(newMinPartialReturn);
     }
 
     /// @notice Updates hold token address
@@ -233,7 +221,7 @@ contract Config is UUPSUpgradeable {
         addressBook.requireGovernance(msg.sender);
         require(address(newHoldToken) != address(0), "Invalid hold token");
         holdToken = newHoldToken;
-        emit HoldTokenUpdated(newHoldToken);
+        addressBook.eventEmitter().emitConfig_HoldTokenUpdated(newHoldToken);
     }
 
     /// @notice Updates creation fees
@@ -246,7 +234,7 @@ contract Config is UUPSUpgradeable {
         addressBook.requireGovernance(msg.sender);
         createRWAFee = newCreateRWAFee;
         createPoolFee = newCreatePoolFee;
-        emit CreationFeesUpdated(newCreateRWAFee, newCreatePoolFee);
+        addressBook.eventEmitter().emitConfig_CreationFeesUpdated(newCreateRWAFee, newCreatePoolFee);
     }
 
     /// @notice Updates trading fees
@@ -260,7 +248,7 @@ contract Config is UUPSUpgradeable {
         require(newBuyFeePercent <= 1000 && newSellFeePercent <= 1000, "Invalid fee percent");
         buyFeePercent = newBuyFeePercent;
         sellFeePercent = newSellFeePercent;
-        emit TradingFeesUpdated(newBuyFeePercent, newSellFeePercent);
+        addressBook.eventEmitter().emitConfig_TradingFeesUpdated(newBuyFeePercent, newSellFeePercent);
     }
 
     /// @notice Updates the initial RWA token supply
@@ -270,6 +258,6 @@ contract Config is UUPSUpgradeable {
         addressBook.requireGovernance(msg.sender);
         require(newInitialSupply > 0, "Initial supply must be greater than 0");
         rwaInitialSupply = newInitialSupply;
-        emit RWAInitialSupplyUpdated(newInitialSupply);
+        addressBook.eventEmitter().emitConfig_RWAInitialSupplyUpdated(newInitialSupply);
     }
 }

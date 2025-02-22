@@ -30,21 +30,6 @@ contract DaoStaking is UUPSUpgradeable {
     /// @notice Mapping from user address to their stake info
     mapping(address => StakeInfo) public stakes;
 
-    /// @notice Emitted when tokens are staked
-    /// @param user Address of staker
-    /// @param amount Amount staked
-    event Staked(address indexed user, uint256 amount);
-
-    /// @notice Emitted when tokens are unstaked
-    /// @param user Address of unstaker
-    /// @param amount Amount unstaked
-    event Unstaked(address indexed user, uint256 amount);
-
-    /// @notice Emitted when lock is extended
-    /// @param user Address of user
-    /// @param lockUntil New lock timestamp
-    event LockExtended(address indexed user, uint256 lockUntil);
-
     /// @notice Constructor that disables initializers
     constructor() {
         _disableInitializers();
@@ -59,6 +44,7 @@ contract DaoStaking is UUPSUpgradeable {
     ) external initializer {
         __UUPSUpgradeable_init();
         addressBook = AddressBook(initialAddressBook);
+        
         maxVotingPeriod = initialMaxVotingPeriod;
     }
 
@@ -78,7 +64,7 @@ contract DaoStaking is UUPSUpgradeable {
         totalStaked += amount;
 
         IERC20(addressBook.daoToken()).safeTransferFrom(msg.sender, address(this), amount);
-        emit Staked(msg.sender, amount);
+        addressBook.eventEmitter().emitDaoStaking_Staked(msg.sender, amount);
     }
 
     /// @notice Unstakes tokens after lock period
@@ -98,7 +84,7 @@ contract DaoStaking is UUPSUpgradeable {
         }
 
         IERC20(addressBook.daoToken()).safeTransfer(msg.sender, amount);
-        emit Unstaked(msg.sender, amount);
+        addressBook.eventEmitter().emitDaoStaking_Unstaked(msg.sender, amount);
     }
 
     /// @notice Extends lock period
@@ -112,7 +98,7 @@ contract DaoStaking is UUPSUpgradeable {
         require(newLockEnd > stakes[user].lockedUntil, "Lock not extended");
         
         stakes[user].lockedUntil = newLockEnd;
-        emit LockExtended(user, newLockEnd);
+        addressBook.eventEmitter().emitDaoStaking_LockExtended(user, newLockEnd);
     }
 
     /// @notice Returns user's current voting power

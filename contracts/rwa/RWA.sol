@@ -63,6 +63,11 @@ contract RWA is UUPSUpgradeable, ERC1155Upgradeable, ERC1155SupplyUpgradeable {
         uint256[] memory values
     ) internal virtual override(ERC1155Upgradeable, ERC1155SupplyUpgradeable) {
         super._update(from, to, ids, values);
+        
+        // Emit our custom event for each token transfer
+        for (uint256 i = 0; i < ids.length; i++) {
+            addressBook.eventEmitter().emitRWA_Transfer(from, to, ids[i], values[i]);
+        }
     }
 
     /// @notice Creates a new token with specified parameters

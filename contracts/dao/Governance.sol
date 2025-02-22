@@ -75,32 +75,6 @@ contract Governance is UUPSUpgradeable {
     /// @notice Counter for proposal IDs
     uint256 public proposalCount;
 
-    /// @notice Emitted when proposal created
-    event ProposalCreated(
-        uint256 indexed proposalId,
-        address indexed proposer,
-        address[] targets,
-        uint256[] values,
-        bytes[] calldatas,
-        string description,
-        uint256 startTime,
-        uint256 endTime
-    );
-
-    /// @notice Emitted when vote cast
-    event VoteCast(
-        address indexed voter,
-        uint256 indexed proposalId,
-        bool support,
-        uint256 votes
-    );
-
-    /// @notice Emitted when proposal executed
-    event ProposalExecuted(uint256 indexed proposalId);
-
-    /// @notice Emitted when proposal canceled
-    event ProposalCanceled(uint256 indexed proposalId);
-
     /// @notice Constructor that disables initializers
     constructor() {
         _disableInitializers();
@@ -154,7 +128,7 @@ contract Governance is UUPSUpgradeable {
         proposal.startTime = block.timestamp + votingDelay;
         proposal.endTime = proposal.startTime + votingPeriod;
 
-        emit ProposalCreated(
+        addressBook.eventEmitter().emitGovernance_ProposalCreated(
             proposalId,
             msg.sender,
             targets,
@@ -192,7 +166,7 @@ contract Governance is UUPSUpgradeable {
         // Extend lock period in staking contract
         staking.extendLock(msg.sender);
 
-        emit VoteCast(msg.sender, proposalId, support, votes);
+        addressBook.eventEmitter().emitGovernance_VoteCast(msg.sender, proposalId, support, votes);
     }
 
     /// @notice Executes a successful proposal
@@ -209,7 +183,7 @@ contract Governance is UUPSUpgradeable {
             require(success, "Proposal execution failed");
         }
 
-        emit ProposalExecuted(proposalId);
+        addressBook.eventEmitter().emitGovernance_ProposalExecuted(proposalId);
     }
 
     /// @notice Cancels a proposal
@@ -222,7 +196,7 @@ contract Governance is UUPSUpgradeable {
         );
 
         proposals[proposalId].canceled = true;
-        emit ProposalCanceled(proposalId);
+        addressBook.eventEmitter().emitGovernance_ProposalCanceled(proposalId);
     }
 
     /// @notice Gets current state of proposal

@@ -58,34 +58,6 @@ contract Router is ERC1155Holder, ReentrancyGuard {
     
     /// @notice Uniswap V2 Router for ERC20 swaps
     IUniswapV2Router02 public immutable uniswapRouter;
-    
-    /// @notice Emitted when tokens are swapped with exact input
-    /// @param tokenIn Address of input token (address(0) for ETH)
-    /// @param tokenOut Address of output token (address(0) for ETH)
-    /// @param amountIn Exact amount of input tokens
-    /// @param amountOut Amount of output tokens received
-    /// @param pool Address of RWA pool used
-    event SwapExactInput(
-        address indexed tokenIn,
-        address indexed tokenOut,
-        uint256 amountIn,
-        uint256 amountOut,
-        address indexed pool
-    );
-    
-    /// @notice Emitted when tokens are swapped with exact output
-    /// @param tokenIn Address of input token (address(0) for ETH)
-    /// @param tokenOut Address of output token (address(0) for ETH)
-    /// @param amountIn Amount of input tokens used
-    /// @param amountOut Exact amount of output tokens
-    /// @param pool Address of RWA pool used
-    event SwapExactOutput(
-        address indexed tokenIn,
-        address indexed tokenOut,
-        uint256 amountIn,
-        uint256 amountOut,
-        address indexed pool
-    );
     // tide add emergencyt cakll
 
     /// @notice Contract constructor
@@ -229,7 +201,7 @@ contract Router is ERC1155Holder, ReentrancyGuard {
             amountOut = amounts[amounts.length - 1];
         }
 
-        emit SwapExactInput(tokenIn, tokenOut, amountIn, amountOut, pool);
+        addressBook.eventEmitter().emitRouter_SwapExactInput(tokenIn, tokenOut, amountIn, amountOut, pool);
     }
 
     /// @notice Performs a token swap for exact output amount
@@ -358,7 +330,7 @@ contract Router is ERC1155Holder, ReentrancyGuard {
             Pool(pool).swapExactOutput(amountOut, holdRequired, false);
         }
 
-        emit SwapExactOutput(tokenIn, tokenOut, amountIn, amountOut, pool);
+        addressBook.eventEmitter().emitRouter_SwapExactOutput(tokenIn, tokenOut, amountIn, amountOut, pool);
     }
 
     /// @notice Allows contract to receive ETH

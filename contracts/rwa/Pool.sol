@@ -76,43 +76,6 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
 
     uint256 public k;
 
-    /// @notice Emitted when tokens are swapped
-    /// @param sender Address performing the swap
-    /// @param holdAmount Amount of HOLD tokens
-    /// @param rwaAmount Amount of RWA tokens
-    /// @param isRWAIn Direction of swap
-    event Swap(address indexed sender, uint256 holdAmount, uint256 rwaAmount, bool isRWAIn);
-
-    /// @notice Emitted when emergency stop is triggered
-    /// @param paused New pause state
-    event EmergencyStop(bool paused);
-
-    /// @notice Emitted when fees are collected
-    /// @param amount Amount of fees collected
-    /// @param treasury Address of treasury receiving fees
-    event FeesCollected(uint256 amount, address treasury);
-
-    /// @notice Emitted when product owner balance is updated
-    /// @param newBalance New balance available for withdrawal
-    event ProductOwnerBalanceUpdated(uint256 newBalance);
-
-    /// @notice Emitted when reserves are updated
-    /// @param realHold New real HOLD reserve
-    /// @param virtualHold New virtual HOLD reserve
-    /// @param virtualRwa New virtual RWA reserve
-    event ReservesUpdated(uint256 realHold, uint256 virtualHold, uint256 virtualRwa);
-
-    /// @notice Emitted when investment is repaid
-    /// @param amount Amount repaid
-    event InvestmentRepaid(uint256 amount);
-
-    /// @notice Emitted when profit is distributed
-    /// @param user Bonus recipient
-    /// @param amount Amount of profit distributed
-    event ProfitDistributed(address indexed user, uint256 amount);
-
-    event TargetReached(uint256 timestamp);
-
     constructor() {
         _disableInitializers();
     }
@@ -311,7 +274,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
                             "Pool: bonus transfer failed"
                         );
                         profitDistributed += bonus;
-                        emit ProfitDistributed(msg.sender, bonus);
+                        addressBook.eventEmitter().emitPool_ProfitDistributed(msg.sender, bonus);
                     }
                 }
             }
@@ -338,30 +301,31 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
                 uint256 _targetAmount = targetAmount;
                 if (_realHoldReserve >= _targetAmount) {
                     isStriked = true;
-                    emit TargetReached(block.timestamp);
+                    addressBook.eventEmitter().emitPool_TargetReached(block.timestamp);
+                    productOwnerBalance = _targetAmount;
                     productOwnerBalance = _targetAmount;
                     _virtualHoldReserve += _targetAmount;
                     _realHoldReserve -= _targetAmount;
-                    emit ProductOwnerBalanceUpdated(_targetAmount);
+                    addressBook.eventEmitter().emitPool_ProductOwnerBalanceUpdated(_targetAmount);
                 }
             }
         }
 
         address treasury = address(addressBook.treasury());
         require(_holdToken.transfer(treasury, feeAmount), "Pool: fee transfer failed");
-        emit FeesCollected(feeAmount, treasury);
+        addressBook.eventEmitter().emitPool_FeesCollected(feeAmount, treasury);
 
         realHoldReserve = _realHoldReserve;
         virtualHoldReserve = _virtualHoldReserve;
         virtualRwaReserve = _virtualRwaReserve;
 
-        emit Swap(
+        addressBook.eventEmitter().emitPool_Swap(
             msg.sender,
             isRWAIn ? amountOut : amountIn,
             isRWAIn ? amountIn : amountOut,
             isRWAIn
         );
-        emit ReservesUpdated(_realHoldReserve, _virtualHoldReserve, _virtualRwaReserve);
+        addressBook.eventEmitter().emitPool_ReservesUpdated(_realHoldReserve, _virtualHoldReserve, _virtualRwaReserve);
 
         return amountOut;
     }
@@ -424,7 +388,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
                             "Pool: bonus transfer failed"
                         );
                         profitDistributed += bonus;
-                        emit ProfitDistributed(msg.sender, bonus);
+                        addressBook.eventEmitter().emitPool_ProfitDistributed(msg.sender, bonus);
                     }
                 }
             }
@@ -455,30 +419,30 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
                 uint256 _targetAmount = targetAmount;
                 if (_realHoldReserve >= _targetAmount) {
                     isStriked = true;
-                    emit TargetReached(block.timestamp);
+                    addressBook.eventEmitter().emitPool_TargetReached(block.timestamp);
                     productOwnerBalance = _targetAmount;
                     _virtualHoldReserve += _targetAmount;
                     _realHoldReserve -= _targetAmount;
-                    emit ProductOwnerBalanceUpdated(_targetAmount);
+                    addressBook.eventEmitter().emitPool_ProductOwnerBalanceUpdated(_targetAmount);
                 }
             }
         }
 
         address treasury = address(addressBook.treasury());
         require(_holdToken.transfer(treasury, feeAmount), "Pool: fee transfer failed");
-        emit FeesCollected(feeAmount, treasury);
+        addressBook.eventEmitter().emitPool_FeesCollected(feeAmount, treasury);
 
         realHoldReserve = _realHoldReserve;
         virtualHoldReserve = _virtualHoldReserve;
         virtualRwaReserve = _virtualRwaReserve;
 
-        emit Swap(
+        addressBook.eventEmitter().emitPool_Swap(
             msg.sender,
             isRWAIn ? amountOut : amountIn,
             isRWAIn ? amountIn : amountOut,
             isRWAIn
         );
-        emit ReservesUpdated(_realHoldReserve, _virtualHoldReserve, _virtualRwaReserve);
+        addressBook.eventEmitter().emitPool_ReservesUpdated(_realHoldReserve, _virtualHoldReserve, _virtualRwaReserve);
 
         return amountIn;
     }
@@ -519,8 +483,8 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
             virtualHoldReserve -= amount;
         }
 
-        emit InvestmentRepaid(amount);
-        emit ReservesUpdated(realHoldReserve, virtualHoldReserve, virtualRwaReserve);
+        addressBook.eventEmitter().emitPool_InvestmentRepaid(amount);
+        addressBook.eventEmitter().emitPool_ReservesUpdated(realHoldReserve, virtualHoldReserve, virtualRwaReserve);
     }
 
     /// @notice Allows product owner to claim raised funds
@@ -532,7 +496,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         productOwnerBalance = 0;
         require(holdToken.transfer(msg.sender, amount), "Pool: claim transfer failed");
 
-        emit ProductOwnerBalanceUpdated(0);
+        addressBook.eventEmitter().emitPool_ProductOwnerBalanceUpdated(0);
     }
 
     /// @notice Sets emergency pause state
@@ -540,7 +504,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     function setPause(bool state) external {
         addressBook.requireGovernance(msg.sender);
         paused = state;
-        emit EmergencyStop(state);
+        addressBook.eventEmitter().emitPool_EmergencyStop(state);
     }
 
     /// @notice Authorizes contract upgrade

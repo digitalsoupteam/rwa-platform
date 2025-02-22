@@ -48,7 +48,12 @@ contract PlatformToken is UUPSUpgradeable, ERC20Upgradeable {
             require(initialHolders[i] != address(0), "Zero address recipient");
             _mint(initialHolders[i], initilaAmounts[i]);
         }
+    }
 
+    /// @notice Override transfer function to emit additional event
+    function _transfer(address from, address to, uint256 amount) internal virtual override {
+        super._transfer(from, to, amount);
+        addressBook.eventEmitter().emitPlatformToken_Transfer(from, to, amount);
     }
 
     /// @notice Authorizes upgrade

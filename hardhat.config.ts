@@ -27,12 +27,18 @@ const config: HardhatUserConfig = {
         url: 'https://rpc.ankr.com/bsc',
         blockNumber: 46685208,
       },
-      // blockGasLimit: 30000000,
+      mining: {
+        auto: true,
+        interval: 0,
+        mempool: {
+          order: "fifo"
+        }
+      },
+      allowBlocksWithSameTimestamp: true,
       accounts: {
         count: 10,
         accountsBalance: '1000000000000000000000000000',
       },
-      // loggingEnabled: false,
     },
   },
 

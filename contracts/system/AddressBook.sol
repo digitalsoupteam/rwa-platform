@@ -343,6 +343,7 @@ contract AddressBook is UUPSUpgradeable {
         require(!isPool[address(pool)], "Pool already exists");
         pools.push(pool);
         isPool[address(pool)] = true;
+        isProtocolContract[address(pool)] = true;
     }
 
     /// @notice Adds a new RWA to the system
@@ -353,6 +354,7 @@ contract AddressBook is UUPSUpgradeable {
         require(!isRWA[address(rwa)], "RWA already exists");
         rwas.push(rwa);
         isRWA[address(rwa)] = true;
+        isProtocolContract[address(rwa)] = true;
     }
 
     function rwasLength() external view returns(uint256) {

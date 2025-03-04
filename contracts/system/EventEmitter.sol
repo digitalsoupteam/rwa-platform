@@ -338,6 +338,8 @@ contract EventEmitter is UUPSUpgradeable {
         emit Config_RWAInitialSupplyUpdated(supply);
     }
 
+    uint256 public genesisBlock;
+
     constructor() {
         _disableInitializers();
     }
@@ -347,6 +349,7 @@ contract EventEmitter is UUPSUpgradeable {
 
         require(initialAddressBook != address(0), "Invalid address book");
         addressBook = AddressBook(initialAddressBook);
+        genesisBlock = block.number;
     }
 
     // Token Functions

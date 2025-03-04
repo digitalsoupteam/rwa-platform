@@ -41,8 +41,8 @@ contract DaoToken is UUPSUpgradeable, ERC20Upgradeable {
     }
 
     /// @notice Override transfer function to emit additional event
-    function _transfer(address from, address to, uint256 amount) internal virtual override {
-        super._transfer(from, to, amount);
+    function _update(address from, address to, uint256 amount) internal virtual override {
+        super._update(from, to, amount);
         addressBook.eventEmitter().emitDaoToken_Transfer(from, to, amount);
     }
 

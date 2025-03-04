@@ -7,7 +7,7 @@ import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ER
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { RWA } from "./RWA.sol";
 import { AddressBook } from "../system/AddressBook.sol";
-import "hardhat/console.sol";
+
 /// @title Pool
 /// @notice Pool for swapping between HOLD token (ERC20) and RWA token (ERC1155)
 /// @dev Implements AMM functionality with staking mechanism for RWA tokens and profit distribution
@@ -303,7 +303,6 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
                     isStriked = true;
                     addressBook.eventEmitter().emitPool_TargetReached(block.timestamp);
                     productOwnerBalance = _targetAmount;
-                    productOwnerBalance = _targetAmount;
                     _virtualHoldReserve += _targetAmount;
                     _realHoldReserve -= _targetAmount;
                     addressBook.eventEmitter().emitPool_ProductOwnerBalanceUpdated(_targetAmount);
@@ -479,9 +478,7 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         }
 
         realHoldReserve += amount;
-        if (virtualHoldReserve >= amount) {
-            virtualHoldReserve -= amount;
-        }
+        virtualHoldReserve -= amount;
 
         addressBook.eventEmitter().emitPool_InvestmentRepaid(amount);
         addressBook.eventEmitter().emitPool_ReservesUpdated(realHoldReserve, virtualHoldReserve, virtualRwaReserve);
@@ -511,5 +508,6 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     /// @param newImplementation Address of new implementation
     function _authorizeUpgrade(address newImplementation) internal override {
         addressBook.requireGovernance(msg.sender);
+        require(newImplementation.code.length > 0, "ERC1967: new implementation is not a contract");
     }
 }

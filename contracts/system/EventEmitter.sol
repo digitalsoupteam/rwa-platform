@@ -338,6 +338,14 @@ contract EventEmitter is UUPSUpgradeable {
         emit Config_RWAInitialSupplyUpdated(supply);
     }
 
+    // Payment Functions
+    event Payment_Processed(address indexed user, address indexed token, uint256 amount, bytes32 paymentId);
+
+    function emitPayment_Processed(address user, address token, uint256 amount, bytes32 paymentId) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Payment_Processed(user, token, amount, paymentId);
+    }
+
     uint256 public genesisBlock;
 
     constructor() {

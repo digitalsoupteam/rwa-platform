@@ -32,8 +32,12 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   })
 
   
-  const addressBookContract = AddressBook__factory.connect(addressBook.address)
-  await addressBookContract.connect(deployer).setFactory(deployment.address)
+  await deployments.execute(
+    'AddressBook',
+    { from: deployer.address },
+    'setFactory',
+    deployment.address
+  )
 }
 
 deploy.tags = ['Factory']

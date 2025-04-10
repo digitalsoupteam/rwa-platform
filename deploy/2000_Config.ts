@@ -31,6 +31,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const buyFeePercent = 300 // 3%
   const sellFeePercent = 300 // 3%
   const rwaInitialSupply = 21000000
+  const minSignersRequired = 3
 
   const deployment = await deploy('Config', {
     contract: 'Config',
@@ -57,17 +58,22 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             createPoolFee,
             buyFeePercent,
             sellFeePercent,
-            rwaInitialSupply
+            rwaInitialSupply,
+            minSignersRequired
           ],
         },
       },
     },
   })
 
-  const addressBookContract = AddressBook__factory.connect(addressBook.address)
-  await addressBookContract.connect(deployer).setConfig(deployment.address)
+  await deployments.execute(
+    'AddressBook',
+    { from: deployer.address },
+    'setConfig',
+    deployment.address
+  )
 }
 
 deploy.tags = ['Config']
-deploy.dependencies = ['Treasury']
+deploy.dependencies = ['Payment']
 export default deploy

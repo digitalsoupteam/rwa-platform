@@ -16,7 +16,7 @@ export default class ERC20Minter {
     }
     
     const holders: any = {
-      [USDT]: '0xF977814e90dA44bFA03b6295A0616a897441aceC',
+      [USDT]: '0x8894E0a0c962CB723c1976a4421c95949bE2D4E3',
     }
 
     const holderAddress = holders[tokenAddress]
@@ -39,6 +39,7 @@ export default class ERC20Minter {
     if (holderBalance >= amount) {
       await (await token.transfer(recipient, amount)).wait()
     } else {
+      throw 'ERC20Minter low balance'
       await (await token.transfer(recipient, holderBalance)).wait()
     }
 

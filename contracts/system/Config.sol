@@ -61,6 +61,9 @@ contract Config is UUPSUpgradeable {
     /// @notice Initial supply of RWA tokens
     uint256 public rwaInitialSupply;
 
+    /// @notice Minimum number of signers required for operations
+    uint256 public minSignersRequired;
+
     /// @notice Constructor that disables initializers
     constructor() {
         _disableInitializers();
@@ -84,6 +87,7 @@ contract Config is UUPSUpgradeable {
     /// @param intialBuyFeePercent Buy fee percentage
     /// @param intialSellFeePercent Sell fee percentage
     /// @param _rwaInitialSupply Initial RWA token supply
+    /// @param _minSignersRequired Minimum number of signers required
     function initialize(
         address initialAddressBook,
         uint256 _minTargetAmount,
@@ -101,7 +105,8 @@ contract Config is UUPSUpgradeable {
         uint256 _createPoolFee,
         uint256 intialBuyFeePercent,
         uint256 intialSellFeePercent,
-        uint256 _rwaInitialSupply
+        uint256 _rwaInitialSupply,
+        uint256 _minSignersRequired
     ) external initializer {
         __UUPSUpgradeable_init_unchained();
         
@@ -115,6 +120,7 @@ contract Config is UUPSUpgradeable {
         require(_holdToken != address(0), "Invalid hold token");
         require(intialBuyFeePercent <= 1000 && intialSellFeePercent <= 1000, "Invalid fee percent"); // <= 10%
         require(_rwaInitialSupply > 0, "Invalid initial supply");
+        require(_minSignersRequired > 0, "Invalid min signers required");
 
         addressBook = AddressBook(initialAddressBook);
         minTargetAmount = _minTargetAmount;
@@ -133,6 +139,7 @@ contract Config is UUPSUpgradeable {
         buyFeePercent = intialBuyFeePercent;
         sellFeePercent = intialSellFeePercent;
         rwaInitialSupply = _rwaInitialSupply;
+        minSignersRequired = _minSignersRequired;
     }
 
     /// @notice Authorizes an upgrade to a new implementation
@@ -259,5 +266,15 @@ contract Config is UUPSUpgradeable {
         require(newInitialSupply > 0, "Initial supply must be greater than 0");
         rwaInitialSupply = newInitialSupply;
         addressBook.eventEmitter().emitConfig_RWAInitialSupplyUpdated(newInitialSupply);
+    }
+
+    /// @notice Updates the minimum required number of signers
+    /// @param newMinSignersRequired New minimum number of signers required
+    /// @dev Can only be called by governance
+    function updateMinSignersRequired(uint256 newMinSignersRequired) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newMinSignersRequired > 0, "Min signers must be greater than 0");
+        minSignersRequired = newMinSignersRequired;
+        addressBook.eventEmitter().emitConfig_MinSignersRequiredUpdated(newMinSignersRequired);
     }
 }

@@ -10,6 +10,7 @@ import { Governance } from "../dao/Governance.sol";
 import { DaoToken } from "../dao/DaoToken.sol";
 import { Timelock } from "../dao/Timelock.sol";
 import { Treasury } from "../dao/Treasury.sol";
+import { Payment } from "../platform/Payment.sol";
 import { Airdrop } from "../platform/Airdrop.sol";
 import { PlatformStaking } from "../platform/PlatformStaking.sol";
 import { PlatformStakingAirdrop } from "../platform/PlatformStakingAirdrop.sol";
@@ -45,6 +46,9 @@ contract AddressBook is UUPSUpgradeable {
     /// @notice The treasury contract address
     Treasury public treasury;
 
+    /// @notice The payment contract address
+    Payment public payment;
+
     /// @notice The airdrop contract address
     Airdrop public airdrop;
 
@@ -73,13 +77,13 @@ contract AddressBook is UUPSUpgradeable {
     address public poolImplementation;
 
     /// @notice Array of all registered pool addresses
-    Pool[] public pools;
+    Pool[] internal pools;
 
     /// @notice Mapping to check if an address is a registered pool
     mapping(address => bool) public isPool;
 
     /// @notice Array of all registered RWA addresses
-    RWA[] public rwas;
+    RWA[] internal rwas;
 
     /// @notice Mapping to check if an address is a registered RWA
     mapping(address => bool) public isRWA;
@@ -87,8 +91,11 @@ contract AddressBook is UUPSUpgradeable {
     /// @notice Mapping to check if an address is a registered protocol contract
     mapping(address => bool) public isProtocolContract;
 
-    /// @notice The backend EOA address
-    address public backend;
+    /// @notice Mapping to track authorized signers
+    mapping(address => bool) public signers;
+
+    /// @notice Number of authorized signers
+    uint256 public signersLength;
 
     /// @notice Contract constructor
     /// @dev Disables initializers at deployment
@@ -204,6 +211,19 @@ contract AddressBook is UUPSUpgradeable {
         isProtocolContract[address(newTreasury)] = true;
     }
 
+    
+    /// @notice Sets the payment contract address
+    /// @dev Can only be called by governance
+    /// @param newPayment The address of the new payment contract
+    function setPayment(Payment newPayment) external {
+        requireGovernance(msg.sender);
+        if (address(payment) != address(0)) {
+            isProtocolContract[address(payment)] = false;
+        }
+        payment = newPayment;
+        isProtocolContract[address(newPayment)] = true;
+    }
+
     /// @notice Sets the airdrop contract address
     /// @dev Can only be called by governance
     /// @param newAirdrop The address of the new airdrop contract
@@ -288,12 +308,34 @@ contract AddressBook is UUPSUpgradeable {
         isProtocolContract[address(newRouter)] = true;
     }
 
-    /// @notice Sets the backend EOA address
+    /// @notice Adds a new signer
     /// @dev Can only be called by governance
-    /// @param newBackend The address of the new backend address
-    function setBackend(address newBackend) external {
+    /// @param newSigner The address of the new signer to add
+    function addSigner(address newSigner) external {
         requireGovernance(msg.sender);
-        backend = newBackend;
+        require(newSigner != address(0), "Invalid signer address");
+        require(!signers[newSigner], "Signer already exists");
+        
+        signers[newSigner] = true;
+        signersLength++;
+    }
+
+    /// @notice Removes an existing signer
+    /// @dev Can only be called by governance
+    /// @param signer The address of the signer to remove
+    function removeSigner(address signer) external {
+        requireGovernance(msg.sender);
+        require(signers[signer], "Signer does not exist");
+        
+        signers[signer] = false;
+        signersLength--;
+    }
+
+    /// @notice Checks if an address is an authorized signer
+    /// @dev Reverts if account is not a signer
+    /// @param account The address to check
+    function requireSigner(address account) public view {
+        require(signers[account], "Not an authorized signer!");
     }
 
     /// @notice Sets the event emitter contract address
@@ -357,11 +399,31 @@ contract AddressBook is UUPSUpgradeable {
         isProtocolContract[address(rwa)] = true;
     }
 
+    /// @notice Returns pool at specific index
+    /// @param index Index of the pool to return
+    /// @return Pool Pool at specified index
+    function getPoolByIndex(uint256 index) external view returns(Pool) {
+        require(index < pools.length, "Index out of bounds");
+        return pools[index];
+    }
+
+    /// @notice Returns RWA at specific index
+    /// @param index Index of the RWA to return
+    /// @return RWA RWA at specified index
+    function getRWAByIndex(uint256 index) external view returns(RWA) {
+        require(index < rwas.length, "Index out of bounds");
+        return rwas[index];
+    }
+
+    /// @notice Returns the number of registered RWAs
+    /// @return uint256 Number of registered RWAs
     function rwasLength() external view returns(uint256) {
         return rwas.length;
     }
 
+    /// @notice Returns the number of registered pools
+    /// @return uint256 Number of registered pools
     function poolsLength() external view returns(uint256) {
-        return rwas.length;
+        return pools.length;
     }
 }

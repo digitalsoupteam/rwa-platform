@@ -15,6 +15,8 @@ import { Config } from "../system/Config.sol";
 
 contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     AddressBook public addressBook;
+
+    mapping(bytes32 => bool) public usedSignatures;
     
 
     constructor() {
@@ -28,13 +30,17 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function deployRWA(
-        bytes calldata signature,
+        address[] calldata signers,
+        bytes[] calldata signatures,
         uint256 expired
     ) external nonReentrant returns (address) {
         require(block.timestamp <= expired, "Request has expired");
-
+        
         AddressBook _addressBook = addressBook;
         Config config = _addressBook.config();
+        
+        require(signers.length == signatures.length, "Signers and signatures length mismatch");
+        require(signers.length >= config.minSignersRequired(), "Insufficient signatures");
 
         config.holdToken().transferFrom(
             msg.sender,
@@ -48,35 +54,49 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
             )
         );
 
-        require(
-            SignatureChecker.isValidSignatureNow(_addressBook.backend(), messageHash, signature),
-            "Backend signature check failed"
-        );
+        for (uint256 i = 0; i < signers.length; i++) {
+            address signer = signers[i];
+            bytes memory signature = signatures[i];
+            bytes32 signatureHash = keccak256(signature);
+            
+            require(_addressBook.signers(signer), "Not an authorized signer");
+            require(!usedSignatures[signatureHash], "Duplicate signature");
+            require(
+                SignatureChecker.isValidSignatureNow(signer, messageHash, signature),
+                "Invalid signature"
+            );
+
+            usedSignatures[signatureHash] = true;
+        }
 
         address proxy = address(new ERC1967Proxy(_addressBook.rwaImplementation(), ""));
         RWA rwa = RWA(proxy);
         rwa.initialize(address(_addressBook), msg.sender, "");
 
-        addressBook.eventEmitter().emitFactory_RWADeployed(proxy, msg.sender);
+        _addressBook.eventEmitter().emitFactory_RWADeployed(proxy, msg.sender);
 
         _addressBook.addRWA(rwa);
         return proxy;
     }
 
     function deployPool(
-        bytes calldata signature,
+        address[] calldata signers,
+        bytes[] calldata signatures,
         RWA rwa,
         uint256 targetAmount,
         uint256 profitPercent,
         uint256 investmentDuration,
         uint256 realiseDuration,
         uint256 expired,
-        bool isStabilityPool
+        bool speculationsEnabled
     ) external nonReentrant returns (address) {
         require(block.timestamp <= expired, "Request has expired");
 
         AddressBook _addressBook = addressBook;
         Config config = _addressBook.config();
+        
+        require(signers.length == signatures.length, "Signers and signatures length mismatch");
+        require(signers.length >= config.minSignersRequired(), "Insufficient signatures");
 
         require(
             targetAmount >= config.minTargetAmount() && targetAmount <= config.maxTargetAmount(),
@@ -123,15 +143,25 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
                     investmentDuration,
                     realiseDuration,
                     expired,
-                    isStabilityPool
+                    speculationsEnabled
                 )
             )
         );
 
-        require(
-            SignatureChecker.isValidSignatureNow(_addressBook.backend(), messageHash, signature),
-            "Backend signature check failed"
-        );
+        for (uint256 i = 0; i < signers.length; i++) {
+            address signer = signers[i];
+            bytes memory signature = signatures[i];
+            bytes32 signatureHash = keccak256(signature);
+            
+            require(_addressBook.signers(signer), "Not an authorized signer");
+            require(!usedSignatures[signatureHash], "Duplicate signature");
+            require(
+                SignatureChecker.isValidSignatureNow(signer, messageHash, signature),
+                "Invalid signature"
+            );
+
+            usedSignatures[signatureHash] = true;
+        }
 
         address proxy = address(new ERC1967Proxy(_addressBook.poolImplementation(), ""));
         uint256 rwaSupply = config.rwaInitialSupply();
@@ -152,10 +182,10 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
             profitPercent,
             block.timestamp + investmentDuration,
             block.timestamp + realiseDuration,
-            true
+            speculationsEnabled
         );
 
-        addressBook.eventEmitter().emitFactory_PoolDeployed(proxy, msg.sender, address(rwa), rwaId);
+        _addressBook.eventEmitter().emitFactory_PoolDeployed(proxy, msg.sender, address(rwa), rwaId);
 
         _addressBook.addPool(pool);
         return proxy;

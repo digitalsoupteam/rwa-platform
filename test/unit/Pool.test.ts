@@ -25,7 +25,7 @@ import ERC20Minter from '../utils/ERC20Minter'
 import { USDT } from '../../constants/addresses'
 import { HardhatEthersSigner, SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 
-describe('Pool Contract Unit Tests', function () {
+describe('Pool Contract Unit Tests (Speculative Mode)', function () {
   let pool: Pool
   let rwa: RWA
   let holdToken: IERC20
@@ -34,19 +34,27 @@ describe('Pool Contract Unit Tests', function () {
   let config: Config
   let factory: Factory
   let testOwner: HardhatEthersSigner
-  let backend: HardhatEthersSigner
+  let signer1: HardhatEthersSigner
+  let signer2: HardhatEthersSigner
+  let signer3: HardhatEthersSigner
   let productOwner: HardhatEthersSigner
   let user1: HardhatEthersSigner
   let user2: HardhatEthersSigner
   let initSnapshot: string
 
-  beforeEach(async () => {
-    const signers = await ethers.getSigners()
-    testOwner = signers[0]
-    backend = signers[1]
-    productOwner = signers[7]
-    user1 = signers[8]
-    user2 = signers[9]
+  // Constants for common values
+  const TARGET_AMOUNT = ethers.parseEther('100000')
+  const PROFIT_PERCENT = 2000 // 20%
+
+  before(async () => {
+    const wallets = await ethers.getSigners()
+    testOwner = wallets[0]
+    signer1 = wallets[1]
+    signer2 = wallets[2]
+    signer3 = wallets[3]
+    productOwner = wallets[7]
+    user1 = wallets[8]
+    user2 = wallets[9]
 
     // Deploy all contracts using the deployment fixture.
     await deployments.fixture()
@@ -67,78 +75,80 @@ describe('Pool Contract Unit Tests', function () {
 
     // Deploy RWA via factory
     const network = await ethers.provider.getNetwork()
-    const rwaSign = await backend.signMessage(
-      ethers.getBytes(
-        ethers.solidityPackedKeccak256(
-          ['uint256', 'address', 'address', 'string', 'uint256'],
-          [
-            network.chainId,
-            await factory.getAddress(),
-            productOwner.address,
-            'deployRWA',
-            ethers.MaxUint256,
-          ],
-        ),
-      ),
+    const expired = (await time.latest()) + 3600
+    const rwaMessageHash = ethers.solidityPackedKeccak256(
+      ['uint256', 'address', 'address', 'string', 'uint256'],
+      [network.chainId, await factory.getAddress(), productOwner.address, 'deployRWA', expired],
     )
-    await ERC20Minter.mint(await holdToken.getAddress(), productOwner.address, 10000)
+    const rwaSignatures = [
+      await signer1.signMessage(ethers.getBytes(rwaMessageHash)),
+      await signer2.signMessage(ethers.getBytes(rwaMessageHash)),
+      await signer3.signMessage(ethers.getBytes(rwaMessageHash)),
+    ]
+    const rwaSigners = [signer1.address, signer2.address, signer3.address]
+    await ERC20Minter.mint(await holdToken.getAddress(), productOwner.address, 1000000)
     await holdToken
       .connect(productOwner)
       .approve(await factory.getAddress(), await holdToken.balanceOf(productOwner.address))
-    await factory.connect(productOwner).deployRWA(rwaSign, ethers.MaxUint256)
-    rwa = RWA__factory.connect(await addressBook.rwas(0), ethers.provider)
+    await factory.connect(productOwner).deployRWA(rwaSigners, rwaSignatures, expired)
+    rwa = RWA__factory.connect(await addressBook.getRWAByIndex(0), ethers.provider)
 
-    // Deploy Pool via factory
-    const targetAmount = ethers.parseEther('100000') // Investment target
+    // Deploy Pool via factory with speculationsEnabled = true
+    const targetAmount = ethers.parseEther('100000')
     const profitPercent = 2000 // 20%
-    const investmentExpired = await config.minInvestmentDuration()
+    const investmentDuration = await config.minInvestmentDuration()
     const realiseDuration = await config.minRealiseDuration()
-    const poolSign = await backend.signMessage(
-      ethers.getBytes(
-        ethers.solidityPackedKeccak256(
-          [
-            'uint256',
-            'address',
-            'address',
-            'string',
-            'address',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-            'bool',
-          ],
-          [
-            network.chainId,
-            await factory.getAddress(),
-            productOwner.address,
-            'deployPool',
-            await rwa.getAddress(),
-            targetAmount,
-            profitPercent,
-            investmentExpired,
-            realiseDuration,
-            ethers.MaxUint256,
-            false,
-          ],
-        ),
-      ),
-    )
-    await config.connect(testOwner).updateTradingFees(0, 0)
-    await factory
-      .connect(productOwner)
-      .deployPool(
-        poolSign,
+
+    // Generate pool deployment signatures
+    const poolMessageHash = ethers.solidityPackedKeccak256(
+      [
+        'uint256',
+        'address',
+        'address',
+        'string',
+        'address',
+        'uint256',
+        'uint256',
+        'uint256',
+        'uint256',
+        'uint256',
+        'bool',
+      ],
+      [
+        network.chainId,
+        await factory.getAddress(),
+        productOwner.address,
+        'deployPool',
         await rwa.getAddress(),
         targetAmount,
         profitPercent,
-        investmentExpired,
+        investmentDuration,
         realiseDuration,
-        ethers.MaxUint256,
-        false,
-      )
-    pool = Pool__factory.connect(await addressBook.pools(0), ethers.provider)
+        expired,
+        true, // Set speculationsEnabled to true
+      ],
+    )
+
+    const poolSignatures = [
+      await signer1.signMessage(ethers.getBytes(poolMessageHash)),
+      await signer2.signMessage(ethers.getBytes(poolMessageHash)),
+      await signer3.signMessage(ethers.getBytes(poolMessageHash)),
+    ]
+    const poolSigners = [signer1.address, signer2.address, signer3.address]
+
+    await config.connect(testOwner).updateTradingFees(0, 0)
+    await factory.connect(productOwner).deployPool(
+      poolSigners,
+      poolSignatures,
+      rwa,
+      targetAmount,
+      profitPercent,
+      investmentDuration,
+      realiseDuration,
+      expired,
+      true, // Set speculationsEnabled to true
+    )
+    pool = Pool__factory.connect(await addressBook.getPoolByIndex(0), ethers.provider)
 
     // Fund user1 with HOLD tokens and approve spending by the pool
     await ERC20Minter.mint(await holdToken.getAddress(), user1.address, 1000000)
@@ -154,14 +164,14 @@ describe('Pool Contract Unit Tests', function () {
     initSnapshot = await ethers.provider.send('evm_snapshot', [])
   })
 
-  describe('Initialization', () => {
-    it('should initialize with correct parameters', async () => {
-      // tokenId is set by factory, here we expect 1 (updated expectation)
+  describe('Pool Configuration', () => {
+    it('should initialize with correct parameters for speculative mode', async () => {
       expect(await pool.tokenId()).to.equal(1)
-      // Trading fees updated to 0
       expect(await pool.buyFeePercent()).to.equal(0)
       expect(await pool.sellFeePercent()).to.equal(0)
       expect(await pool.targetAmount()).to.equal(ethers.parseEther('100000'))
+      expect(await pool.speculationsEnabled()).to.be.true
+
       const invExp = await pool.investmentExpired()
       const reaExp = await pool.realiseExpired()
       expect(invExp).to.be.gt(0)
@@ -169,156 +179,246 @@ describe('Pool Contract Unit Tests', function () {
     })
   })
 
-  describe('View Functions', () => {
-    it('getAmountOut should revert if amountIn is 0', async () => {
-      await expect(pool.getAmountOut(0n, false)).to.be.revertedWith(
-        'Pool: insufficient input amount',
-      )
+  describe('Trading Behavior', () => {
+    describe('Investment Phase', () => {
+      it('should allow buying and selling before investment expiry', async () => {
+        // Buy RWA
+        const buyAmount = ethers.parseEther('1000')
+        await expect(pool.connect(user1).swapExactInput(buyAmount, 1n, false)).to.not.be.reverted
+
+        // Sell half of received RWA
+        const userRwaBalance = await rwa.balanceOf(user1.address, await pool.tokenId())
+        const sellAmount = userRwaBalance / 2n
+        const minAmountOut = await pool.getAmountOut(sellAmount, true)
+        await expect(pool.connect(user1).swapExactInput(sellAmount, minAmountOut, true)).to.not.be
+          .reverted
+      })
     })
 
-    it('getAmountOut returns a positive output for valid input (buying RWA)', async () => {
-      const amountIn = ethers.parseEther('10')
-      const amountOut = await pool.getAmountOut(amountIn, false)
-      expect(amountOut).to.be.gt(0n)
+    describe('Lock Period Trading (After Strike)', () => {
+      beforeEach(async () => {
+        // Reach target and trigger strike
+        await pool.connect(user1).swapExactInput(TARGET_AMOUNT, 1n, false)
+        expect(await pool.isStriked()).to.be.true
+
+        // Product owner claims and repays
+        await pool.connect(productOwner).claimProductOwnerBalance()
+
+        await holdToken.connect(productOwner).approve(await pool.getAddress(), TARGET_AMOUNT)
+        await pool.connect(productOwner).repayInvestment(TARGET_AMOUNT)
+
+        // Advance past investment period but before realise period
+        const invExp = await pool.investmentExpired()
+        await time.increaseTo(invExp + 1n)
+        await mine(1)
+      })
+
+      it('should allow buying during lock period in speculative mode', async () => {
+        const buyAmount = ethers.parseEther('1000')
+        await expect(pool.connect(user1).swapExactInput(buyAmount, 1n, false)).to.not.be.reverted
+      })
+
+      it('should allow selling during lock period with sufficient real hold', async () => {
+        const realHold = await pool.realHoldReserve()
+        const holdAmount = realHold / 2n // Sell half of available real hold
+        const rwaAmount = await pool.getAmountIn(holdAmount, true)
+
+        await expect(pool.connect(user1).swapExactInput(rwaAmount, holdAmount, true)).to.not.be
+          .reverted
+      })
+
+      it('should enforce real hold requirements for selling', async () => {
+        const realHold = await pool.realHoldReserve()
+        const sellAmount = realHold + 1n // Try to sell more than available
+
+        await expect(pool.connect(user1).swapExactInput(sellAmount, 1n, true)).to.be.revertedWith(
+          'Pool: insufficient real hold',
+        )
+      })
+
+      it('should allow multiple users to trade simultaneously', async () => {
+        // Fund user2
+        await ERC20Minter.mint(await holdToken.getAddress(), user2.address, 1000)
+        await holdToken.connect(user2).approve(pool.getAddress(), ethers.parseEther('1000'))
+
+        // Both users buy RWA
+        const buyAmount = ethers.parseEther('500')
+        await expect(pool.connect(user1).swapExactInput(buyAmount, 1n, false)).to.not.be.reverted
+        await expect(pool.connect(user2).swapExactInput(buyAmount, 1n, false)).to.not.be.reverted
+      })
+
+      it('should emit correct events for investment repayment', async () => {
+        // Product owner repays additional amount
+        const repayAmount = ethers.parseEther('10000')
+        await ERC20Minter.mint(await holdToken.getAddress(), productOwner.address, 1000000)
+        await holdToken.connect(productOwner).approve(pool.getAddress(), repayAmount)
+
+        await expect(pool.connect(productOwner).repayInvestment(repayAmount))
+          .to.emit(addressBook.eventEmitter(), 'Pool_InvestmentRepaid')
+          .withArgs(repayAmount)
+          .to.emit(addressBook.eventEmitter(), 'Pool_ReservesUpdated')
+      })
+
+      it('should emit correct events for trading operations', async () => {
+        // Buy RWA
+        const buyAmount = ethers.parseEther('1000')
+        await expect(pool.connect(user1).swapExactInput(buyAmount, 1n, false))
+          .to.emit(addressBook.eventEmitter(), 'Pool_Swap')
+          .to.emit(addressBook.eventEmitter(), 'Pool_ReservesUpdated')
+
+        // Sell RWA
+        const userRwaBalance = await rwa.balanceOf(user1.address, await pool.tokenId())
+        const sellAmount = userRwaBalance / 2n
+        const minAmountOut = await pool.getAmountOut(sellAmount, true)
+
+        await expect(pool.connect(user1).swapExactInput(sellAmount, minAmountOut, true))
+          .to.emit(addressBook.eventEmitter(), 'Pool_Swap')
+          .to.emit(addressBook.eventEmitter(), 'Pool_ReservesUpdated')
+      })
     })
 
-    it('getAmountIn should revert if amountOut is 0', async () => {
-      await expect(pool.getAmountIn(0n, true)).to.be.revertedWith(
-        'Pool: insufficient output amount',
-      )
-    })
+    describe('After Investment Expiry Without Target', () => {
+      beforeEach(async () => {
+        // Buy some RWA but not enough to reach target
+        await pool.connect(user1).swapExactInput(ethers.parseEther('50000'), 1n, false)
 
-    it('getAmountIn returns a positive input value for valid output (selling RWA)', async () => {
-      const amountOut = ethers.parseEther('10')
-      const amountIn = await pool.getAmountIn(amountOut, true)
-      expect(amountIn).to.be.gt(0n)
-    })
+        // Advance past investment period
+        const invExp = await pool.investmentExpired()
+        await time.increaseTo(invExp)
+        await mine(1)
+      })
 
-    it('getBonusAmount returns 0 before realise period', async () => {
-      const bonus = await pool.getBonusAmount(1000n)
-      expect(bonus).to.equal(0n)
+      it('should not allow buying after investment expiry without target', async () => {
+        await expect(
+          pool.connect(user1).swapExactInput(ethers.parseEther('1000'), 1n, false),
+        ).to.be.revertedWith('Pool: investment target not reached')
+      })
+
+      it('should allow selling existing RWA', async () => {
+        const userRwaBalance = await rwa.balanceOf(user1.address, await pool.tokenId())
+        const minAmountOut = await pool.getAmountOut(userRwaBalance, true)
+        await expect(pool.connect(user1).swapExactInput(userRwaBalance, minAmountOut, true)).to.not
+          .be.reverted
+      })
     })
   })
 
-  describe('swapExactInput', () => {
-    it('should allow buying RWA with HOLD (isRWAIn = false)', async () => {
-      const amountIn = ethers.parseEther('10')
-      const minAmountOut = await pool.getAmountOut(amountIn, false)
-      const userRwaBefore = await rwa.balanceOf(await user1.getAddress(), await pool.tokenId())
-      const tx = await pool.connect(user1).swapExactInput(amountIn, minAmountOut, false)
-      await tx.wait()
-      const userRwaAfter = await rwa.balanceOf(await user1.getAddress(), await pool.tokenId())
-      expect(userRwaAfter - userRwaBefore).to.equal(minAmountOut)
+  describe('Basic Pool Operations', () => {
+    describe('View Functions', () => {
+      it('should validate input/output amounts', async () => {
+        // Zero amount validation
+        await expect(pool.getAmountOut(0n, false)).to.be.revertedWith(
+          'Pool: insufficient input amount',
+        )
+        await expect(pool.getAmountIn(0n, true)).to.be.revertedWith(
+          'Pool: insufficient output amount',
+        )
+
+        // Valid amount calculations
+        const amountIn = ethers.parseEther('10')
+        const amountOut = await pool.getAmountOut(amountIn, false)
+        expect(amountOut).to.be.gt(0n)
+
+        const desiredOut = ethers.parseEther('10')
+        const requiredIn = await pool.getAmountIn(desiredOut, true)
+        expect(requiredIn).to.be.gt(0n)
+      })
+
+      it('should handle bonus calculations correctly', async () => {
+        // Before realise period
+        expect(await pool.getBonusAmount(1000n)).to.equal(0n)
+
+        // After realise period with profit
+        const reaExp = await pool.realiseExpired()
+        await time.increaseTo(reaExp + 1n)
+        await mine(1)
+
+        const totalProfitRequired = await pool.totalProfitRequired()
+        const rwaAmount = ethers.parseEther('100')
+        const expectedBonus = (rwaAmount * totalProfitRequired) / 1_000_000n
+        expect(await pool.getBonusAmount(rwaAmount)).to.equal(expectedBonus)
+      })
     })
 
-    it('should revert swapExactInput when amountIn is 0', async () => {
-      await expect(pool.connect(user1).swapExactInput(0n, 1n, false)).to.be.revertedWith(
-        'Pool: insufficient input amount',
-      )
+    describe('Swap Functions', () => {
+      beforeEach(async () => {
+        // Set fees for testing
+        await config.connect(testOwner).updateTradingFees(100, 100) // 1% fees
+      })
+
+      it('should handle exact input swaps with fees', async () => {
+        const amountIn = ethers.parseEther('1000')
+        const minAmountOut = await pool.getAmountOut(amountIn, false)
+        const treasuryBalanceBefore = await holdToken.balanceOf(treasury.getAddress())
+
+        await pool.connect(user1).swapExactInput(amountIn, minAmountOut, false)
+
+        // Verify RWA transfer
+        const userRwaBalance = await rwa.balanceOf(user1.address, await pool.tokenId())
+        expect(userRwaBalance).to.equal(minAmountOut)
+
+        // Verify fee collection
+        const treasuryBalanceAfter = await holdToken.balanceOf(treasury.getAddress())
+        const expectedFee = (amountIn * 100n) / 10000n
+        expect(treasuryBalanceAfter - treasuryBalanceBefore).to.equal(expectedFee)
+      })
+
+      it('should handle exact output swaps with fees', async () => {
+        const desiredRwaOut = ethers.parseEther('10')
+        const reqAmountIn = await pool.getAmountIn(desiredRwaOut, false)
+        await holdToken.connect(user1).approve(pool.getAddress(), reqAmountIn)
+
+        const treasuryBalanceBefore = await holdToken.balanceOf(treasury.getAddress())
+        await pool.connect(user1).swapExactOutput(desiredRwaOut, reqAmountIn, false)
+
+        // Verify RWA transfer
+        const userRwaBalance = await rwa.balanceOf(user1.address, await pool.tokenId())
+        expect(userRwaBalance).to.equal(desiredRwaOut)
+
+        // Verify fee collection
+        const treasuryBalanceAfter = await holdToken.balanceOf(treasury.getAddress())
+        const expectedFee = (reqAmountIn * 100n) / 10000n
+        expect(treasuryBalanceAfter - treasuryBalanceBefore).to.equal(expectedFee)
+      })
+
+      it('should revert swaps with zero amounts', async () => {
+        await expect(pool.connect(user1).swapExactInput(0n, 1n, false)).to.be.revertedWith(
+          'Pool: insufficient input amount',
+        )
+
+        await expect(pool.connect(user1).swapExactOutput(0n, 1n, false)).to.be.revertedWith(
+          'Pool: insufficient output amount',
+        )
+      })
     })
 
-    it('should allow selling RWA for HOLD (isRWAIn = true) after strike and after realise period', async () => {
-      // Trigger strike by performing a funding swap (buying RWA) with sufficient amount: target is 100000 HOLD
-      const fundingAmount = ethers.parseEther('100000')
-      await holdToken.connect(user1).approve(await pool.getAddress(), fundingAmount)
-      await pool.connect(user1).swapExactInput(fundingAmount, 1n, false)
+    describe('Edge Cases', () => {
+      it('should handle very small swap amounts correctly', async () => {
+        const tinyAmount = 1n // 1 wei
+        await expect(pool.connect(user1).swapExactInput(tinyAmount, 0n, false)).to.not.be.reverted
+      })
 
-      expect(await pool.isStriked()).to.be.true
+      it('should handle very large swap amounts correctly', async () => {
+        const hugeAmount = ethers.parseEther('1000000000') // 1 billion tokens
+        await ERC20Minter.mint(await holdToken.getAddress(), user1.address, 1000000000)
+        await holdToken.connect(user1).approve(pool.getAddress(), hugeAmount)
 
-      // Simulate product owner returning funds: claim balance and repay investment
-      const productOwnerBalanceBeforeClaim = await holdToken.balanceOf(
-        await productOwner.getAddress(),
-      )
-      await pool.connect(productOwner).claimProductOwnerBalance()
-      const productOwnerBalanceAfterClaim = await holdToken.balanceOf(
-        await productOwner.getAddress(),
-      )
-      expect(productOwnerBalanceAfterClaim - productOwnerBalanceBeforeClaim).to.equal(
-        ethers.parseEther('100000'),
-      )
-      await ERC20Minter.mint(await holdToken.getAddress(), productOwner.address, 500000)
-      await holdToken
-        .connect(productOwner)
-        .approve(await pool.getAddress(), ethers.parseEther('120000'))
-      await pool.connect(productOwner).repayInvestment(ethers.parseEther('120000'))
+        // Should revert due to insufficient output reserve
+        await expect(pool.connect(user1).swapExactInput(hugeAmount, 0n, false)).to.be.revertedWith(
+          'Pool: insufficient output reserve',
+        )
+      })
 
-      // Advance time beyond realiseExpired so bonus distribution becomes active
-      const reaExp = await pool.realiseExpired()
-      const curTime = BigInt((await ethers.provider.getBlock('latest'))!.timestamp)
-      const incTime = BigInt(reaExp) - curTime + 10n
-      await time.increase(Number(incTime))
-      await mine()
+      it('should handle near-empty reserve cases correctly', async () => {
+        // First deplete most of the RWA reserve
+        const virtualRwaReserve = await pool.virtualRwaReserve()
+        const largeAmount = ethers.parseEther('999999') // Leave some small amount
+        await pool.connect(user1).swapExactInput(largeAmount, 0n, false)
 
-      // Use the RWA tokens already acquired by user1 via the funding swap.
-      const rRwa = await rwa.balanceOf(await user1.getAddress(), await pool.tokenId())
-      // Ensure we sell a portion (e.g., 50 tokens) if available; otherwise, sell what is available.
-      const saleAmount = rRwa >= 50n ? 50n : rRwa
-      const minAmountOut = await pool.getAmountOut(saleAmount, true)
-      const holdBalanceBefore = await holdToken.balanceOf(await user1.getAddress())
-      const tx = await pool.connect(user1).swapExactInput(saleAmount, minAmountOut, true)
-      await tx.wait()
-      const holdBalanceAfter = await holdToken.balanceOf(await user1.getAddress())
-      expect(holdBalanceAfter - holdBalanceBefore).to.be.gte(minAmountOut)
-    })
-  })
-
-  describe('swapExactOutput', () => {
-    it('should allow buying RWA with exact output (isRWAIn = false)', async () => {
-      const desiredRwaOut = 50
-      const reqAmountIn = await pool.getAmountIn(desiredRwaOut, false)
-      await holdToken.connect(user1).approve(await pool.getAddress(), reqAmountIn)
-      const rwaBefore = await rwa.balanceOf(await user1.getAddress(), await pool.tokenId())
-      const tx = await pool.connect(user1).swapExactOutput(desiredRwaOut, reqAmountIn, false)
-      await tx.wait()
-      const rwaAfter = await rwa.balanceOf(await user1.getAddress(), await pool.tokenId())
-      expect(rwaAfter - rwaBefore).to.equal(desiredRwaOut)
-    })
-
-    it('should allow selling RWA for exact HOLD output (isRWAIn = true)', async () => {
-      // Trigger strike by performing a funding swap (buying RWA) with sufficient amount
-      const fundingAmount = ethers.parseEther('100000')
-      await holdToken.connect(user1).approve(await pool.getAddress(), fundingAmount)
-      await pool.connect(user1).swapExactInput(fundingAmount, 1n, false)
-
-      expect(await pool.isStriked()).to.be.true
-
-      // Simulate product owner returning funds: claim balance and repay investment
-      const productOwnerBalanceBeforeClaim = await holdToken.balanceOf(
-        await productOwner.getAddress(),
-      )
-      await pool.connect(productOwner).claimProductOwnerBalance()
-      const productOwnerBalanceAfterClaim = await holdToken.balanceOf(
-        await productOwner.getAddress(),
-      )
-      expect(productOwnerBalanceAfterClaim - productOwnerBalanceBeforeClaim).to.equal(
-        ethers.parseEther('100000'),
-      )
-      await ERC20Minter.mint(await holdToken.getAddress(), productOwner.address, 500000)
-      await holdToken
-        .connect(productOwner)
-        .approve(await pool.getAddress(), ethers.parseEther('120000'))
-      await pool.connect(productOwner).repayInvestment(ethers.parseEther('120000'))
-
-      // Advance time beyond realiseExpired
-      const reaExp = await pool.realiseExpired()
-      const curTime = BigInt((await ethers.provider.getBlock('latest'))!.timestamp)
-      const incTime = BigInt(reaExp) - curTime + 10n
-      await time.increase(Number(incTime))
-      await mine()
-
-      // Use the RWA tokens already owned by user1 from the funding swap.
-      const rRwa = await rwa.balanceOf(await user1.getAddress(), await pool.tokenId())
-      // We want to sell for a desired HOLD output of 5 tokens.
-      const desiredHoldOut = ethers.parseEther('5')
-      const reqAmountIn = await pool.getAmountIn(desiredHoldOut, true)
-      expect(rRwa).to.be.gte(reqAmountIn)
-
-      const holdBefore = await holdToken.balanceOf(await user1.getAddress())
-      const tx = await pool.connect(user1).swapExactOutput(desiredHoldOut, reqAmountIn, true)
-      await tx.wait()
-      const holdAfter = await holdToken.balanceOf(await user1.getAddress())
-      const bonus = await pool.getBonusAmount(reqAmountIn)
-      expect(holdAfter - holdBefore).to.equal(desiredHoldOut + bonus)
+        // Try to swap with nearly depleted reserve
+        const smallAmount = ethers.parseEther('0.0001')
+        await expect(pool.connect(user1).swapExactInput(smallAmount, 0n, false)).to.not.be.reverted
+      })
     })
   })
 
@@ -367,82 +467,6 @@ describe('Pool Contract Unit Tests', function () {
     })
   })
 
-  describe('Additional Scenarios', () => {
-    it('should allow selling RWA before strike', async () => {
-      // Purchase a small amount before strike
-      const amountIn = ethers.parseEther('10')
-      await holdToken.connect(user1).approve(await pool.getAddress(), amountIn)
-      await pool.connect(user1).swapExactInput(amountIn, 1n, false)
-      // Sell RWA before strike
-      const saleAmount = 1n
-      const minAmountOut = await pool.getAmountOut(saleAmount, true)
-      const holdBalanceBefore = await holdToken.balanceOf(await user1.getAddress())
-      const tx = await pool.connect(user1).swapExactInput(saleAmount, minAmountOut, true)
-      await tx.wait()
-      const holdBalanceAfter = await holdToken.balanceOf(await user1.getAddress())
-      expect(holdBalanceAfter - holdBalanceBefore).to.equal(minAmountOut)
-    })
-
-    it('should revert selling RWA if no real hold available after strike', async () => {
-      // Trigger strike by performing a funding swap that reaches the investment target
-      const fundingAmount = ethers.parseEther('100000')
-      await holdToken.connect(user1).approve(await pool.getAddress(), fundingAmount)
-      await pool.connect(user1).swapExactInput(fundingAmount, 1n, false)
-      expect(await pool.isStriked()).to.be.true
-      // Without product owner claiming and repaying, attempt sale – revert expected due to missing real hold
-      await expect(pool.connect(user1).swapExactInput(1n, 1n, true)).to.be.revertedWith(
-        'Pool: insufficient real hold',
-      )
-    })
-
-    it('should allow partial sale after strike when sufficient real hold is available and revert on excessive sale', async () => {
-      // Trigger strike via funding swap
-      const fundingAmount = ethers.parseEther('100000')
-      await holdToken.connect(user1).approve(await pool.getAddress(), fundingAmount)
-      await pool.connect(user1).swapExactInput(fundingAmount, 1n, false)
-      expect(await pool.isStriked()).to.be.true
-
-      // Product owner claims balance and repays part of the investment (e.g., 60000 HOLD) to provide some real hold liquidity
-      const productOwnerBalanceBeforeClaim = await holdToken.balanceOf(
-        await productOwner.getAddress(),
-      )
-      await pool.connect(productOwner).claimProductOwnerBalance()
-      const productOwnerBalanceAfterClaim = await holdToken.balanceOf(
-        await productOwner.getAddress(),
-      )
-      expect(productOwnerBalanceAfterClaim - productOwnerBalanceBeforeClaim).to.equal(
-        ethers.parseEther('100000'),
-      )
-
-      await ERC20Minter.mint(await holdToken.getAddress(), productOwner.address, 500000)
-      await holdToken
-        .connect(productOwner)
-        .approve(await pool.getAddress(), ethers.parseEther('60000'))
-      await pool.connect(productOwner).repayInvestment(ethers.parseEther('60000'))
-
-      // Fast forward past the realise period so that bonus distribution becomes active
-      const reaExp = await pool.realiseExpired()
-      const curTime = BigInt((await ethers.provider.getBlock('latest'))!.timestamp)
-      const incTime = BigInt(reaExp) - curTime + 10n
-      await time.increase(Number(incTime))
-      await mine()
-
-      // Attempt a partial sale: sell half of the user's RWA tokens acquired during the funding swap
-      const userRwaBalance = await rwa.balanceOf(await user1.getAddress(), await pool.tokenId())
-      const partialSale = userRwaBalance / 2n
-      const minOutPartial = await pool.getAmountOut(partialSale, true)
-      const holdBalanceBeforePartial = await holdToken.balanceOf(await user1.getAddress())
-      await pool.connect(user1).swapExactInput(partialSale, minOutPartial, true)
-      const holdBalanceAfterPartial = await holdToken.balanceOf(await user1.getAddress())
-      expect(holdBalanceAfterPartial - holdBalanceBeforePartial).to.be.gte(minOutPartial)
-
-      // Attempt an excessive sale that exceeds the available real hold liquidity – expect revert
-      await expect(pool.connect(user1).swapExactInput(userRwaBalance, 1n, true)).to.be.revertedWith(
-        'Pool: insufficient real hold',
-      )
-    })
-  })
-
   describe('Pause Functionality', () => {
     it('should allow governance to pause and unpause the pool', async () => {
       // Governance (testOwner) calls setPause successfully
@@ -458,6 +482,78 @@ describe('Pool Contract Unit Tests', function () {
 
     it('should revert setPause if called by non-governance address', async () => {
       await expect(pool.connect(user1).setPause(true)).to.be.reverted
+    })
+  })
+
+  describe('Realise Period and Profit Distribution', () => {
+    beforeEach(async () => {
+      // Setup: Complete investment with target amount
+      await pool.connect(user1).swapExactInput(TARGET_AMOUNT, 1n, false)
+      expect(await pool.isStriked()).to.be.true
+
+      // Product owner claims and repays with profit
+      await pool.connect(productOwner).claimProductOwnerBalance()
+      const totalProfitRequired = await pool.totalProfitRequired()
+      await holdToken
+        .connect(productOwner)
+        .approve(pool.getAddress(), TARGET_AMOUNT + totalProfitRequired)
+      await pool.connect(productOwner).repayInvestment(TARGET_AMOUNT + totalProfitRequired)
+    })
+
+    it('should allow trading before realise period expiry', async () => {
+      // Buy RWA
+      const buyAmount = ethers.parseEther('1000')
+      await expect(pool.connect(user1).swapExactInput(buyAmount, 1n, false)).to.not.be.reverted
+
+      // Sell RWA
+      const userRwaBalance = await rwa.balanceOf(user1.address, await pool.tokenId())
+      const sellAmount = userRwaBalance / 2n
+      const minAmountOut = await pool.getAmountOut(sellAmount, true)
+      await expect(pool.connect(user1).swapExactInput(sellAmount, minAmountOut, true)).to.not.be
+        .reverted
+    })
+
+    it('should distribute profit correctly after realise period', async () => {
+      // Advance to after realise period
+      const reaExp = await pool.realiseExpired()
+      await time.increaseTo(reaExp + 1n)
+      await mine(1)
+
+      // Calculate expected bonus
+      const sellAmount = ethers.parseEther('100')
+      const totalProfitRequired = await pool.totalProfitRequired()
+      const expectedBonus = (sellAmount * totalProfitRequired) / 1_000_000n
+
+      // Verify bonus calculation
+      expect(await pool.getBonusAmount(sellAmount)).to.equal(expectedBonus)
+
+      // Sell RWA and verify profit distribution
+      const holdBalanceBefore = await holdToken.balanceOf(user1.address)
+      const expectedAmount = await pool.getAmountOut(sellAmount, true)
+      await pool.connect(user1).swapExactInput(sellAmount, expectedAmount, true)
+      const holdBalanceAfter = await holdToken.balanceOf(user1.address)
+
+      expect(holdBalanceAfter - holdBalanceBefore).to.equal(expectedAmount + expectedBonus)
+    })
+
+    it('should not allow buying but allow selling after realise period', async () => {
+      // Advance to after realise period
+      const reaExp = await pool.realiseExpired()
+      await time.increaseTo(reaExp + 1n)
+      await mine(1)
+
+      // Attempt to buy - should fail
+      const buyAmount = ethers.parseEther('1000')
+      await expect(pool.connect(user1).swapExactInput(buyAmount, 1n, false)).to.be.revertedWith(
+        'Pool: realise period expired',
+      )
+
+      // Attempt to sell - should succeed
+      const userRwaBalance = await rwa.balanceOf(user1.address, await pool.tokenId())
+      const sellAmount = userRwaBalance / 2n
+      const minAmountOut = await pool.getAmountOut(sellAmount, true)
+      await expect(pool.connect(user1).swapExactInput(sellAmount, minAmountOut, true)).to.not.be
+        .reverted
     })
   })
 

@@ -29,9 +29,14 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     },
   })
 
-  const addressBookContract = AddressBook__factory.connect(addressBook.address)
-  await addressBookContract.connect(deployer).setEventEmitter(deployment.address)
+  await deployments.execute(
+    'AddressBook',
+    { from: deployer.address },
+    'setEventEmitter',
+    deployment.address
+  )
 }
 
 deploy.tags = ['EventEmitter']
+deploy.dependencies = ['AddressBook']
 export default deploy

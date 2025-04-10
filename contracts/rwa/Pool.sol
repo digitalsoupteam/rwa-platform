@@ -7,7 +7,7 @@ import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ER
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { RWA } from "./RWA.sol";
 import { AddressBook } from "../system/AddressBook.sol";
-
+import "hardhat/console.sol";
 /// @title Pool
 /// @notice Pool for swapping between HOLD token (ERC20) and RWA token (ERC1155)
 /// @dev Implements AMM functionality with staking mechanism for RWA tokens and profit distribution
@@ -144,6 +144,11 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
             require(block.timestamp <= realiseExpired, "Pool: realise period expired");
         }
 
+        console.log("isRWAIn", isRWAIn);
+        console.log("block.timestamp", block.timestamp);
+        console.log("investmentExpired", investmentExpired);
+        console.log("isStriked", isStriked);
+
         if (!isRWAIn && block.timestamp > investmentExpired) {
             require(isStriked, "Pool: investment target not reached");
         }
@@ -189,7 +194,11 @@ contract Pool is UUPSUpgradeable, ReentrancyGuardUpgradeable {
 
         uint256 inputReserve = isRWAIn ? virtualRwaReserve : virtualHoldReserve + realHoldReserve;
         uint256 outputReserve = isRWAIn ? virtualHoldReserve + realHoldReserve : virtualRwaReserve;
-
+console.log("inputReserve",inputReserve);
+console.log("outputReserve",outputReserve);
+console.log("virtualRwaReserve",virtualRwaReserve);
+console.log("amountOut",amountOut);
+console.log("outputReserve",outputReserve);
         require(inputReserve > 0 && outputReserve > 0, "Pool: insufficient liquidity");
         require(amountOut < outputReserve, "Pool: insufficient output reserve");
 

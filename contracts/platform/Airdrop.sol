@@ -40,40 +40,40 @@ contract Airdrop is UUPSUpgradeable {
     /// @param amount Amount of tokens to claim
     /// @param deadline Timestamp until which signature is valid
     /// @param signature Signature from backend
-    function claim(
-        address token,
-        uint256 amount,
-        uint256 deadline,
-        bytes calldata signature
-    ) external {
-        require(block.timestamp <= deadline, "Signature expired");
+    // function claim(
+    //     address token,
+    //     uint256 amount,
+    //     uint256 deadline,
+    //     bytes calldata signature
+    // ) external {
+    //     require(block.timestamp <= deadline, "Signature expired");
 
-        bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(
-            keccak256(
-                abi.encodePacked(
-                    block.chainid,
-                    address(this),
-                    msg.sender,
-                    "claim",
-                    token,
-                    amount,
-                    deadline
-                )
-            )
-        );
+    //     bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(
+    //         keccak256(
+    //             abi.encodePacked(
+    //                 block.chainid,
+    //                 address(this),
+    //                 msg.sender,
+    //                 "claim",
+    //                 token,
+    //                 amount,
+    //                 deadline
+    //             )
+    //         )
+    //     );
 
-        require(!usedSignatures[messageHash], "Signature already used");
-        require(
-            SignatureChecker.isValidSignatureNow(addressBook.backend(), messageHash, signature),
-            "Backend signature check failed"
-        );
+    //     require(!usedSignatures[messageHash], "Signature already used");
+    //     require(
+    //         SignatureChecker.isValidSignatureNow(addressBook.backend(), messageHash, signature),
+    //         "Backend signature check failed"
+    //     );
 
-        usedSignatures[messageHash] = true;
+    //     usedSignatures[messageHash] = true;
         
-        require(IERC20(token).transfer(msg.sender, amount), "Transfer failed");
+    //     require(IERC20(token).transfer(msg.sender, amount), "Transfer failed");
         
-        emit Claimed(msg.sender, token, amount);
-    }
+    //     emit Claimed(msg.sender, token, amount);
+    // }
 
     /// @notice Authorizes upgrade
     /// @param newImplementation Address of new implementation

@@ -38,45 +38,45 @@ contract ReferralTreasury is UUPSUpgradeable {
         addressBook = AddressBook(initialAddressBook);
     }
 
-    /// @notice Withdraws tokens with backend signature verification
-    /// @param token Token address to withdraw
-    /// @param amount Amount to withdraw
-    /// @param deadline Timestamp until which signature is valid
-    /// @param signature Backend signature
-    function withdraw(
-        address token,
-        uint256 amount,
-        uint256 deadline,
-        bytes calldata signature
-    ) external {
-        require(block.timestamp <= deadline, "Signature expired");
+    // /// @notice Withdraws tokens with backend signature verification
+    // /// @param token Token address to withdraw
+    // /// @param amount Amount to withdraw
+    // /// @param deadline Timestamp until which signature is valid
+    // /// @param signature Backend signature
+    // function withdraw(
+    //     address token,
+    //     uint256 amount,
+    //     uint256 deadline,
+    //     bytes calldata signature
+    // ) external {
+    //     require(block.timestamp <= deadline, "Signature expired");
 
-        bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(
-            keccak256(
-                abi.encodePacked(
-                    block.chainid,
-                    address(this),
-                    msg.sender,
-                    "withdraw",
-                    token,
-                    amount,
-                    deadline
-                )
-            )
-        );
+    //     bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(
+    //         keccak256(
+    //             abi.encodePacked(
+    //                 block.chainid,
+    //                 address(this),
+    //                 msg.sender,
+    //                 "withdraw",
+    //                 token,
+    //                 amount,
+    //                 deadline
+    //             )
+    //         )
+    //     );
 
-        require(!usedSignatures[messageHash], "Signature already used");
-        require(
-            SignatureChecker.isValidSignatureNow(addressBook.backend(), messageHash, signature),
-            "Backend signature check failed"
-        );
+    //     require(!usedSignatures[messageHash], "Signature already used");
+    //     require(
+    //         SignatureChecker.isValidSignatureNow(addressBook.backend(), messageHash, signature),
+    //         "Backend signature check failed"
+    //     );
 
-        usedSignatures[messageHash] = true;
+    //     usedSignatures[messageHash] = true;
 
-        IERC20(token).safeTransfer(msg.sender, amount);
+    //     IERC20(token).safeTransfer(msg.sender, amount);
         
-        emit Withdrawn(msg.sender, token, amount);
-    }
+    //     emit Withdrawn(msg.sender, token, amount);
+    // }
 
     /// @notice Emergency withdrawal of stuck tokens by governance
     /// @param token Token address to withdraw

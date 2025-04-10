@@ -19,8 +19,12 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     from: deployer.address,
   })
   
-    const addressBookContract = AddressBook__factory.connect(addressBook.address)
-    await addressBookContract.connect(deployer).setRWAImplementation(deployment.address)
+  await deployments.execute(
+    'AddressBook',
+    { from: deployer.address },
+    'setRWAImplementation',
+    deployment.address
+  )
 }
 
 deploy.tags = ['RWAImplementation']

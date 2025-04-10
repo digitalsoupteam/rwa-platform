@@ -6,7 +6,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { ethers, deployments } = hre
   const { deploy, get, getOrNull } = deployments
 
-  const alreadyDeployed = (await getOrNull('Treasury')) != null
+  const alreadyDeployed = (await getOrNull('Payment')) != null
   if (alreadyDeployed) return
 
   const signers = await ethers.getSigners()
@@ -15,8 +15,8 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   const addressBook = await get('AddressBook')
 
-  const deployment = await deploy('Treasury', {
-    contract: 'Treasury',
+  const deployment = await deploy('Payment', {
+    contract: 'Payment',
     from: deployer.address,
     proxy: {
       proxyContract: 'UUPS',
@@ -32,11 +32,11 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   await deployments.execute(
     'AddressBook',
     { from: deployer.address },
-    'setTreasury',
+    'setPayment',
     deployment.address
   )
 }
 
-deploy.tags = ['Treasury']
-deploy.dependencies = ['EventEmitter']
+deploy.tags = ['Payment']
+deploy.dependencies = ['Treasury']
 export default deploy

@@ -5,6 +5,9 @@ import '@nomicfoundation/hardhat-chai-matchers'
 import '@openzeppelin/hardhat-upgrades'
 import '@typechain/hardhat'
 import 'hardhat-deploy'
+import * as dotenv from 'dotenv'
+
+dotenv.config()
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -24,20 +27,36 @@ const config: HardhatUserConfig = {
     hardhat: {
       chainId: 1337,
       forking: {
-        url: 'https://rpc.ankr.com/bsc',
-        blockNumber: 46685208,
+        url: 'https://rpc.ankr.com/bsc_testnet_chapel/46ed43307df1caf3e5552edd36e32161b6173775e5c6d08575ad9831af6ecbe8',
+        blockNumber: 48831291,
       },
-      mining: {
-        auto: true,
-        interval: 0,
-        mempool: {
-          order: "fifo"
-        }
-      },
+      // mining: {
+      //   auto: true,
+      //   interval: 0,
+      //   mempool: {
+      //     order: "fifo"
+      //   }
+      // },
       allowBlocksWithSameTimestamp: true,
       accounts: {
         count: 10,
         accountsBalance: '1000000000000000000000000000',
+      },
+    },
+    bscTestnet: {
+      url: 'https://rpc.ankr.com/bsc_testnet_chapel/46ed43307df1caf3e5552edd36e32161b6173775e5c6d08575ad9831af6ecbe8',
+      chainId: 97,
+      accounts: [
+        process.env.DEPLOYER!,
+        process.env.SIGNER_1!,
+        process.env.SIGNER_2!,
+        process.env.SIGNER_3!,
+      ],
+      gasPrice: 1000000000,
+      verify: {
+        etherscan: {
+          apiUrl: 'https://api-testnet.bscscan.com',
+        },
       },
     },
   },

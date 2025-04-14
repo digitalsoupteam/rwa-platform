@@ -128,17 +128,6 @@ contract Governance is UUPSUpgradeable {
         proposal.startTime = block.timestamp + votingDelay;
         proposal.endTime = proposal.startTime + votingPeriod;
 
-        addressBook.eventEmitter().emitGovernance_ProposalCreated(
-            proposalId,
-            msg.sender,
-            targets,
-            values,
-            calldatas,
-            description,
-            proposal.startTime,
-            proposal.endTime
-        );
-
         return proposalId;
     }
 
@@ -166,7 +155,6 @@ contract Governance is UUPSUpgradeable {
         // Extend lock period in staking contract
         staking.extendLock(msg.sender);
 
-        addressBook.eventEmitter().emitGovernance_VoteCast(msg.sender, proposalId, support, votes);
     }
 
     /// @notice Executes a successful proposal
@@ -183,7 +171,6 @@ contract Governance is UUPSUpgradeable {
             require(success, "Proposal execution failed");
         }
 
-        addressBook.eventEmitter().emitGovernance_ProposalExecuted(proposalId);
     }
 
     /// @notice Cancels a proposal
@@ -196,7 +183,6 @@ contract Governance is UUPSUpgradeable {
         );
 
         proposals[proposalId].canceled = true;
-        addressBook.eventEmitter().emitGovernance_ProposalCanceled(proposalId);
     }
 
     /// @notice Gets current state of proposal

@@ -53,7 +53,6 @@ contract PlatformToken is UUPSUpgradeable, ERC20Upgradeable {
     /// @notice Override transfer function to emit additional event
     function _update(address from, address to, uint256 amount) internal virtual override {
         super._update(from, to, amount);
-        addressBook.eventEmitter().emitPlatformToken_Transfer(from, to, amount);
     }
 
     /// @notice Authorizes upgrade

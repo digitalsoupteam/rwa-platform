@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-// TODO упростить, исключаем virtual balance
 
 
 
@@ -30,12 +29,7 @@ contract Payment is UUPSUpgradeable, ReentrancyGuardUpgradeable {
 
         token.transferFrom(msg.sender, treasuryAddress, amount);
 
-        addressBook.eventEmitter().emitPayment_Processed(
-            msg.sender,
-            address(token),
-            amount,
-            userId
-        );
+
     }
 
     // Authorizes upgrades by requiring governance.

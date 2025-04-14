@@ -68,7 +68,6 @@ contract Timelock is UUPSUpgradeable {
             timestamp: timestamp
         });
 
-        addressBook.eventEmitter().emitTimelock_OperationScheduled(operationId, target, value, data, timestamp);
     }
 
     /// @notice Executes a scheduled operation
@@ -95,7 +94,6 @@ contract Timelock is UUPSUpgradeable {
         (bool success, ) = target.call{value: value}(data);
         require(success, "Operation execution failed");
 
-        addressBook.eventEmitter().emitTimelock_OperationExecuted(operationId);
     }
 
     /// @notice Cancels a scheduled operation
@@ -119,7 +117,6 @@ contract Timelock is UUPSUpgradeable {
         require(!op.canceled, "Operation already canceled");
 
         op.canceled = true;
-        addressBook.eventEmitter().emitTimelock_OperationCanceled(operationId);
     }
 
     /// @notice Updates minimum delay

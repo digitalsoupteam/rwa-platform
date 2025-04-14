@@ -42,7 +42,6 @@ contract Treasury is UUPSUpgradeable {
         require(to != address(0), "Zero address recipient");
         
         IERC20(token).safeTransfer(to, amount);
-        addressBook.eventEmitter().emitTreasury_Withdrawn(token, to, amount);
     }
 
     /// @notice Withdraws ETH
@@ -56,7 +55,6 @@ contract Treasury is UUPSUpgradeable {
         (bool success, ) = to.call{value: amount}("");
         require(success, "ETH transfer failed");
         
-        addressBook.eventEmitter().emitTreasury_Withdrawn(address(0), to, amount);
     }
 
     /// @notice Returns balance of specified ERC20 token
@@ -74,6 +72,5 @@ contract Treasury is UUPSUpgradeable {
 
     /// @notice Allows receiving ETH
     receive() external payable {
-        addressBook.eventEmitter().emitTreasury_ETHReceived(msg.sender, msg.value);
     }
 }

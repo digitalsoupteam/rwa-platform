@@ -7,7 +7,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { ethers, deployments } = hre
   const { deploy, get, getOrNull } = deployments
 
-  const alreadyDeployed = (await getOrNull('Factory')) != null
+  const alreadyDeployed = (await getOrNull('PoolSpeculationImplementation')) != null
   if (alreadyDeployed) return
 
   const signers = await ethers.getSigners()
@@ -15,31 +15,19 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   const addressBook = await get('AddressBook')
 
-  const deployment = await deploy('Factory', {
-    contract: 'Factory',
+  const deployment = await deploy('PoolSpeculationImplementation', {
+    contract: 'SpeculationPool',
     from: deployer.address,
-    proxy: {
-      proxyContract: 'UUPS',
-      execute: {
-        init: {
-          methodName: 'initialize',
-          args: [
-            addressBook.address
-          ],
-        },
-      },
-    },
   })
-
   
   await deployments.execute(
     'AddressBook',
     { from: deployer.address },
-    'setFactory',
+    'setPoolSpeculationImplementation',
     deployment.address
   )
 }
 
-deploy.tags = ['Factory']
+deploy.tags = ['PoolSpeculationImplementation']
 deploy.dependencies = ['RWAImplementation']
 export default deploy

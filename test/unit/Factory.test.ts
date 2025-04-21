@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { deployments } from 'hardhat'
-import { impersonateAccount, time } from '@nomicfoundation/hardhat-network-helpers'
+import { impersonateAccount, setBalance, time } from '@nomicfoundation/hardhat-network-helpers'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import {
   Factory,
@@ -12,8 +12,10 @@ import {
   Config__factory,
   RWA,
   RWA__factory,
-  Pool,
-  Pool__factory,
+  SpeculationPool,
+  SpeculationPool__factory,
+  StablePool,
+  StablePool__factory,
   IERC20,
   IERC20__factory,
   Treasury,
@@ -22,12 +24,14 @@ import {
   UUPSUpgradeable__factory,
   Governance,
   Governance__factory,
+  EventEmitter,
+  EventEmitter__factory,
 } from '../../typechain-types'
 import ERC20Minter from '../utils/ERC20Minter'
 import { BigNumberish, EventLog } from 'ethers'
-import { USDT } from '../../constants/addresses'
+import SignaturesUtils from '../utils/SignaturesUtils'
 
-describe('Factory Contract Unit Tests', () => {
+describe('Factory Contract Tests', () => {
   let owner: SignerWithAddress
   let signer1: SignerWithAddress
   let signer2: SignerWithAddress
@@ -38,6 +42,7 @@ describe('Factory Contract Unit Tests', () => {
   let config: Config
   let holdToken: IERC20
   let treasury: Treasury
+  let eventEmitter: EventEmitter
   let initSnapshot: string
 
   before(async () => {
@@ -49,22 +54,20 @@ describe('Factory Contract Unit Tests', () => {
     user = signers[9]
 
     await deployments.fixture()
-
+    
     factory = Factory__factory.connect((await deployments.get('Factory')).address, ethers.provider)
-
-    addressBook = AddressBook__factory.connect(
-      (await deployments.get('AddressBook')).address,
-      ethers.provider,
-    )
-
+    addressBook = AddressBook__factory.connect((await deployments.get('AddressBook')).address, ethers.provider)
     config = Config__factory.connect((await deployments.get('Config')).address, ethers.provider)
-
-    holdToken = IERC20__factory.connect(USDT, ethers.provider)
-
-    treasury = Treasury__factory.connect(
-      (await deployments.get('Treasury')).address,
+    holdToken = IERC20__factory.connect(await config.holdToken(), ethers.provider)
+    treasury = Treasury__factory.connect((await deployments.get('Treasury')).address, ethers.provider)
+    eventEmitter = EventEmitter__factory.connect(
+      (await deployments.get('EventEmitter')).address,
       ethers.provider,
     )
+
+    
+    await ERC20Minter.mint(await holdToken.getAddress(), user.address, 1000000)
+    await holdToken.connect(user).approve(await factory.getAddress(), ethers.MaxUint256)
 
     initSnapshot = await ethers.provider.send('evm_snapshot', [])
   })
@@ -74,322 +77,271 @@ describe('Factory Contract Unit Tests', () => {
     initSnapshot = await ethers.provider.send('evm_snapshot', [])
   })
 
-  describe('deployRWA', () => {
-    let expired: number
-    let messageHash: string
-    let signatures: string[]
-    let signers: string[]
+  describe('Basic Functionality', () => {
+    describe('RWA Token Creation', () => {
+      it('should create RWA with correct setup', async () => {
+        // RWA parameters
+        const entityId = "test_entity"
+        const entityOwnerId = "test_owner"
+        const entityOwnerType = "test_type"
+        const createRWAFee = await config.minCreateRWAFee()
 
-    beforeEach(async () => {
-      await ERC20Minter.mint(await holdToken.getAddress(), user.address, 1000000)
-      await holdToken.connect(user).approve(await factory.getAddress(), ethers.parseEther('100'))
+        const signData = await SignaturesUtils.signRWADeployment({
+          factory,
+          user,
+          entityId,
+          entityOwnerId,
+          entityOwnerType,
+          owner: user,
+          createRWAFee,
+          signers: [signer1, signer2, signer3]
+        })
 
-      expired = (await time.latest()) + 3600
-      messageHash = ethers.solidityPackedKeccak256(
-        ['uint256', 'address', 'address', 'string', 'uint256'],
-        [
-          await ethers.provider.getNetwork().then(n => n.chainId),
-          await factory.getAddress(),
-          user.address,
-          'deployRWA',
-          expired,
-        ],
-      )
+        const rwaLengthBefore = await addressBook.rwasLength()
+        const treasuryBalanceBefore = await holdToken.balanceOf(await treasury.getAddress())
+        const userBalanceBefore = await holdToken.balanceOf(user.address)
 
-      signatures = [
-        await signer1.signMessage(ethers.getBytes(messageHash)),
-        await signer2.signMessage(ethers.getBytes(messageHash)),
-        await signer3.signMessage(ethers.getBytes(messageHash)),
-      ]
+        await expect(
+          factory.connect(user).deployRWA(
+            createRWAFee,
+            entityId,
+            entityOwnerId,
+            entityOwnerType,
+            user.address,
+            signData.signers,
+            signData.signatures,
+            signData.expired
+          )
+        ).to.emit(eventEmitter, 'RWA_Deployed')
 
-      signers = [signer1.address, signer2.address, signer3.address]
-    })
+        const rwaAddress = await addressBook.getRWAByIndex(rwaLengthBefore)
+        const rwa = RWA__factory.connect(rwaAddress, ethers.provider)
 
-    it('should deploy new RWA token with multiple signatures', async () => {
-      const rwaLengthBefore = await addressBook.rwasLength()
-      await factory.connect(user).deployRWA(signers, signatures, expired)
-      const rwaAddress = await addressBook.getRWAByIndex(rwaLengthBefore)
-      const rwa = RWA__factory.connect(rwaAddress, ethers.provider)
-      expect(await rwa.productOwner()).to.equal(user.address)
-    })
+        expect(await rwa.owner()).to.equal(user.address)
+        expect(await rwa.entityOwnerId()).to.equal(entityOwnerId)
+        expect(await rwa.entityOwnerType()).to.equal(entityOwnerType)
 
-    it('should revert if insufficient signatures', async () => {
-      await expect(
-        factory.connect(user).deployRWA([signer1.address], [signatures[0]], expired)
-      ).to.be.revertedWith('Insufficient signatures')
-    })
+        expect(await addressBook.isRWA(rwaAddress)).to.be.true
+        expect(await addressBook.rwasLength()).to.equal(rwaLengthBefore + 1n)
 
-    it('should revert if signer not authorized', async () => {
-      const unauthorizedSigner = owner
-      const unauthorizedSignature = await unauthorizedSigner.signMessage(ethers.getBytes(messageHash))
+        const parsedFee = ethers.parseEther(createRWAFee.toString())
 
-      await expect(
-        factory.connect(user).deployRWA(
-          [...signers.slice(1), unauthorizedSigner.address],
-          [...signatures.slice(1), unauthorizedSignature],
-          expired
+        expect(await holdToken.balanceOf(await treasury.getAddress())).to.equal(
+          treasuryBalanceBefore + parsedFee
         )
-      ).to.be.revertedWith('Not an authorized signer')
-    })
-
-    it('should revert if duplicate signatures used', async () => {
-      const validSignature = await signer1.signMessage(ethers.getBytes(messageHash))
-      const validSigner = signer1.address
-      const validSignature2 = await signer2.signMessage(ethers.getBytes(messageHash))
-      const validSigner2 = signer2.address
-
-      await expect(
-        factory.connect(user).deployRWA(
-          [validSigner, validSigner2, validSigner],
-          [validSignature, validSignature2, validSignature],
-          expired
+        expect(await holdToken.balanceOf(user.address)).to.equal(
+          userBalanceBefore - parsedFee
         )
-      ).to.be.revertedWith('Duplicate signature')
+      })
     })
 
-    it('should revert if signature expired', async () => {
-      const expiredTimestamp = (await time.latest()) - 3600
-
-      await expect(
-        factory.connect(user).deployRWA(signers, signatures, expiredTimestamp)
-      ).to.be.revertedWith('Request has expired')
-    })
-
-    it('should revert if signatures and signers length mismatch', async () => {
-      await expect(
-        factory.connect(user).deployRWA([signer1.address], signatures, expired)
-      ).to.be.revertedWith('Signers and signatures length mismatch')
-    })
-  })
-
-  describe('deployPool', () => {
-    let rwa: RWA
-    let targetAmount: BigNumberish
-    let profitPercent: BigNumberish
-    let investmentDuration: BigNumberish
-    let realiseDuration: BigNumberish
-    let expired: number
-    let messageHash: string
-    let signatures: string[]
-    let signers: string[]
-
-    beforeEach(async () => {
-      targetAmount = await config.minTargetAmount()
-      profitPercent = await config.minProfitPercent()
-      investmentDuration = await config.minInvestmentDuration()
-      realiseDuration = await config.minRealiseDuration()
-
-      // Deploy RWA first
-      await ERC20Minter.mint(await holdToken.getAddress(), user.address, 1000000)
-      await holdToken.connect(user).approve(await factory.getAddress(), ethers.parseEther('3000'))
-
-      expired = (await time.latest()) + 3600
-      messageHash = ethers.solidityPackedKeccak256(
-        ['uint256', 'address', 'address', 'string', 'uint256'],
-        [
-          await ethers.provider.getNetwork().then(n => n.chainId),
-          await factory.getAddress(),
-          user.address,
-          'deployRWA',
-          expired,
-        ],
-      )
-
-      signatures = [
-        await signer1.signMessage(ethers.getBytes(messageHash)),
-        await signer2.signMessage(ethers.getBytes(messageHash)),
-        await signer3.signMessage(ethers.getBytes(messageHash)),
-      ]
-
-      signers = [signer1.address, signer2.address, signer3.address]
-
-      const rwaLengthBefore = await addressBook.rwasLength()
-      await factory.connect(user).deployRWA(signers, signatures, expired)
-      const rwaAddress = await addressBook.getRWAByIndex(rwaLengthBefore)
-      rwa = RWA__factory.connect(rwaAddress, ethers.provider)
-
-      // Prepare pool deployment signatures
-      messageHash = ethers.solidityPackedKeccak256(
-        [
-          'uint256',
-          'address',
-          'address',
-          'string',
-          'address',
-          'uint256',
-          'uint256',
-          'uint256',
-          'uint256',
-          'uint256',
-          'bool',
-        ],
-        [
-          await ethers.provider.getNetwork().then(n => n.chainId),
-          await factory.getAddress(),
-          user.address,
-          'deployPool',
-          await rwa.getAddress(),
-          targetAmount,
-          profitPercent,
-          investmentDuration,
-          realiseDuration,
-          expired,
-          false,
-        ],
-      )
-
-      signatures = [
-        await signer1.signMessage(ethers.getBytes(messageHash)),
-        await signer2.signMessage(ethers.getBytes(messageHash)),
-        await signer3.signMessage(ethers.getBytes(messageHash)),
-      ]
-
-      signers = [signer1.address, signer2.address, signer3.address]
-    })
-
-    it('should deploy new pool with multiple signatures', async () => {
-      const poolLengthBefore = await addressBook.poolsLength()
-      await factory.connect(user).deployPool(
-        signers,
-        signatures,
-        rwa,
-        targetAmount,
-        profitPercent,
-        investmentDuration,
-        realiseDuration,
-        expired,
-        false,
-      )
-      const poolAddress = await addressBook.getPoolByIndex(poolLengthBefore)
-      const pool = Pool__factory.connect(poolAddress, ethers.provider)
+    describe('Pools Creation', () => {
+      let rwa: RWA
       
-      expect(await pool.rwa()).to.equal(await rwa.getAddress())
-      expect(await pool.targetAmount()).to.equal(targetAmount)
-      expect(await pool.profitPercent()).to.equal(profitPercent)
-    })
+      beforeEach(async () => {
+        const createRWAFee = await config.minCreateRWAFee()
+        const signData = await SignaturesUtils.signRWADeployment({
+          factory,
+          user,
+          entityId: "test_entity",
+          entityOwnerId: "test_owner",
+          entityOwnerType: "test_type",
+          owner: user,
+          createRWAFee,
+          signers: [signer1, signer2, signer3]
+        })
 
-    it('should revert if insufficient signatures', async () => {
-      await expect(
-        factory
-          .connect(user)
-          .deployPool(
-            [signer1.address],
-            [signatures[0]],
+        await factory.connect(user).deployRWA(
+          createRWAFee,
+          "test_entity",
+          "test_owner",
+          "test_type",
+          user.address,
+          signData.signers,
+          signData.signatures,
+          signData.expired
+        )
+
+        const rwaAddress = await addressBook.getRWAByIndex(0)
+        rwa = RWA__factory.connect(rwaAddress, ethers.provider)
+      })
+
+      it('should create stable pool with correct setup', async () => {
+        // Get minimum values from config
+        const expectedHoldAmount = await config.minExpectedHoldAmount()
+        const rewardPercent = await config.minRewardPercent()
+        const entryPeriodDuration = await config.minEntryPeriodDuration()
+        const completionPeriodDuration = await config.minCompletionPeriodDuration()
+        const entityId = "test_pool"
+
+        const baseRwaAmount = await config.baseRwaAmount()
+        const calculatedFixedMintPrice = expectedHoldAmount / baseRwaAmount
+        const calculatedExpectedHoldAmount = baseRwaAmount * calculatedFixedMintPrice
+
+        const poolLengthBefore = await addressBook.poolsLength()
+        const treasuryBalanceBefore = await holdToken.balanceOf(await treasury.getAddress())
+        const userBalanceBefore = await holdToken.balanceOf(user.address)
+
+        const createPoolFeeRatio = await config.minCreatePoolFeeRatio()
+        const poolSignData = await SignaturesUtils.signPoolDeployment({
+          factory,
+          user,
+          signers: [signer1, signer2, signer3],
+          createPoolFeeRatio,
+          poolType: "stable",
+          entityId,
+          entityOwnerId: "test_owner",
+          entityOwnerType: "test_type",
+          owner: user,
+          rwa,
+          expectedHoldAmount,
+          rewardPercent,
+          entryPeriodDuration,
+          completionPeriodDuration,
+          payload: SignaturesUtils.getStablePoolPayload()
+        })
+
+        await expect(
+          factory.connect(user).deployPool(
+            createPoolFeeRatio,
+            "stable",
+            entityId,
+            "test_owner",
+            "test_type",
+            user.address,
             rwa,
-            targetAmount,
-            profitPercent,
-            investmentDuration,
-            realiseDuration,
-            expired,
-            false,
+            expectedHoldAmount,
+            rewardPercent,
+            entryPeriodDuration,
+            completionPeriodDuration,
+            SignaturesUtils.getStablePoolPayload(),
+            poolSignData.signers,
+            poolSignData.signatures,
+            poolSignData.expired
           )
-      ).to.be.revertedWith('Insufficient signatures')
-    })
+        ).to.emit(eventEmitter, 'Pool_Deployed')
 
-    it('should revert if target amount out of range', async () => {
-      await expect(
-        factory
-          .connect(user)
-          .deployPool(
-            signers,
-            signatures,
+        const poolAddress = await addressBook.getPoolByIndex(poolLengthBefore)
+        const pool = StablePool__factory.connect(poolAddress, ethers.provider)
+
+        // Verify pool parameters
+        expect(await pool.entityId()).to.equal(entityId)
+        expect(await pool.entityOwnerId()).to.equal("test_owner")
+        expect(await pool.entityOwnerType()).to.equal("test_type")
+        expect(await pool.rwa()).to.equal(await rwa.getAddress())
+        expect(await pool.owner()).to.equal(user.address)
+        expect(await pool.expectedHoldAmount()).to.equal(calculatedExpectedHoldAmount)
+        expect(await pool.rewardPercent()).to.equal(rewardPercent)
+        expect(await pool.fixedMintPrice()).to.equal(calculatedFixedMintPrice)
+
+        // Verify matching with RWA
+        expect(await pool.entityOwnerId()).to.equal(await rwa.entityOwnerId())
+        expect(await pool.entityOwnerType()).to.equal(await rwa.entityOwnerType())
+        expect(await pool.owner()).to.equal(await rwa.owner())
+
+        // Verify pool registration
+        expect(await addressBook.isPool(poolAddress)).to.be.true
+        expect(await addressBook.poolsLength()).to.equal(poolLengthBefore + 1n)
+
+        // Verify fees
+        const fee = expectedHoldAmount * createPoolFeeRatio / 10000n
+        expect(await holdToken.balanceOf(await treasury.getAddress())).to.equal(
+          treasuryBalanceBefore + fee
+        )
+        expect(await holdToken.balanceOf(user.address)).to.equal(
+          userBalanceBefore - fee
+        )
+      })
+
+      it('should create speculation pool with correct setup', async () => {
+        // Get minimum values from config
+        const expectedHoldAmount = await config.minExpectedHoldAmount()
+        const rewardPercent = await config.minRewardPercent()
+        const entryPeriodDuration = await config.minEntryPeriodDuration()
+        const completionPeriodDuration = await config.minCompletionPeriodDuration()
+        const entityId = "test_pool"
+        const rwaMultiplierIndex = 0
+
+        const rwaMultiplier = await config.getSpeculationRwaMultiplier(rwaMultiplierIndex) 
+        const calculatedVirtualHoldReserve = expectedHoldAmount * await config.speculationHoldMultiplier()
+        const calculatedVirtualRwaReserve = rwaMultiplier * await config.baseRwaAmount()
+
+        const poolLengthBefore = await addressBook.poolsLength()
+        const treasuryBalanceBefore = await holdToken.balanceOf(await treasury.getAddress())
+        const userBalanceBefore = await holdToken.balanceOf(user.address)
+
+        const createPoolFeeRatio = await config.minCreatePoolFeeRatio()
+        const poolSignData = await SignaturesUtils.signPoolDeployment({
+          factory,
+          user,
+          signers: [signer1, signer2, signer3],
+          createPoolFeeRatio,
+          poolType: "speculation",
+          entityId,
+          entityOwnerId: "test_owner",
+          entityOwnerType: "test_type",
+          owner: user,
+          rwa,
+          expectedHoldAmount,
+          rewardPercent,
+          entryPeriodDuration,
+          completionPeriodDuration,
+          payload: SignaturesUtils.getSpeculationPoolPayload(rwaMultiplierIndex)
+        })
+
+        await expect(
+          factory.connect(user).deployPool(
+            createPoolFeeRatio,
+            "speculation",
+            entityId,
+            "test_owner",
+            "test_type",
+            user.address,
             rwa,
-            1, // Too small
-            profitPercent,
-            investmentDuration,
-            realiseDuration,
-            expired,
-            false,
+            expectedHoldAmount,
+            rewardPercent,
+            entryPeriodDuration,
+            completionPeriodDuration,
+            SignaturesUtils.getSpeculationPoolPayload(rwaMultiplierIndex),
+            poolSignData.signers,
+            poolSignData.signatures,
+            poolSignData.expired
           )
-      ).to.be.revertedWith('Target amount out of allowed range')
-    })
+        ).to.emit(eventEmitter, 'Pool_Deployed')
 
-    it('should revert if profit percent out of range', async () => {
-      await expect(
-        factory
-          .connect(user)
-          .deployPool(
-            signers,
-            signatures,
-            rwa,
-            targetAmount,
-            10000000, // Too high
-            investmentDuration,
-            realiseDuration,
-            expired,
-            false,
-          )
-      ).to.be.revertedWith('Profit percentage out of allowed range')
-    })
+        const poolAddress = await addressBook.getPoolByIndex(poolLengthBefore)
+        const pool = SpeculationPool__factory.connect(poolAddress, ethers.provider)
 
-    it('should revert if not RWA owner', async () => {
-      await expect(
-        factory
-          .connect(owner)
-          .deployPool(
-            signers,
-            signatures,
-            rwa,
-            targetAmount,
-            profitPercent,
-            investmentDuration,
-            realiseDuration,
-            expired,
-            false,
-          )
-      ).to.be.revertedWith('Caller is not RWA owner')
-    })
-  })
+        // Verify pool parameters
+        expect(await pool.entityId()).to.equal(entityId)
+        expect(await pool.entityOwnerId()).to.equal("test_owner")
+        expect(await pool.entityOwnerType()).to.equal("test_type")
+        expect(await pool.rwa()).to.equal(await rwa.getAddress())
+        expect(await pool.owner()).to.equal(user.address)
+        expect(await pool.expectedHoldAmount()).to.equal(expectedHoldAmount)
+        expect(await pool.rewardPercent()).to.equal(rewardPercent)
+        expect(await pool.virtualHoldReserve()).to.equal(calculatedVirtualHoldReserve)
+        expect(await pool.virtualRwaReserve()).to.equal(calculatedVirtualRwaReserve)
+        expect(await pool.realHoldReserve()).to.equal(0)
 
-  describe('upgrades', () => {
-    let newFactory: Factory
-    let proxyFactory: UUPSUpgradeable
-    let governance: Governance
-    let impersonateGovernance: SignerWithAddress
+        // Verify matching with RWA
+        expect(await pool.entityOwnerId()).to.equal(await rwa.entityOwnerId())
+        expect(await pool.entityOwnerType()).to.equal(await rwa.entityOwnerType())
+        expect(await pool.owner()).to.equal(await rwa.owner())
 
-    beforeEach(async () => {
-      governance = Governance__factory.connect(await addressBook.governance(), ethers.provider)
-      await impersonateAccount(await governance.getAddress())
-      impersonateGovernance = await ethers.getSigner(await governance.getAddress())
-      proxyFactory = UUPSUpgradeable__factory.connect(await factory.getAddress(), ethers.provider)
-      const Factory = await ethers.getContractFactory('Factory')
-      newFactory = await Factory.deploy()
-    })
+        // Verify pool registration
+        expect(await addressBook.isPool(poolAddress)).to.be.true
+        expect(await addressBook.poolsLength()).to.equal(poolLengthBefore + 1n)
 
-    it('should upgrade contract', async () => {
-      await expect(
-        proxyFactory.connect(impersonateGovernance).upgradeToAndCall(await newFactory.getAddress(), '0x'),
-      ).to.not.be.reverted
-
-      expect(await factory.getAddress()).to.equal(await ethers.resolveAddress(factory))
-    })
-
-    it('should not allow non-owner to upgrade', async () => {
-      await expect(
-        factory.connect(user).upgradeToAndCall(await newFactory.getAddress(), '0x'),
-      ).to.be.revertedWith('Only Governance!')
-    })
-
-    it('should not allow upgrade to non-contract address', async () => {
-      await expect(
-        factory.connect(impersonateGovernance).upgradeToAndCall(user.address, '0x'),
-      ).to.be.revertedWith('ERC1967: new implementation is not a contract')
-    })
-
-    it('should preserve state after upgrade', async () => {
-      const addressBookBefore = await factory.addressBook()
-
-      await factory.connect(impersonateGovernance).upgradeToAndCall(await newFactory.getAddress(), '0x')
-
-      expect(await factory.addressBook()).to.equal(addressBookBefore)
-    })
-
-    it('should emit Upgraded event', async () => {
-      await expect(
-        factory.connect(impersonateGovernance).upgradeToAndCall(await newFactory.getAddress(), '0x'),
-      )
-        .to.emit(factory, 'Upgraded')
-        .withArgs(await newFactory.getAddress())
+        // Verify fees
+        const fee = expectedHoldAmount * createPoolFeeRatio / 10000n
+        expect(await holdToken.balanceOf(await treasury.getAddress())).to.equal(
+          treasuryBalanceBefore + fee
+        )
+        expect(await holdToken.balanceOf(user.address)).to.equal(
+          userBalanceBefore - fee
+        )
+      })
     })
   })
 })

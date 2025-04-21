@@ -7,17 +7,19 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { SignatureChecker } from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 import { AddressBook } from "../system/AddressBook.sol";
 import { RWA } from "./RWA.sol";
-import { Pool } from "./Pool.sol";
+import { BasePool } from "./pools/BasePool.sol";
 import { Config } from "../system/Config.sol";
 
 contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     AddressBook public addressBook;
 
     mapping(bytes32 => bool) public usedSignatures;
-    
+    mapping(string => bool) public deployedEntities;
 
     constructor() {
         _disableInitializers();
@@ -30,165 +32,226 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function deployRWA(
+        uint256 createRWAFee,
+        string calldata entityId,
+        string calldata entityOwnerId,
+        string calldata entityOwnerType,
+        address owner,
         address[] calldata signers,
         bytes[] calldata signatures,
         uint256 expired
     ) external nonReentrant returns (address) {
         require(block.timestamp <= expired, "Request has expired");
-        
-        AddressBook _addressBook = addressBook;
-        Config config = _addressBook.config();
-        
-        require(signers.length == signatures.length, "Signers and signatures length mismatch");
-        require(signers.length >= config.minSignersRequired(), "Insufficient signatures");
-
-        config.holdToken().transferFrom(
-            msg.sender,
-            address(_addressBook.treasury()),
-            config.createRWAFee()
-        );
-
-        bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(
-            keccak256(
-                abi.encodePacked(block.chainid, address(this), msg.sender, "deployRWA", expired)
-            )
-        );
-
-        for (uint256 i = 0; i < signers.length; i++) {
-            address signer = signers[i];
-            bytes memory signature = signatures[i];
-            bytes32 signatureHash = keccak256(signature);
-            
-            require(_addressBook.signers(signer), "Not an authorized signer");
-            require(!usedSignatures[signatureHash], "Duplicate signature");
-            require(
-                SignatureChecker.isValidSignatureNow(signer, messageHash, signature),
-                "Invalid signature"
-            );
-
-            usedSignatures[signatureHash] = true;
-        }
-
-        address proxy = address(new ERC1967Proxy(_addressBook.rwaImplementation(), ""));
-        RWA rwa = RWA(proxy);
-        rwa.initialize(address(_addressBook), msg.sender, "");
-
-        _addressBook.eventEmitter().emitFactory_RWADeployed(proxy, msg.sender);
-
-        _addressBook.addRWA(rwa);
-        return proxy;
-    }
-
-    function deployPool(
-        address[] calldata signers,
-        bytes[] calldata signatures,
-        RWA rwa,
-        uint256 targetAmount,
-        uint256 profitPercent,
-        uint256 investmentDuration,
-        uint256 realiseDuration,
-        uint256 expired,
-        bool speculationsEnabled
-    ) external nonReentrant returns (address) {
-        require(block.timestamp <= expired, "Request has expired");
+        require(!deployedEntities[entityId], "Entity already deployed");
 
         AddressBook _addressBook = addressBook;
         Config config = _addressBook.config();
-        
+
         require(signers.length == signatures.length, "Signers and signatures length mismatch");
         require(signers.length >= config.minSignersRequired(), "Insufficient signatures");
 
         require(
-            targetAmount >= config.minTargetAmount() && targetAmount <= config.maxTargetAmount(),
-            "Target amount out of allowed range"
+            createRWAFee >= config.minCreateRWAFee() && createRWAFee <= config.maxCreateRWAFee(),
+            "RWA fee out of allowed range"
         );
-
-        require(
-            profitPercent >= config.minProfitPercent() &&
-                profitPercent <= config.maxProfitPercent(),
-            "Profit percentage out of allowed range"
-        );
-
-        require(
-            investmentDuration >= config.minInvestmentDuration() &&
-                investmentDuration <= config.maxInvestmentDuration(),
-            "Investment duration out of allowed range"
-        );
-
-        require(
-            realiseDuration >= config.minRealiseDuration() &&
-                realiseDuration <= config.maxRealiseDuration(),
-            "Realise duration out of allowed range"
-        );
-
-        require(_addressBook.isRWA(address(rwa)), "RWA not registered in system");
-        require(rwa.productOwner() == msg.sender, "Caller is not RWA owner");
 
         config.holdToken().transferFrom(
             msg.sender,
             address(_addressBook.treasury()),
-            config.createPoolFee()
+            createRWAFee * 10 ** IERC20Metadata(address(config.holdToken())).decimals()
         );
 
         bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(
             keccak256(
                 abi.encodePacked(
-                    block.chainid,
-                    address(this),
-                    msg.sender,
-                    "deployPool",
-                    address(rwa),
-                    targetAmount,
-                    profitPercent,
-                    investmentDuration,
-                    realiseDuration,
-                    expired,
-                    speculationsEnabled
+                    keccak256(
+                        abi.encodePacked(
+                            block.chainid,
+                            address(this),
+                            msg.sender,
+                            "deployRWA",
+                            createRWAFee,
+                            entityId,
+                            entityOwnerId,
+                            entityOwnerType,
+                            owner
+                        )
+                    ),
+                    expired
                 )
             )
         );
 
-        for (uint256 i = 0; i < signers.length; i++) {
-            address signer = signers[i];
-            bytes memory signature = signatures[i];
-            bytes32 signatureHash = keccak256(signature);
-            
-            require(_addressBook.signers(signer), "Not an authorized signer");
-            require(!usedSignatures[signatureHash], "Duplicate signature");
-            require(
-                SignatureChecker.isValidSignatureNow(signer, messageHash, signature),
-                "Invalid signature"
-            );
+        _validateSignatures(signers, signatures, messageHash);
 
-            usedSignatures[signatureHash] = true;
-        }
+        address proxy = address(new ERC1967Proxy(_addressBook.rwaImplementation(), ""));
+        RWA rwa = RWA(proxy);
+        _addressBook.addRWA(rwa);
+        rwa.initialize(address(_addressBook), owner, entityId, entityOwnerId, entityOwnerType);
 
-        address proxy = address(new ERC1967Proxy(_addressBook.poolImplementation(), ""));
-        uint256 rwaSupply = config.rwaInitialSupply();
-        uint256 rwaId = rwa.createToken(proxy, rwaSupply);
+        return proxy;
+    }
 
-        Pool pool = Pool(proxy);
+    function deployPool(
+        uint256 createPoolFeeRatio,
+        string calldata poolType,
+        string calldata entityId,
+        string calldata entityOwnerId,
+        string calldata entityOwnerType,
+        address owner,
+        RWA rwa,
+        uint256 expectedHoldAmount,
+        uint256 rewardPercent,
+        uint256 entryPeriodDuration,
+        uint256 completionPeriodDuration,
+        bytes calldata payload,
+        address[] calldata signers,
+        bytes[] calldata signatures,
+        uint256 expired
+    ) external nonReentrant returns (address) {
+        require(block.timestamp <= expired, "Request has expired");
+        require(!deployedEntities[entityId], "Entity already deployed");
 
-        pool.initialize(
-            address(addressBook),
-            address(config.holdToken()),
-            address(rwa),
-            rwaId,
-            config.buyFeePercent(),
-            config.sellFeePercent(),
-            targetAmount * config.virtualMultiplier(),
-            rwaSupply,
-            targetAmount,
-            profitPercent,
-            block.timestamp + investmentDuration,
-            block.timestamp + realiseDuration,
-            speculationsEnabled
+        AddressBook _addressBook = addressBook;
+        Config config = _addressBook.config();
+
+        require(signers.length == signatures.length, "Signers and signatures length mismatch");
+        require(signers.length >= config.minSignersRequired(), "Insufficient signatures");
+
+        require(
+            expectedHoldAmount >= config.minExpectedHoldAmount() &&
+                expectedHoldAmount <= config.maxExpectedHoldAmount(),
+            "Expected HOLD amount out of allowed range"
         );
 
-        _addressBook.eventEmitter().emitFactory_PoolDeployed(proxy, msg.sender, address(rwa), rwaId);
+        require(
+            rewardPercent >= config.minRewardPercent() &&
+                rewardPercent <= config.maxRewardPercent(),
+            "Reward percentage out of allowed range"
+        );
 
-        _addressBook.addPool(pool);
+        require(
+            entryPeriodDuration >= config.minEntryPeriodDuration() &&
+                entryPeriodDuration <= config.maxEntryPeriodDuration(),
+            "Entry period duration out of allowed range"
+        );
+
+        require(
+            completionPeriodDuration >= config.minCompletionPeriodDuration() &&
+                completionPeriodDuration <= config.maxCompletionPeriodDuration(),
+            "Completion period duration out of allowed range"
+        );
+
+        require(_addressBook.isRWA(address(rwa)), "RWA not registered in system");
+        require(rwa.owner() == owner, "Caller is not RWA owner");
+        require(
+            keccak256(bytes(rwa.entityOwnerId())) == keccak256(bytes(entityOwnerId)) &&
+            keccak256(bytes(rwa.entityOwnerType())) == keccak256(bytes(entityOwnerType)),
+            "Entity owner details mismatch with RWA"
+        );
+
+        require(
+            createPoolFeeRatio >= config.minCreatePoolFeeRatio() &&
+                createPoolFeeRatio <= config.maxCreatePoolFeeRatio(),
+            "Pool fee ratio out of allowed range"
+        );
+
+        IERC20 holdToken = config.holdToken();
+        holdToken.transferFrom(
+            msg.sender,
+            address(_addressBook.treasury()),
+            (expectedHoldAmount * createPoolFeeRatio) / 10000
+        );
+
+        bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(
+            keccak256(
+                abi.encodePacked(
+                    keccak256(
+                        abi.encodePacked(
+                            block.chainid,
+                            address(this),
+                            msg.sender,
+                            "deployPool",
+                            createPoolFeeRatio,
+                            poolType,
+                            entityId,
+                            entityOwnerId,
+                            entityOwnerType,
+                            owner,
+                            address(rwa),
+                            expectedHoldAmount,
+                            rewardPercent,
+                            entryPeriodDuration,
+                            completionPeriodDuration,
+                            payload
+                        )
+                    ),
+                    expired
+                )
+            )
+        );
+
+        _validateSignatures(signers, signatures, messageHash);
+
+        uint256 expectedRwaAmount = config.baseRwaAmount();
+
+        address implementation;
+        if (keccak256(bytes(poolType)) == keccak256(bytes("stable"))) {
+            implementation = _addressBook.poolStableImplementation();
+        } else if (keccak256(bytes(poolType)) == keccak256(bytes("speculation"))) {
+            implementation = _addressBook.poolSpeculationImplementation();
+        } else {
+            revert("Invalid pool type");
+        }
+
+        address proxy = address(new ERC1967Proxy(implementation, ""));
+        uint256 rwaId = rwa.createToken(proxy);
+
+        uint256 entryPeriodExpired = block.timestamp + entryPeriodDuration;
+        uint256 completionPeriodExpired = block.timestamp + completionPeriodDuration;
+
+        uint256 entryFeePercent = config.entryFeePercent();
+        uint256 exitFeePercent = config.exitFeePercent();
+
+        _addressBook.addPool(BasePool(proxy));
+
+        BasePool(proxy).initialize(
+            address(addressBook),
+            address(config.holdToken()),
+            entityId,
+            entityOwnerId,
+            entityOwnerType,
+            address(rwa),
+            rwaId,
+            entryFeePercent,
+            exitFeePercent,
+            expectedHoldAmount,
+            expectedRwaAmount,
+            rewardPercent,
+            entryPeriodExpired,
+            completionPeriodExpired,
+            owner,
+            payload
+        );
+
         return proxy;
+    }
+
+    function _validateSignatures(
+        address[] calldata signers,
+        bytes[] calldata signatures,
+        bytes32 messageHash
+    ) internal {
+        for (uint256 i = 0; i < signers.length; i++) {
+            bytes32 signatureHash = keccak256(signatures[i]);
+            require(!usedSignatures[signatureHash], "Duplicate signature");
+            require(addressBook.signers(signers[i]), "Not an authorized signer");
+            require(
+                SignatureChecker.isValidSignatureNow(signers[i], messageHash, signatures[i]),
+                "Invalid signature"
+            );
+            usedSignatures[signatureHash] = true;
+        }
     }
 
     function _authorizeUpgrade(address newImplementation) internal override {

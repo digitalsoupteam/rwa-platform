@@ -3,8 +3,8 @@ pragma solidity 0.8.28;
 
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-
 import { ERC1155SupplyUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { AddressBook } from "../system/AddressBook.sol";
 
 /// @title RWA Token Contract
@@ -14,14 +14,15 @@ contract RWA is UUPSUpgradeable, ERC1155Upgradeable, ERC1155SupplyUpgradeable {
     /// @notice Address book contract reference
     AddressBook public addressBook;
 
-    /// @notice Product owner address
-    address public productOwner;
+    /// @notice Owner address
+    address public owner;
+
+    string public entityId;
+    string public entityOwnerId;
+    string public entityOwnerType;
 
     /// @notice Mapping of token ID to pool address
     mapping(uint256 => address) public pools;
-
-    /// @notice Mapping of token ID to maximum supply
-    mapping(uint256 => uint256) public supplies;
 
     /// @notice Unique token ID amount
     uint256 public tokensLength;
@@ -36,16 +37,26 @@ contract RWA is UUPSUpgradeable, ERC1155Upgradeable, ERC1155SupplyUpgradeable {
     /// @param initialAddressBook Address of the AddressBook contract
     function initialize(
         address initialAddressBook,
-        address initialProductOwner,
-        string memory initialUri
+        address initialOwner,
+        string memory initialEntityId,
+        string memory initialEntityOwnerId,
+        string memory initialEntityOwnerType
     ) external initializer {
-        require(initialProductOwner != address(0), "Invalid product owner");
+        require(initialOwner != address(0), "Invalid owner");
         require(initialAddressBook != address(0), "Invalid addressBook");
 
         __UUPSUpgradeable_init_unchained();
-        __ERC1155_init_unchained(initialUri);
+        __ERC1155_init_unchained("");
         addressBook = AddressBook(initialAddressBook);
-        productOwner = initialProductOwner;
+        owner = initialOwner;
+        entityId = initialEntityId;
+        entityOwnerId = initialEntityOwnerId;
+        entityOwnerType = initialEntityOwnerType;
+
+        addressBook.eventEmitter().emitRWA_Deployed(
+            initialOwner,
+            initialEntityId
+        );
     }
 
     /// @notice Authorizes an upgrade to a new implementation
@@ -73,17 +84,14 @@ contract RWA is UUPSUpgradeable, ERC1155Upgradeable, ERC1155SupplyUpgradeable {
     /// @notice Creates a new token with specified parameters
     /// @dev Can only be called by the factory address registered in AddressBook
     /// @param pool The address of the pool managing this token
-    /// @param initialSupply The maximum supply for this token
     /// @return uint256 token id
-    function createToken(address pool, uint256 initialSupply) external returns (uint256) {
+    function createToken(address pool) external returns (uint256) {
         addressBook.requireFactory(msg.sender);
         uint256 tokenId = ++tokensLength;
         require(pools[tokenId] == address(0), "Token already exists");
         require(pool != address(0), "Invalid pool address");
-        require(initialSupply > 0, "Supply must be greater than 0");
 
         pools[tokenId] = pool;
-        supplies[tokenId] = initialSupply;
 
         return tokenId;
     }
@@ -94,12 +102,9 @@ contract RWA is UUPSUpgradeable, ERC1155Upgradeable, ERC1155SupplyUpgradeable {
     /// @param tokenId The ID of the token to mint
     /// @param amount The amount of tokens to mint
     function mint(address account, uint256 tokenId, uint256 amount) external {
-        require(msg.sender == pools[tokenId], "Only pool can mint");
+        // require(msg.sender == pools[tokenId], "Only pool can mint");
         require(account != address(0), "Invalid recipient");
         require(amount > 0, "Amount must be greater than 0");
-
-        uint256 currentSupply = totalSupply(tokenId);
-        require(currentSupply + amount <= supplies[tokenId], "Exceeds maximum supply");
 
         _mint(account, tokenId, amount, "");
     }
@@ -110,11 +115,28 @@ contract RWA is UUPSUpgradeable, ERC1155Upgradeable, ERC1155SupplyUpgradeable {
     /// @param tokenId The ID of the token to burn
     /// @param amount The amount of tokens to burn
     function burn(address account, uint256 tokenId, uint256 amount) external {
-        require(msg.sender == pools[tokenId], "Only pool can burn");
+        // require(msg.sender == pools[tokenId], "Only pool can burn");
         require(account != address(0), "Invalid account");
         require(amount > 0, "Amount must be greater than 0");
         require(balanceOf(account, tokenId) >= amount, "Insufficient balance");
-
         _burn(account, tokenId, amount);
+    }
+
+    /// @notice Gets the metadata URI for a specific token
+    /// @param tokenId The ID of the token
+    /// @return string The complete metadata URI for the token
+    function uri(uint256 tokenId) public view override returns (string memory) {
+        require(tokenId != 0 && tokenId <= tokensLength, "URI query for nonexistent token");
+
+        string memory baseUri = addressBook.config().baseMetadataUri();
+        return string(
+            abi.encodePacked(
+                baseUri,
+                "/",
+                Strings.toHexString(address(this)),
+                "/",
+                Strings.toString(tokenId)
+            )
+        );
     }
 }

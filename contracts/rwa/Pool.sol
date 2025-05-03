@@ -2,9 +2,9 @@
 pragma solidity 0.8.28;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { RWA } from "../RWA.sol";
+import { RWA } from "./RWA.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { AddressBook } from "../../system/AddressBook.sol";
+import { AddressBook } from "../system/AddressBook.sol";
 
 contract Pool is ReentrancyGuard {
     /// @notice If true, bonuses are available after completionExpired. If false, after 1 day since full return

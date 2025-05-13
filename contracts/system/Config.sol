@@ -16,68 +16,66 @@ contract Config is UUPSUpgradeable {
     /// @notice Base URI for token metadata
     string public baseMetadataUri;
 
-    /// @notice Base RWA amount for speculation pool (1 million)
-    uint256 public baseRwaAmount;
-
-    /// @notice HOLD token multiplier for speculation pool
-    uint256 public speculationHoldMultiplier;
-
-    /// @notice RWA multipliers array for speculation pool
-    uint256[] public speculationRwaMultipliers;
-
-    /// @notice Minimum expected HOLD amount for RWA pools
-    uint256 public minExpectedHoldAmount;
-    
-    /// @notice Maximum expected HOLD amount for RWA pools
-    uint256 public maxExpectedHoldAmount;
-    
-    /// @notice Minimum reward percentage
-    uint256 public minRewardPercent;
-    
-    /// @notice Maximum reward percentage
-    uint256 public maxRewardPercent;
-    
-    /// @notice Minimum duration for entry period
-    uint256 public minEntryPeriodDuration;
-    
-    /// @notice Maximum duration for entry period
-    uint256 public maxEntryPeriodDuration;
-
-    /// @notice Minimum duration for completion period
-    uint256 public minCompletionPeriodDuration;
-    
-    /// @notice Maximum duration for completion period
-    uint256 public maxCompletionPeriodDuration;
-    
-    /// @notice Minimum partial return amount
-    uint256 public minPartialReturn;
-    
     /// @notice Token used for holding
     IERC20 public holdToken;
 
-    /// @notice Minimum fee for creating RWA (in HOLD tokens)
-    uint256 public minCreateRWAFee;
-    
-    /// @notice Maximum fee for creating RWA (in HOLD tokens)
-    uint256 public maxCreateRWAFee;
-    
-    /// @notice Minimum percentage fee ratio for creating pool
-    uint256 public minCreatePoolFeeRatio;
-    
-    /// @notice Maximum percentage fee ratio for creating pool
-    uint256 public maxCreatePoolFeeRatio;
-
-    /// @notice Percentage fee for entry
-    uint256 public entryFeePercent;
-    
-    /// @notice Percentage fee for exit
-    uint256 public exitFeePercent;
-
-    /// @notice Initial supply of RWA tokens
-    uint256 public rwaInitialSupply;
-
     /// @notice Minimum number of signers required for operations
     uint256 public minSignersRequired;
+
+    /// @notice Fee range for creating RWA (in HOLD tokens)
+    uint256 public createRWAFeeMin;
+    uint256 public createRWAFeeMax;
+
+    /// @notice Fee ratio range for creating pool (in basis points, max 10000 = 100%)
+    uint256 public createPoolFeeRatioMin;
+    uint256 public createPoolFeeRatioMax;
+
+    /// @notice Expected HOLD amount range
+    uint256 public expectedHoldAmountMin;
+    uint256 public expectedHoldAmountMax;
+
+    /// @notice Expected RWA amount range
+    uint256 public expectedRwaAmountMin;
+    uint256 public expectedRwaAmountMax;
+
+    /// @notice Entry fee percentage range (in basis points, max 10000 = 100%)
+    uint256 public entryFeePercentMin;
+    uint256 public entryFeePercentMax;
+
+    /// @notice Exit fee percentage range (in basis points, max 10000 = 100%)
+    uint256 public exitFeePercentMin;
+    uint256 public exitFeePercentMax;
+
+    /// @notice Reward percentage range (in basis points)
+    uint256 public rewardPercentMin;
+    uint256 public rewardPercentMax;
+
+    // --- Entry Period Configuration ---
+    /// @notice Maximum past offset for entry period start (e.g. 1 days for yesterday)
+    uint256 public maxEntryStartPastOffset;
+    
+    /// @notice Maximum future offset for entry period start (e.g. 180 days for 6 months)
+    uint256 public maxEntryStartFutureOffset;
+
+    // --- Tranche Configuration ---
+    /// @notice Configuration for outgoing tranches
+    uint256 public outgoingTranchesMinCount;
+    uint256 public outgoingTranchesMaxCount;
+    uint256 public outgoingTranchesMinPercent;
+    uint256 public outgoingTranchesMaxPercent;
+    uint256 public outgoingTranchesMinInterval;
+
+    /// @notice Configuration for incoming tranches
+    uint256 public incomingTranchesMinCount;
+    uint256 public incomingTranchesMaxCount;
+    uint256 public incomingTranchesMinPercent;
+    uint256 public incomingTranchesMaxPercent;
+    uint256 public incomingTranchesMinInterval;
+
+    // --- Liquidity Coefficient Configuration ---
+    /// @notice Mapping of price impact percentage (multiplied by 100) to liquidity coefficient
+    /// @dev Example: 1 => 13334 means 0.01% => 13334
+    mapping(uint256 => uint256) public liquidityCoefficients;
 
     /// @notice Constructor that disables initializers
     constructor() {
@@ -87,75 +85,111 @@ contract Config is UUPSUpgradeable {
     function initialize(
         address initialAddressBook,
         string memory initialBaseMetadataUri,
-        uint256 initialMinExpectedHoldAmount,
-        uint256 initialMaxExpectedHoldAmount,
-        uint256 initialMinRewardPercent,
-        uint256 initialMaxRewardPercent,
-        uint256 initialMinEntryPeriodDuration,
-        uint256 initialMaxEntryPeriodDuration,
-        uint256 initialMinCompletionPeriodDuration,
-        uint256 initialMaxCompletionPeriodDuration,
-        uint256 initialVirtualMultiplier,
-        uint256 initialMinPartialReturn,
         address initialHoldToken,
-        uint256 initialMinCreateRWAFee,
-        uint256 initialMaxCreateRWAFee,
-        uint256 initialMinCreatePoolFeeRatio,
-        uint256 initialMaxCreatePoolFeeRatio,
-        uint256 initialEntryFeePercent,
-        uint256 initialExitFeePercent,
-        uint256 initialRwaInitialSupply,
         uint256 initialMinSignersRequired,
-        uint256 initialBaseRwaAmount,
-        uint256 initialSpeculationHoldMultiplier,
-        uint256[] calldata initialSpeculationRwaMultipliers
+        uint256 initialCreateRWAFeeMin,
+        uint256 initialCreateRWAFeeMax,
+        uint256 initialCreatePoolFeeRatioMin,
+        uint256 initialCreatePoolFeeRatioMax,
+        uint256 initialExpectedHoldAmountMin,
+        uint256 initialExpectedHoldAmountMax,
+        uint256 initialExpectedRwaAmountMin,
+        uint256 initialExpectedRwaAmountMax,
+        uint256 initialEntryFeePercentMin,
+        uint256 initialEntryFeePercentMax,
+        uint256 initialExitFeePercentMin,
+        uint256 initialExitFeePercentMax,
+        uint256 initialRewardPercentMin,
+        uint256 initialRewardPercentMax,
+        uint256 initialMaxEntryStartPastOffset,
+        uint256 initialMaxEntryStartFutureOffset,
+        uint256 initialOutgoingTranchesMinCount,
+        uint256 initialOutgoingTranchesMaxCount,
+        uint256 initialOutgoingTranchesMinPercent,
+        uint256 initialOutgoingTranchesMaxPercent,
+        uint256 initialOutgoingTranchesMinInterval,
+        uint256 initialIncomingTranchesMinCount,
+        uint256 initialIncomingTranchesMaxCount,
+        uint256 initialIncomingTranchesMinPercent,
+        uint256 initialIncomingTranchesMaxPercent,
+        uint256 initialIncomingTranchesMinInterval,
+        uint256[] memory initialPriceImpactPercentages,
+        uint256[] memory initialCoefficients
     ) external initializer {
-        __UUPSUpgradeable_init_unchained();
-        
+        __UUPSUpgradeable_init();
+
         require(initialAddressBook != address(0), "Invalid address book");
-        require(initialMinExpectedHoldAmount < initialMaxExpectedHoldAmount, "Invalid expected HOLD amount");
-        require(initialMinRewardPercent < initialMaxRewardPercent, "Invalid reward percent");
-        require(initialMinEntryPeriodDuration < initialMaxEntryPeriodDuration, "Invalid entry period duration");
-        require(initialMinCompletionPeriodDuration < initialMaxCompletionPeriodDuration, "Invalid completion period duration");
-        require(initialVirtualMultiplier > 0, "Invalid multiplier");
-        require(initialMinPartialReturn > 0, "Invalid min partial return");
         require(initialHoldToken != address(0), "Invalid hold token");
-        require(initialEntryFeePercent <= 1000 && initialExitFeePercent <= 1000, "Invalid fee percent"); // <= 10%
-        require(initialRwaInitialSupply > 0, "Invalid initial supply");
         require(initialMinSignersRequired > 0, "Invalid min signers required");
-        require(initialBaseRwaAmount > 0, "Invalid base RWA amount");
-        require(initialSpeculationHoldMultiplier > 0, "Invalid HOLD multiplier");
-        require(initialSpeculationRwaMultipliers.length > 0, "Empty multipliers array");
+        require(initialCreateRWAFeeMin < initialCreateRWAFeeMax, "Invalid RWA fee range");
+        require(initialCreatePoolFeeRatioMin < initialCreatePoolFeeRatioMax, "Invalid pool fee ratio range");
+        require(initialCreatePoolFeeRatioMax <= 10000, "Pool fee ratio too high"); // Max 100%
+
+        // Validate amount ranges
+        require(initialExpectedHoldAmountMin < initialExpectedHoldAmountMax, "Invalid expected HOLD range");
+        require(initialExpectedRwaAmountMin < initialExpectedRwaAmountMax, "Invalid expected RWA range");
+        require(initialEntryFeePercentMax <= 10000, "Entry fee too high"); // Max 100%
+        require(initialExitFeePercentMax <= 10000, "Exit fee too high"); // Max 100%
+        require(initialRewardPercentMin < initialRewardPercentMax, "Invalid reward range");
+
+        // Validate entry period offsets
+        require(initialMaxEntryStartPastOffset > 0, "Invalid past offset");
+        require(initialMaxEntryStartFutureOffset > initialMaxEntryStartPastOffset, "Invalid future offset");
+
+        // Validate tranche configs
+        require(initialOutgoingTranchesMinCount > 0 && initialOutgoingTranchesMaxCount >= initialOutgoingTranchesMinCount, "Invalid outgoing count range");
+        require(initialOutgoingTranchesMinPercent > 0 && initialOutgoingTranchesMaxPercent <= 10000, "Invalid outgoing percent range");
+        require(initialOutgoingTranchesMinInterval > 0, "Invalid outgoing interval");
+
+        require(initialIncomingTranchesMinCount > 0 && initialIncomingTranchesMaxCount >= initialIncomingTranchesMinCount, "Invalid incoming count range");
+        require(initialIncomingTranchesMinPercent > 0 && initialIncomingTranchesMaxPercent <= 10000, "Invalid incoming percent range");
+        require(initialIncomingTranchesMinInterval > 0, "Invalid incoming interval");
 
         addressBook = AddressBook(initialAddressBook);
         baseMetadataUri = initialBaseMetadataUri;
-        minExpectedHoldAmount = initialMinExpectedHoldAmount;
-        maxExpectedHoldAmount = initialMaxExpectedHoldAmount;
-        minRewardPercent = initialMinRewardPercent;
-        maxRewardPercent = initialMaxRewardPercent;
-        minEntryPeriodDuration = initialMinEntryPeriodDuration;
-        maxEntryPeriodDuration = initialMaxEntryPeriodDuration;
-        minCompletionPeriodDuration = initialMinCompletionPeriodDuration;
-        maxCompletionPeriodDuration = initialMaxCompletionPeriodDuration;
-        minPartialReturn = initialMinPartialReturn;
         holdToken = IERC20(initialHoldToken);
-        require(initialMinCreateRWAFee < initialMaxCreateRWAFee, "Invalid RWA fee range");
-        require(initialMinCreatePoolFeeRatio < initialMaxCreatePoolFeeRatio, "Invalid pool fee ratio range");
-        require(initialMaxCreatePoolFeeRatio <= 1000, "Pool fee ratio too high"); // <= 10%
-        minCreateRWAFee = initialMinCreateRWAFee;
-        maxCreateRWAFee = initialMaxCreateRWAFee;
-        minCreatePoolFeeRatio = initialMinCreatePoolFeeRatio;
-        maxCreatePoolFeeRatio = initialMaxCreatePoolFeeRatio;
-        entryFeePercent = initialEntryFeePercent;
-        exitFeePercent = initialExitFeePercent;
-        rwaInitialSupply = initialRwaInitialSupply;
         minSignersRequired = initialMinSignersRequired;
-        baseRwaAmount = initialBaseRwaAmount;
-        speculationHoldMultiplier = initialSpeculationHoldMultiplier;
-        
-        for(uint i = 0; i < initialSpeculationRwaMultipliers.length; i++) {
-            require(initialSpeculationRwaMultipliers[i] > 0, "Invalid multiplier");
-            speculationRwaMultipliers.push(initialSpeculationRwaMultipliers[i]);
+
+        createRWAFeeMin = initialCreateRWAFeeMin;
+        createRWAFeeMax = initialCreateRWAFeeMax;
+        createPoolFeeRatioMin = initialCreatePoolFeeRatioMin;
+        createPoolFeeRatioMax = initialCreatePoolFeeRatioMax;
+
+        expectedHoldAmountMin = initialExpectedHoldAmountMin;
+        expectedHoldAmountMax = initialExpectedHoldAmountMax;
+        expectedRwaAmountMin = initialExpectedRwaAmountMin;
+        expectedRwaAmountMax = initialExpectedRwaAmountMax;
+
+        entryFeePercentMin = initialEntryFeePercentMin;
+        entryFeePercentMax = initialEntryFeePercentMax;
+        exitFeePercentMin = initialExitFeePercentMin;
+        exitFeePercentMax = initialExitFeePercentMax;
+
+        rewardPercentMin = initialRewardPercentMin;
+        rewardPercentMax = initialRewardPercentMax;
+
+        maxEntryStartPastOffset = initialMaxEntryStartPastOffset;
+        maxEntryStartFutureOffset = initialMaxEntryStartFutureOffset;
+
+        outgoingTranchesMinCount = initialOutgoingTranchesMinCount;
+        outgoingTranchesMaxCount = initialOutgoingTranchesMaxCount;
+        outgoingTranchesMinPercent = initialOutgoingTranchesMinPercent;
+        outgoingTranchesMaxPercent = initialOutgoingTranchesMaxPercent;
+        outgoingTranchesMinInterval = initialOutgoingTranchesMinInterval;
+
+        incomingTranchesMinCount = initialIncomingTranchesMinCount;
+        incomingTranchesMaxCount = initialIncomingTranchesMaxCount;
+        incomingTranchesMinPercent = initialIncomingTranchesMinPercent;
+        incomingTranchesMaxPercent = initialIncomingTranchesMaxPercent;
+        incomingTranchesMinInterval = initialIncomingTranchesMinInterval;
+
+        // Set initial liquidity coefficients
+        require(initialPriceImpactPercentages.length == initialCoefficients.length, "Arrays length mismatch");
+        require(initialPriceImpactPercentages.length > 0, "Empty arrays");
+
+        for (uint256 i = 0; i < initialPriceImpactPercentages.length; i++) {
+            require(initialCoefficients[i] > 0, "Invalid coefficient");
+            liquidityCoefficients[initialPriceImpactPercentages[i]] = initialCoefficients[i];
         }
     }
 
@@ -165,156 +199,177 @@ contract Config is UUPSUpgradeable {
         addressBook.requireGovernance(msg.sender);
     }
 
-    /// @notice Updates expected HOLD amount parameters
-    /// @param newMinExpectedHoldAmount New minimum expected HOLD amount
-    /// @param newMaxExpectedHoldAmount New maximum expected HOLD amount
-    function updateExpectedHoldAmount(
-        uint256 newMinExpectedHoldAmount,
-        uint256 newMaxExpectedHoldAmount
-    ) external {
+    /// @notice Updates base metadata URI
+    /// @param newBaseMetadataUri New base URI for metadata
+    function updateBaseMetadataUri(string memory newBaseMetadataUri) external {
         addressBook.requireGovernance(msg.sender);
-        require(newMinExpectedHoldAmount < newMaxExpectedHoldAmount, "Invalid expected HOLD amount");
-        minExpectedHoldAmount = newMinExpectedHoldAmount;
-        maxExpectedHoldAmount = newMaxExpectedHoldAmount;
-    }
-
-
-    /// @notice Updates reward percent parameters
-    /// @param newMinRewardPercent New minimum reward percent
-    /// @param newMaxRewardPercent New maximum reward percent
-    function updateRewardPercent(
-        uint256 newMinRewardPercent,
-        uint256 newMaxRewardPercent
-    ) external {
-        addressBook.requireGovernance(msg.sender);
-        require(newMinRewardPercent < newMaxRewardPercent, "Invalid reward percent");
-        minRewardPercent = newMinRewardPercent;
-        maxRewardPercent = newMaxRewardPercent;
-    }
-
-    /// @notice Updates entry period duration parameters
-    /// @param newMinEntryPeriodDuration New minimum entry period duration
-    /// @param newMaxEntryPeriodDuration New maximum entry period duration
-    function updateEntryPeriodDuration(
-        uint256 newMinEntryPeriodDuration,
-        uint256 newMaxEntryPeriodDuration
-    ) external {
-        addressBook.requireGovernance(msg.sender);
-        require(newMinEntryPeriodDuration < newMaxEntryPeriodDuration, "Invalid duration");
-        minEntryPeriodDuration = newMinEntryPeriodDuration;
-        maxEntryPeriodDuration = newMaxEntryPeriodDuration;
-    }
-
-    /// @notice Updates completion period duration parameters
-    /// @param newMinCompletionPeriodDuration New minimum completion period duration
-    /// @param newMaxCompletionPeriodDuration New maximum completion period duration
-    function updateCompletionPeriodDuration(
-        uint256 newMinCompletionPeriodDuration,
-        uint256 newMaxCompletionPeriodDuration
-    ) external {
-        addressBook.requireGovernance(msg.sender);
-        require(newMinCompletionPeriodDuration < newMaxCompletionPeriodDuration, "Invalid duration");
-        minCompletionPeriodDuration = newMinCompletionPeriodDuration;
-        maxCompletionPeriodDuration = newMaxCompletionPeriodDuration;
-    }
-
-    /// @notice Updates minimum partial return
-    /// @param newMinPartialReturn New minimum partial return value
-    function updateMinPartialReturn(uint256 newMinPartialReturn) external {
-        addressBook.requireGovernance(msg.sender);
-        require(newMinPartialReturn > 0, "Invalid min partial return");
-        minPartialReturn = newMinPartialReturn;
+        baseMetadataUri = newBaseMetadataUri;
     }
 
     /// @notice Updates hold token address
     /// @param newHoldToken New hold token address
-    function updateHoldToken(IERC20 newHoldToken) external {
+    function updateHoldToken(address newHoldToken) external {
         addressBook.requireGovernance(msg.sender);
-        require(address(newHoldToken) != address(0), "Invalid hold token");
-        holdToken = newHoldToken;
+        require(newHoldToken != address(0), "Invalid hold token");
+        holdToken = IERC20(newHoldToken);
     }
 
-    /// @notice Updates creation fees
-    /// @param newMinCreateRWAFee New minimum RWA creation fee
-    /// @param newMaxCreateRWAFee New maximum RWA creation fee
-    /// @param newMinCreatePoolFeeRatio New minimum pool creation fee ratio
-    /// @param newMaxCreatePoolFeeRatio New maximum pool creation fee ratio
-    function updateCreationFees(
-        uint256 newMinCreateRWAFee,
-        uint256 newMaxCreateRWAFee,
-        uint256 newMinCreatePoolFeeRatio,
-        uint256 newMaxCreatePoolFeeRatio
-    ) external {
-        addressBook.requireGovernance(msg.sender);
-        require(newMinCreateRWAFee < newMaxCreateRWAFee, "Invalid RWA fee range");
-        require(newMinCreatePoolFeeRatio < newMaxCreatePoolFeeRatio, "Invalid pool fee ratio range");
-        require(newMaxCreatePoolFeeRatio <= 1000, "Pool fee ratio too high"); // <= 10%
-        minCreateRWAFee = newMinCreateRWAFee;
-        maxCreateRWAFee = newMaxCreateRWAFee;
-        minCreatePoolFeeRatio = newMinCreatePoolFeeRatio;
-        maxCreatePoolFeeRatio = newMaxCreatePoolFeeRatio;
-    }
-
-    /// @notice Updates pool fees
-    /// @param newEntryFeePercent New entry fee percentage
-    /// @param newExitFeePercent New exit fee percentage
-    function updatePoolFees(
-        uint256 newEntryFeePercent,
-        uint256 newExitFeePercent
-    ) external {
-        addressBook.requireGovernance(msg.sender);
-        require(newEntryFeePercent <= 1000 && newExitFeePercent <= 1000, "Invalid fee percent");
-        entryFeePercent = newEntryFeePercent;
-        exitFeePercent = newExitFeePercent;
-    }
-
-    /// @notice Updates the initial RWA token supply
-    /// @param newInitialSupply New initial supply amount for RWA tokens
-    /// @dev Can only be called by governance
-    function updateRWAInitialSupply(uint256 newInitialSupply) external {
-        addressBook.requireGovernance(msg.sender);
-        require(newInitialSupply > 0, "Initial supply must be greater than 0");
-        rwaInitialSupply = newInitialSupply;
-    }
-
-    /// @notice Updates the minimum required number of signers
+    /// @notice Updates minimum required number of signers
     /// @param newMinSignersRequired New minimum number of signers required
-    /// @dev Can only be called by governance
     function updateMinSignersRequired(uint256 newMinSignersRequired) external {
         addressBook.requireGovernance(msg.sender);
-        require(newMinSignersRequired > 0, "Min signers must be greater than 0");
+        require(newMinSignersRequired > 0, "Invalid min signers");
         minSignersRequired = newMinSignersRequired;
     }
 
-    /// @notice Gets RWA multiplier by index for speculation pool
-    /// @param index Index of multiplier in array
-    /// @return Multiplier value at specified index
-    function getSpeculationRwaMultiplier(uint256 index) external view returns (uint256) {
-        require(index < speculationRwaMultipliers.length, "Index out of bounds");
-        return speculationRwaMultipliers[index];
+    /// @notice Updates RWA creation fee range
+    /// @param newMin New minimum fee
+    /// @param newMax New maximum fee
+    function updateCreateRWAFeeRange(uint256 newMin, uint256 newMax) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newMin < newMax, "Invalid RWA fee range");
+        createRWAFeeMin = newMin;
+        createRWAFeeMax = newMax;
     }
 
-    /// @notice Updates speculation pool parameters
-    /// @param newBaseRwaAmount New base RWA amount
-    /// @param newHoldMultiplier New HOLD multiplier
-    /// @param newRwaMultipliers New array of RWA multipliers
-    function updateSpeculationPoolParams(
-        uint256 newBaseRwaAmount,
-        uint256 newHoldMultiplier,
-        uint256[] calldata newRwaMultipliers
+    /// @notice Updates pool creation fee ratio range
+    /// @param newMin New minimum ratio
+    /// @param newMax New maximum ratio
+    function updateCreatePoolFeeRatioRange(uint256 newMin, uint256 newMax) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newMin < newMax, "Invalid pool fee ratio range");
+        require(newMax <= 10000, "Pool fee ratio too high"); // Max 100%
+        createPoolFeeRatioMin = newMin;
+        createPoolFeeRatioMax = newMax;
+    }
+
+    /// @notice Updates expected HOLD amount range
+    /// @param newMin New minimum amount
+    /// @param newMax New maximum amount
+    function updateExpectedHoldAmountRange(uint256 newMin, uint256 newMax) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newMin < newMax, "Invalid HOLD range");
+        expectedHoldAmountMin = newMin;
+        expectedHoldAmountMax = newMax;
+    }
+
+    /// @notice Updates expected RWA amount range
+    /// @param newMin New minimum amount
+    /// @param newMax New maximum amount
+    function updateExpectedRwaAmountRange(uint256 newMin, uint256 newMax) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newMin < newMax, "Invalid RWA range");
+        expectedRwaAmountMin = newMin;
+        expectedRwaAmountMax = newMax;
+    }
+
+    /// @notice Updates entry fee percentage range
+    /// @param newMin New minimum percentage
+    /// @param newMax New maximum percentage
+    function updateEntryFeePercentRange(uint256 newMin, uint256 newMax) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newMin < newMax, "Invalid entry fee range");
+        require(newMax <= 10000, "Entry fee too high"); // Max 100%
+        entryFeePercentMin = newMin;
+        entryFeePercentMax = newMax;
+    }
+
+    /// @notice Updates exit fee percentage range
+    /// @param newMin New minimum percentage
+    /// @param newMax New maximum percentage
+    function updateExitFeePercentRange(uint256 newMin, uint256 newMax) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newMin < newMax, "Invalid exit fee range");
+        require(newMax <= 10000, "Exit fee too high"); // Max 100%
+        exitFeePercentMin = newMin;
+        exitFeePercentMax = newMax;
+    }
+
+    /// @notice Updates reward percentage range
+    /// @param newMin New minimum percentage
+    /// @param newMax New maximum percentage
+    function updateRewardPercentRange(uint256 newMin, uint256 newMax) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newMin < newMax, "Invalid reward range");
+        rewardPercentMin = newMin;
+        rewardPercentMax = newMax;
+    }
+
+    /// @notice Updates entry period configuration
+    /// @param newMaxPastOffset New maximum past offset for entry start
+    /// @param newMaxFutureOffset New maximum future offset for entry start
+    function updateEntryPeriodConfig(uint256 newMaxPastOffset, uint256 newMaxFutureOffset) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newMaxPastOffset > 0, "Invalid past offset");
+        require(newMaxFutureOffset > newMaxPastOffset, "Invalid future offset");
+        maxEntryStartPastOffset = newMaxPastOffset;
+        maxEntryStartFutureOffset = newMaxFutureOffset;
+    }
+
+    /// @notice Updates outgoing tranches configuration
+    function updateOutgoingTranchesConfig(
+        uint256 newMinCount,
+        uint256 newMaxCount,
+        uint256 newMinPercent,
+        uint256 newMaxPercent,
+        uint256 newMinInterval
     ) external {
         addressBook.requireGovernance(msg.sender);
-        require(newBaseRwaAmount > 0, "Invalid base RWA amount");
-        require(newHoldMultiplier > 0, "Invalid HOLD multiplier");
-        require(newRwaMultipliers.length > 0, "Empty multipliers array");
+        require(newMinCount > 0 && newMaxCount >= newMinCount, "Invalid count range");
+        require(newMinPercent > 0 && newMaxPercent <= 10000, "Invalid percent range");
+        require(newMinInterval > 0, "Invalid interval");
 
-        baseRwaAmount = newBaseRwaAmount;
-        speculationHoldMultiplier = newHoldMultiplier;
-        delete speculationRwaMultipliers;
-        
-        for(uint i = 0; i < newRwaMultipliers.length; i++) {
-            require(newRwaMultipliers[i] > 0, "Invalid multiplier");
-            speculationRwaMultipliers.push(newRwaMultipliers[i]);
+        outgoingTranchesMinCount = newMinCount;
+        outgoingTranchesMaxCount = newMaxCount;
+        outgoingTranchesMinPercent = newMinPercent;
+        outgoingTranchesMaxPercent = newMaxPercent;
+        outgoingTranchesMinInterval = newMinInterval;
+    }
+
+    /// @notice Updates incoming tranches configuration
+    function updateIncomingTranchesConfig(
+        uint256 newMinCount,
+        uint256 newMaxCount,
+        uint256 newMinPercent,
+        uint256 newMaxPercent,
+        uint256 newMinInterval
+    ) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newMinCount > 0 && newMaxCount >= newMinCount, "Invalid count range");
+        require(newMinPercent > 0 && newMaxPercent <= 10000, "Invalid percent range");
+        require(newMinInterval > 0, "Invalid interval");
+
+        incomingTranchesMinCount = newMinCount;
+        incomingTranchesMaxCount = newMaxCount;
+        incomingTranchesMinPercent = newMinPercent;
+        incomingTranchesMaxPercent = newMaxPercent;
+        incomingTranchesMinInterval = newMinInterval;
+    }
+
+    /// @notice Updates liquidity coefficients mapping
+    /// @param percentages Array of price impact percentages (multiplied by 100)
+    /// @param coefficients Array of corresponding liquidity coefficients
+    function updateLiquidityCoefficients(
+        uint256[] memory percentages,
+        uint256[] memory coefficients
+    ) external {
+        addressBook.requireGovernance(msg.sender);
+        require(percentages.length == coefficients.length, "Arrays length mismatch");
+        require(percentages.length > 0, "Empty arrays");
+
+        // Set new coefficients
+        for (uint256 i = 0; i < percentages.length; i++) {
+            require(coefficients[i] > 0, "Invalid coefficient");
+            liquidityCoefficients[percentages[i]] = coefficients[i];
         }
+    }
+
+    /// @notice Gets liquidity coefficient for a given price impact percentage
+    /// @param percentage Price impact percentage (multiplied by 100)
+    /// @return coefficient Corresponding liquidity coefficient
+    function getLiquidityCoefficient(uint256 percentage) external view returns (uint256 coefficient) {
+        coefficient = liquidityCoefficients[percentage];
+        require(coefficient > 0, "Coefficient not found");
+        return coefficient;
     }
 }

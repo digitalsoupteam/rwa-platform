@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -12,23 +11,35 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 
 import { AddressBook } from "../system/AddressBook.sol";
 import { RWA } from "./RWA.sol";
-import { BasePool } from "./pools/BasePool.sol";
 import { Config } from "../system/Config.sol";
+import { Pool } from "./Pool.sol";
+import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 
-contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
+contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
     AddressBook public addressBook;
 
     mapping(bytes32 => bool) public usedSignatures;
     mapping(string => bool) public deployedEntities;
 
-    constructor() {
-        _disableInitializers();
+    function uniqueContractId() public pure override returns (bytes32) {
+        return keccak256("Factory");
     }
 
+    function implementationVersion() public pure override returns (uint256) {
+        return 1;
+    }
+
+    function _verifyAuthorizeUpgradeRole() internal view override {
+        addressBook.requireTimelock(msg.sender);
+    }
+
+    constructor() UpgradeableContract() {}
+
     function initialize(address initialAddressBook) external initializer {
-        __UUPSUpgradeable_init();
-        __ReentrancyGuard_init();
         addressBook = AddressBook(initialAddressBook);
+
+        __UpgradeableContract_init();
+        __ReentrancyGuard_init();
     }
 
     function deployRWA(
@@ -51,7 +62,7 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         require(signers.length >= config.minSignersRequired(), "Insufficient signatures");
 
         require(
-            createRWAFee >= config.minCreateRWAFee() && createRWAFee <= config.maxCreateRWAFee(),
+            createRWAFee >= config.createRWAFeeMin() && createRWAFee <= config.createRWAFeeMax(),
             "RWA fee out of allowed range"
         );
 
@@ -94,17 +105,23 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
 
     function deployPool(
         uint256 createPoolFeeRatio,
-        string calldata poolType,
         string calldata entityId,
-        string calldata entityOwnerId,
-        string calldata entityOwnerType,
-        address owner,
         RWA rwa,
         uint256 expectedHoldAmount,
+        uint256 expectedRwaAmount,
+        uint256 priceImpactPercent,
         uint256 rewardPercent,
-        uint256 entryPeriodDuration,
-        uint256 completionPeriodDuration,
-        bytes calldata payload,
+        uint256 entryPeriodStart,
+        uint256 entryFeePercent,
+        uint256 exitFeePercent,
+        bool fixedSell,
+        bool allowEntryBurn,
+        bool bonusAfterCompletion,
+        bool floatingOutTranchesTimestamps,
+        uint256[] calldata outgoingTranches,
+        uint256[] calldata outgoingTranchTimestamps,
+        uint256[] calldata incomingTranches,
+        uint256[] calldata incomingTrancheExpired,
         address[] calldata signers,
         bytes[] calldata signatures,
         uint256 expired
@@ -118,42 +135,139 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
         require(signers.length == signatures.length, "Signers and signatures length mismatch");
         require(signers.length >= config.minSignersRequired(), "Insufficient signatures");
 
-        require(
-            expectedHoldAmount >= config.minExpectedHoldAmount() &&
-                expectedHoldAmount <= config.maxExpectedHoldAmount(),
-            "Expected HOLD amount out of allowed range"
-        );
-
-        require(
-            rewardPercent >= config.minRewardPercent() &&
-                rewardPercent <= config.maxRewardPercent(),
-            "Reward percentage out of allowed range"
-        );
-
-        require(
-            entryPeriodDuration >= config.minEntryPeriodDuration() &&
-                entryPeriodDuration <= config.maxEntryPeriodDuration(),
-            "Entry period duration out of allowed range"
-        );
-
-        require(
-            completionPeriodDuration >= config.minCompletionPeriodDuration() &&
-                completionPeriodDuration <= config.maxCompletionPeriodDuration(),
-            "Completion period duration out of allowed range"
-        );
-
         require(_addressBook.isRWA(address(rwa)), "RWA not registered in system");
-        require(rwa.owner() == owner, "Caller is not RWA owner");
+
         require(
-            keccak256(bytes(rwa.entityOwnerId())) == keccak256(bytes(entityOwnerId)) &&
-            keccak256(bytes(rwa.entityOwnerType())) == keccak256(bytes(entityOwnerType)),
-            "Entity owner details mismatch with RWA"
+            createPoolFeeRatio >= config.createPoolFeeRatioMin() &&
+                createPoolFeeRatio <= config.createPoolFeeRatioMax(),
+            "Pool fee ratio out of allowed range"
         );
 
         require(
-            createPoolFeeRatio >= config.minCreatePoolFeeRatio() &&
-                createPoolFeeRatio <= config.maxCreatePoolFeeRatio(),
-            "Pool fee ratio out of allowed range"
+            expectedHoldAmount >= config.expectedHoldAmountMin() &&
+                expectedHoldAmount <= config.expectedHoldAmountMax(),
+            "Factory: expected HOLD amount out of allowed range"
+        );
+
+        require(
+            expectedRwaAmount >= config.expectedRwaAmountMin() &&
+                expectedRwaAmount <= config.expectedRwaAmountMax(),
+            "Factory: expected RWA amount out of allowed range"
+        );
+
+        require(
+            rewardPercent >= config.rewardPercentMin() &&
+                rewardPercent <= config.rewardPercentMax(),
+            "Factory: reward percentage out of allowed range"
+        );
+
+        require(
+            entryFeePercent >= config.entryFeePercentMin() &&
+                entryFeePercent <= config.entryFeePercentMax(),
+            "Factory: entry fee out of allowed range"
+        );
+
+        require(
+            exitFeePercent >= config.exitFeePercentMin() &&
+                exitFeePercent <= config.exitFeePercentMax(),
+            "Factory: exit fee out of allowed range"
+        );
+
+        require(
+            entryPeriodStart > block.timestamp - config.maxEntryStartPastOffset() &&
+                entryPeriodStart < block.timestamp + config.maxEntryStartFutureOffset(),
+            "Factory: entry period start out of allowed range"
+        );
+        require(
+            outgoingTranches.length >= config.outgoingTranchesMinCount() &&
+                outgoingTranches.length <= config.outgoingTranchesMaxCount(),
+            "Factory: invalid outgoing tranches count"
+        );
+        require(
+            incomingTranches.length >= config.incomingTranchesMinCount() &&
+                incomingTranches.length <= config.incomingTranchesMaxCount(),
+            "Factory: invalid incoming tranches count"
+        );
+
+        require(
+            outgoingTranches.length == outgoingTranchTimestamps.length,
+            "Factory: outgoing tranche arrays length mismatch"
+        );
+        require(
+            incomingTranches.length == incomingTrancheExpired.length,
+            "Factory: incoming tranche arrays length mismatch"
+        );
+        require(
+            outgoingTranchTimestamps[0] > entryPeriodStart,
+            "Factory: first outgoing tranche must be after entry start"
+        );
+
+        uint256 totalOutgoing = 0;
+        for (uint256 i = 0; i < outgoingTranches.length; i++) {
+            // Check tranche amount
+            require(outgoingTranches[i] > 0, "Factory: zero tranche amount");
+
+            // Check tranche percent
+            uint256 tranchePercent = (outgoingTranches[i] * 10000) / expectedHoldAmount;
+            require(
+                tranchePercent >= config.outgoingTranchesMinPercent() &&
+                    tranchePercent <= config.outgoingTranchesMaxPercent(),
+                "Factory: outgoing tranche percent out of allowed range"
+            );
+
+            // Check interval between tranches
+            if (i > 0) {
+                require(
+                    outgoingTranchTimestamps[i] >=
+                        outgoingTranchTimestamps[i - 1] + config.outgoingTranchesMinInterval(),
+                    "Factory: outgoing tranche interval too small"
+                );
+            }
+
+            totalOutgoing += outgoingTranches[i];
+        }
+        require(
+            totalOutgoing == expectedHoldAmount,
+            "Factory: outgoing tranches must equal expected amount"
+        );
+
+        // Validate incoming tranches
+        uint256 totalIncoming = 0;
+        uint256 totalExpectedIncoming = expectedHoldAmount +
+            (expectedHoldAmount * rewardPercent) /
+            10000;
+
+        for (uint256 i = 0; i < incomingTranches.length; i++) {
+            // Check tranche amount
+            require(incomingTranches[i] > 0, "Factory: zero tranche amount");
+
+            // Check tranche percent
+            uint256 tranchePercent = (incomingTranches[i] * 10000) / totalExpectedIncoming;
+            require(
+                tranchePercent >= config.incomingTranchesMinPercent() &&
+                    tranchePercent <= config.incomingTranchesMaxPercent(),
+                "Factory: incoming tranche percent out of allowed range"
+            );
+
+            // Check interval between tranches
+            if (i > 0) {
+                require(
+                    incomingTrancheExpired[i] >=
+                        incomingTrancheExpired[i - 1] + config.incomingTranchesMinInterval(),
+                    "Factory: incoming tranche interval too small"
+                );
+            }
+
+            totalIncoming += incomingTranches[i];
+        }
+        require(
+            totalIncoming == totalExpectedIncoming,
+            "Factory: incoming tranches must equal total expected amount"
+        );
+
+        require(
+            incomingTrancheExpired[incomingTrancheExpired.length - 1] > outgoingTranchTimestamps[0],
+            "Factory: completion must be after entry period"
         );
 
         IERC20 holdToken = config.holdToken();
@@ -173,17 +287,23 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
                             msg.sender,
                             "deployPool",
                             createPoolFeeRatio,
-                            poolType,
                             entityId,
-                            entityOwnerId,
-                            entityOwnerType,
-                            owner,
                             address(rwa),
                             expectedHoldAmount,
+                            expectedRwaAmount,
+                            priceImpactPercent,
                             rewardPercent,
-                            entryPeriodDuration,
-                            completionPeriodDuration,
-                            payload
+                            entryPeriodStart,
+                            entryFeePercent,
+                            exitFeePercent,
+                            fixedSell,
+                            allowEntryBurn,
+                            bonusAfterCompletion,
+                            floatingOutTranchesTimestamps,
+                            outgoingTranches,
+                            outgoingTranchTimestamps,
+                            incomingTranches,
+                            incomingTrancheExpired
                         )
                     ),
                     expired
@@ -193,47 +313,41 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
 
         _validateSignatures(signers, signatures, messageHash);
 
-        uint256 expectedRwaAmount = config.baseRwaAmount();
-
-        address implementation;
-        if (keccak256(bytes(poolType)) == keccak256(bytes("stable"))) {
-            implementation = _addressBook.poolStableImplementation();
-        } else if (keccak256(bytes(poolType)) == keccak256(bytes("speculation"))) {
-            implementation = _addressBook.poolSpeculationImplementation();
-        } else {
-            revert("Invalid pool type");
-        }
+        address implementation = _addressBook.poolImplementation();
+        require(implementation != address(0), "Pool implementation not set");
 
         address proxy = address(new ERC1967Proxy(implementation, ""));
         uint256 rwaId = rwa.createToken(proxy);
 
-        uint256 entryPeriodExpired = block.timestamp + entryPeriodDuration;
-        uint256 completionPeriodExpired = block.timestamp + completionPeriodDuration;
+        _addressBook.addPool(Pool(proxy));
 
-        uint256 entryFeePercent = config.entryFeePercent();
-        uint256 exitFeePercent = config.exitFeePercent();
-
-        _addressBook.addPool(BasePool(proxy));
-
-        BasePool(proxy).initialize(
-            address(addressBook),
+        Pool(proxy).initialize(
             address(config.holdToken()),
-            entityId,
-            entityOwnerId,
-            entityOwnerType,
             address(rwa),
+            address(_addressBook),
             rwaId,
-            entryFeePercent,
-            exitFeePercent,
+            entityId,
+            rwa.entityOwnerId(),
+            rwa.entityOwnerType(),
+            rwa.owner(),
             expectedHoldAmount,
             expectedRwaAmount,
+            priceImpactPercent,
+            entryFeePercent,
+            exitFeePercent,
+            entryPeriodStart,
             rewardPercent,
-            entryPeriodExpired,
-            completionPeriodExpired,
-            owner,
-            payload
+            fixedSell,
+            allowEntryBurn,
+            bonusAfterCompletion,
+            floatingOutTranchesTimestamps,
+            outgoingTranches,
+            outgoingTranchTimestamps,
+            incomingTranches,
+            incomingTrancheExpired
         );
 
+        deployedEntities[entityId] = true;
         return proxy;
     }
 
@@ -252,10 +366,5 @@ contract Factory is UUPSUpgradeable, ReentrancyGuardUpgradeable {
             );
             usedSignatures[signatureHash] = true;
         }
-    }
-
-    function _authorizeUpgrade(address newImplementation) internal override {
-        addressBook.requireGovernance(msg.sender);
-        require(newImplementation.code.length > 0, "ERC1967: new implementation is not a contract");
     }
 }

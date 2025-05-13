@@ -3,47 +3,128 @@ pragma solidity 0.8.28;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { RWA } from "./RWA.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { AddressBook } from "../system/AddressBook.sol";
+import { Config } from "../system/Config.sol";
+import { EventEmitter } from "../system/EventEmitter.sol";
+import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 
-contract Pool is ReentrancyGuard {
-    /// @notice If true, bonuses are available after completionExpired. If false, after 1 day since full return
-    bool public immutable bonusAfterCompletion;
+contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
+    // --- Static Configuration Parameters ---
+    // Variables set during initialization and then immutable.
+
     /// @notice HOLD token contract
-    IERC20 public immutable holdToken;
+    /// @dev Set during initialization and then immutable.
+    IERC20 public holdToken;
 
     /// @notice RWA token contract
-    RWA public immutable rwaToken;
+    /// @dev Set during initialization and then immutable.
+    RWA public rwaToken;
 
     /// @notice Address book contract
-    AddressBook public immutable addressBook;
+    /// @dev Set during initialization and then immutable.
+    AddressBook public addressBook;
 
     /// @notice RWA token ID used in this pool
-    uint256 public immutable tokenId;
+    /// @dev Set during initialization and then immutable.
+    uint256 public tokenId;
 
     /// @notice Entity ID in the database
+    /// @dev Set during initialization and then immutable.
     string public entityId;
-    
+
     /// @notice Entity owner ID in the database
+    /// @dev Set during initialization and then immutable.
     string public entityOwnerId;
-    
+
     /// @notice Entity owner type in the database
+    /// @dev Set during initialization and then immutable.
     string public entityOwnerType;
 
     /// @notice Owner address
-    address public immutable owner;
+    /// @dev Set during initialization and then immutable.
+    address public owner;
 
     /// @notice Expected amount in HOLD tokens for program participation
-    uint256 public immutable expectedHoldAmount;
+    /// @dev Set during initialization and then immutable.
+    uint256 public expectedHoldAmount;
 
     /// @notice Expected amount of RWA tokens for the program
-    uint256 public immutable expectedRwaAmount;
+    /// @dev Set during initialization and then immutable.
+    uint256 public expectedRwaAmount;
 
     /// @notice Expected bonus amount in HOLD tokens
-    uint256 public immutable expectedBonusAmount;
+    /// @dev Set during initialization (calculated) and then immutable.
+    uint256 public expectedBonusAmount;
 
     /// @notice Reward percentage for calculating bonus (in basis points)
-    uint256 public immutable rewardPercent;
+    /// @dev Set during initialization and then immutable.
+    uint256 public rewardPercent;
+
+    /// @notice If true, bonuses are available after completionExpired. If false, after 1 day since full return
+    /// @dev Set during initialization and then immutable.
+    bool public bonusAfterCompletion;
+
+    /// @notice If true, outgoing tranche timestamps will be adjusted if target is reached early
+    /// @dev Set during initialization and then immutable.
+    bool public floatingOutTranchesTimestamps;
+
+    /// @notice Flag indicating if RWA amount is fixed
+    /// @dev Set during initialization and then immutable.
+    bool public fixedSell;
+
+    /// @notice Flag indicating if burning is allowed during entry period
+    /// @dev Set during initialization and then immutable.
+    bool public allowEntryBurn;
+
+    /// @notice Program entry period start timestamp
+    /// @dev Set during initialization and then immutable.
+    uint256 public entryPeriodStart;
+
+    /// @notice Program entry period expiration timestamp
+    /// @dev Set during initialization (derived) and then immutable.
+    uint256 public entryPeriodExpired;
+
+    /// @notice Program completion period expiration timestamp
+    /// @dev Set during initialization (derived) and then immutable.
+    uint256 public completionPeriodExpired;
+
+    /// @notice Constant product for AMM calculations (k = virtualHoldReserve * virtualRwaReserve)
+    /// @dev Set during initialization and then immutable.
+    uint256 public k;
+
+    /// @notice Fee percentage charged when entering the pool (in basis points)
+    /// @dev Set during initialization and then immutable.
+    uint256 public entryFeePercent;
+
+    /// @notice Fee percentage charged when exiting the pool (in basis points)
+    /// @dev Set during initialization and then immutable.
+    uint256 public exitFeePercent;
+
+    /// @notice Array of outgoing tranche amounts
+    /// @dev Set during initialization and then immutable (content of array is fixed).
+    uint256[] public outgoingTranches;
+
+    /// @notice Array of outgoing tranche timestamps
+    /// @dev Set during initialization and then immutable (content of array is fixed).
+    uint256[] public outgoingTranchTimestamps;
+
+    /// @notice Array of incoming tranche amounts
+    /// @dev Set during initialization and then immutable (content of array is fixed).
+    uint256[] public incomingTranches;
+
+    /// @notice Array of incoming tranche expiration timestamps
+    /// @dev Set during initialization and then immutable (content of array is fixed).
+    uint256[] public incomingTrancheExpired;
+
+    // --- Dynamic State Variables ---
+    // Variables that change during the lifecycle of the pool.
+
+    /// @notice Offset applied to outgoing tranche timestamps if target is reached early and floatingOutTranchesTimestamps is true
+    uint256 public floatingTimestampOffset;
+
+    /// @notice Emergency pause flag
+    bool public paused;
 
     /// @notice Total amount of claimed HOLD tokens
     uint256 public totalClaimedAmount;
@@ -63,24 +144,6 @@ contract Pool is ReentrancyGuard {
     /// @notice Timestamp when funds were fully returned
     uint256 public fullReturnTimestamp;
 
-    /// @notice Emergency pause flag
-    bool public paused;
-
-    /// @notice Flag indicating if RWA amount is fixed
-    bool public immutable fixedSell;
-
-    /// @notice Flag indicating if burning is allowed during entry period
-    bool public immutable allowEntryBurn;
-
-    /// @notice Program entry period start timestamp
-    uint256 public entryPeriodStart;
-
-    /// @notice Program entry period expiration timestamp
-    uint256 public entryPeriodExpired;
-
-    /// @notice Program completion period expiration timestamp
-    uint256 public completionPeriodExpired;
-
     /// @notice Amount of RWA tokens awaiting return
     uint256 public awaitingRwaAmount;
 
@@ -96,29 +159,8 @@ contract Pool is ReentrancyGuard {
     /// @notice Virtual amount of RWA tokens in pool
     uint256 public virtualRwaReserve;
 
-    /// @notice Constant product for AMM calculations (k = virtualHoldReserve * virtualRwaReserve)
-    uint256 public k;
-
-    /// @notice Fee percentage charged when entering the pool (in basis points)
-    uint256 public entryFeePercent;
-
-    /// @notice Fee percentage charged when exiting the pool (in basis points)
-    uint256 public exitFeePercent;
-
-    /// @notice Array of outgoing tranche amounts
-    uint256[] public outgoingTranches;
-
-    /// @notice Array of outgoing tranche timestamps
-    uint256[] public outgoingTranchTimestamps;
-
     /// @notice Array tracking claimed amounts for each outgoing tranche
     uint256[] public outgoingTrancheStates;
-
-    /// @notice Array of incoming tranche amounts
-    uint256[] public incomingTranches;
-
-    /// @notice Array of incoming tranche expiration timestamps
-    uint256[] public incomingTrancheExpired;
 
     /// @notice Array tracking returned amounts for each incoming tranche
     uint256[] public incomingTrancheStates;
@@ -126,7 +168,10 @@ contract Pool is ReentrancyGuard {
     /// @notice Index of the last fully completed incoming tranche
     uint256 public lastCompletedIncomingTranche;
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() UpgradeableContract() {}
+
+    function initialize(
         address _holdToken,
         address _rwaToken,
         address _addressBook,
@@ -137,7 +182,7 @@ contract Pool is ReentrancyGuard {
         address _owner,
         uint256 _expectedHoldAmount,
         uint256 _expectedRwaAmount,
-        uint256 _liquidityCoefficient,
+        uint256 _priceImpactPercent,
         uint256 _entryFeePercent,
         uint256 _exitFeePercent,
         uint256 _entryPeriodStart,
@@ -145,68 +190,24 @@ contract Pool is ReentrancyGuard {
         bool _fixedSell,
         bool _allowEntryBurn,
         bool _bonusAfterCompletion,
+        bool _floatingOutTranchesTimestamps,
         uint256[] memory _outgoingTranches,
         uint256[] memory _outgoingTranchTimestamps,
         uint256[] memory _incomingTranches,
         uint256[] memory _incomingTrancheExpired
-    ) {
-        require(_holdToken != address(0), "Pool: zero hold token");
-        require(_rwaToken != address(0), "Pool: zero rwa token");
-        require(_addressBook != address(0), "Pool: zero address book");
-        require(_owner != address(0), "Pool: zero owner address");
-        require(bytes(_entityId).length > 0, "Pool: empty entity id");
-        require(bytes(_entityOwnerId).length > 0, "Pool: empty entity owner id");
-        require(bytes(_entityOwnerType).length > 0, "Pool: empty entity owner type");
-        require(_expectedHoldAmount > 0, "Pool: zero expected hold amount");
-        require(_expectedRwaAmount > 0, "Pool: zero expected rwa amount");
-        require(_liquidityCoefficient > 0, "Pool: zero liquidity coefficient");
-        require(_entryFeePercent <= 1000, "Pool: entry fee too high"); // Max 10%
-        require(_exitFeePercent <= 1000, "Pool: exit fee too high"); // Max 10%
-        require(_rewardPercent > 0, "Pool: reward percent must be positive");
-        require(_entryPeriodStart > block.timestamp - 1 days, "Pool: invalid entry period start");
-        require(_outgoingTranches.length > 0, "Pool: no outgoing tranches");
-        require(_outgoingTranches.length == _outgoingTranchTimestamps.length, "Pool: tranche arrays length mismatch");
-        require(_incomingTranches.length > 0, "Pool: no incoming tranches");
-        require(_incomingTranches.length == _incomingTrancheExpired.length, "Pool: tranche arrays length mismatch");
+    ) external initializer {
+        addressBook = AddressBook(_addressBook);
 
-       
-        require(_outgoingTranchTimestamps[0] > _entryPeriodStart, "Pool: first outgoing tranche must be after entry start");
+        __UpgradeableContract_init();
+        __ReentrancyGuard_init_unchained();
 
-        uint256 _expectedBonusAmount = (_expectedHoldAmount * _rewardPercent) / 10000;
-
-        uint256 totalOutgoing = 0;
-        for(uint256 i = 0; i < _outgoingTranches.length; i++) {
-            require(_outgoingTranches[i] > 0, "Pool: zero tranche amount");
-            if(i > 0) {
-                require(_outgoingTranchTimestamps[i] >= _outgoingTranchTimestamps[i - 1] + 1 days,
-                    "Pool: outgoing tranche delay must be at least 1 day after previous"
-                );
-            }
-            totalOutgoing += _outgoingTranches[i];
-        }
-        require(totalOutgoing == _expectedHoldAmount, "Pool: outgoing tranches must equal expected amount");
-
-
-        uint256 totalIncoming = 0;
-        for(uint256 i = 0; i < _incomingTranches.length; i++) {
-            require(_incomingTranches[i] > 0, "Pool: zero tranche amount");
-            if(i > 0) {
-                require(_incomingTrancheExpired[i] >= _incomingTrancheExpired[i - 1] + 1 days,
-                    "Pool: incoming tranche expiration must be at least 1 day after previous"
-                );
-            }
-            totalIncoming += _incomingTranches[i];
-        }
-        require(totalIncoming == _expectedHoldAmount + _expectedBonusAmount, "Pool: incoming tranches must equal total expected amount");
-
+        Config config = addressBook.config();
+        uint256 _liquidityCoefficient = config.getLiquidityCoefficient(_priceImpactPercent);
         entryPeriodStart = _entryPeriodStart;
         entryPeriodExpired = _outgoingTranchTimestamps[0];
         completionPeriodExpired = _incomingTrancheExpired[_incomingTrancheExpired.length - 1];
-        require(completionPeriodExpired > entryPeriodExpired, "Pool: completion must be after entry period");
-
         holdToken = IERC20(_holdToken);
         rwaToken = RWA(_rwaToken);
-        addressBook = AddressBook(_addressBook);
         tokenId = _tokenId;
         entityId = _entityId;
         entityOwnerId = _entityOwnerId;
@@ -215,7 +216,7 @@ contract Pool is ReentrancyGuard {
         expectedHoldAmount = _expectedHoldAmount;
         expectedRwaAmount = _expectedRwaAmount;
         rewardPercent = _rewardPercent;
-        expectedBonusAmount = _expectedBonusAmount;
+        expectedBonusAmount = (_expectedHoldAmount * _rewardPercent) / 10000;
 
         // Initialize state
         isTargetReached = false;
@@ -223,8 +224,10 @@ contract Pool is ReentrancyGuard {
         paused = false;
         fixedSell = _fixedSell;
         bonusAfterCompletion = _bonusAfterCompletion;
+        floatingOutTranchesTimestamps = _floatingOutTranchesTimestamps;
         allowEntryBurn = _allowEntryBurn;
         awaitingRwaAmount = 0;
+        floatingTimestampOffset = 0;
 
         // Initialize reserves using liquidity coefficient
         virtualHoldReserve = _expectedHoldAmount * _liquidityCoefficient;
@@ -232,7 +235,7 @@ contract Pool is ReentrancyGuard {
         realHoldReserve = 0;
         outgoingTranchesBalance = 0;
         k = virtualHoldReserve * virtualRwaReserve;
-        
+
         // Initialize fee percentages
         entryFeePercent = _entryFeePercent;
         exitFeePercent = _exitFeePercent;
@@ -251,108 +254,200 @@ contract Pool is ReentrancyGuard {
         totalClaimedAmount = 0;
         totalReturnedAmount = 0;
         awaitingBonusAmount = 0;
+
+        addressBook.eventEmitter().emitPool_Deployed(
+            bonusAfterCompletion,
+            floatingOutTranchesTimestamps,
+            address(holdToken),
+            address(rwaToken),
+            address(addressBook),
+            tokenId,
+            entityId,
+            entityOwnerId,
+            entityOwnerType,
+            owner,
+            expectedHoldAmount,
+            expectedRwaAmount,
+            expectedBonusAmount,
+            rewardPercent,
+            fixedSell,
+            allowEntryBurn,
+            entryPeriodStart,
+            entryPeriodExpired,
+            completionPeriodExpired,
+            k,
+            entryFeePercent,
+            exitFeePercent,
+            outgoingTranches,
+            outgoingTranchTimestamps,
+            incomingTranches,
+            incomingTrancheExpired
+        );
     }
 
     /// @notice Claims specified outgoing tranches
     /// @param trancheIndexes Array of tranche indexes to claim
     function claimOutgoingTranches(uint256[] calldata trancheIndexes) external nonReentrant {
         require(!paused, "Pool: paused");
+        require(isTargetReached, "Pool: target not reached");
         require(trancheIndexes.length > 0, "Pool: no tranches specified");
+        require(msg.sender == owner, "Pool: only owner");
 
-        uint256 totalAmount = 0;
-        
-        for (uint256 i = 0; i < trancheIndexes.length; i++) {
+        uint256 totalAmountToClaimInBatch = 0;
+        uint256 numTranchesInCall = trancheIndexes.length;
+        uint256[] memory claimedAmountsForBatch = new uint256[](numTranchesInCall);
+
+        for (uint256 i = 0; i < numTranchesInCall; i++) {
             uint256 index = trancheIndexes[i];
             require(index < outgoingTranches.length, "Pool: invalid tranche index");
-            
+
             // Check if tranche is already claimed
             require(outgoingTrancheStates[index] == 0, "Pool: tranche already claimed");
-            
+
             // Check if tranche time has come
-            require(block.timestamp >= outgoingTranchTimestamps[index], "Pool: tranche not yet available");
-            
+            uint256 effectiveTrancheTimestamp = outgoingTranchTimestamps[index];
+            if (floatingOutTranchesTimestamps && floatingTimestampOffset > 0) {
+                effectiveTrancheTimestamp -= floatingTimestampOffset;
+            }
+            require(
+                block.timestamp >= effectiveTrancheTimestamp,
+                "Pool: tranche not yet available"
+            );
+
             uint256 amount = outgoingTranches[index];
-            totalAmount += amount;
-            
+            totalAmountToClaimInBatch += amount;
+
             // Mark tranche as claimed
             outgoingTrancheStates[index] = amount;
+            claimedAmountsForBatch[i] = amount;
+            addressBook.eventEmitter().emitPool_OutgoingTrancheClaimed(msg.sender, index, amount);
         }
 
-        require(totalAmount > 0, "Pool: zero total amount");
-        
+        require(totalAmountToClaimInBatch > 0, "Pool: zero total amount to claim");
+
         // Update outgoing tranches balance
-        require(outgoingTranchesBalance >= totalAmount, "Pool: insufficient balance");
-        outgoingTranchesBalance -= totalAmount;
+        require(outgoingTranchesBalance >= totalAmountToClaimInBatch, "Pool: insufficient balance");
+        outgoingTranchesBalance -= totalAmountToClaimInBatch;
 
         // Update total claimed amount
-        totalClaimedAmount += totalAmount;
+        totalClaimedAmount += totalAmountToClaimInBatch;
 
         // Transfer HOLD tokens
-        require(holdToken.transfer(msg.sender, totalAmount), "Pool: transfer failed");
+        require(holdToken.transfer(msg.sender, totalAmountToClaimInBatch), "Pool: transfer failed");
+
+        addressBook.eventEmitter().emitPool_OutgoingClaimSummary(
+            totalClaimedAmount,
+            outgoingTranchesBalance
+        );
     }
 
     /// @notice Returns funds for incoming tranches
     /// @param amount Amount to return
     function returnIncomingTranche(uint256 amount) external nonReentrant {
         require(!paused, "Pool: paused");
+        require(isTargetReached, "Pool: target not reached");
         require(amount > 0, "Pool: zero amount");
-        
-        uint256 remainingAmount = amount;
-        uint256 currentTrancheIndex = lastCompletedIncomingTranche;
-        uint256 appliedToDebt = 0;
-        uint256 appliedToBonus = 0;
-        
-        while (remainingAmount > 0 && currentTrancheIndex < incomingTranches.length) {
-            uint256 trancheAmount = incomingTranches[currentTrancheIndex];
-            uint256 trancheRemaining = trancheAmount - incomingTrancheStates[currentTrancheIndex];
-            
-            if (trancheRemaining > 0) {
-                uint256 amountToApply = remainingAmount > trancheRemaining ? trancheRemaining : remainingAmount;
-                
-                incomingTrancheStates[currentTrancheIndex] += amountToApply;
-                remainingAmount -= amountToApply;
 
-                // Track if this amount goes to debt or bonus
-                if (totalReturnedAmount < expectedHoldAmount) {
-                    uint256 remainingDebt = expectedHoldAmount - totalReturnedAmount;
-                    uint256 toDebt = amountToApply > remainingDebt ? remainingDebt : amountToApply;
-                    appliedToDebt += toDebt;
-                    appliedToBonus += amountToApply - toDebt;
+        uint256 remainingAmount = amount;
+        uint256 loopTrancheIndex = lastCompletedIncomingTranche; // Use a separate variable for the loop
+        uint256 totalAppliedToDebtInCall = 0;
+        uint256 totalAppliedToBonusInCall = 0;
+
+        while (remainingAmount > 0 && loopTrancheIndex < incomingTranches.length) {
+            uint256 trancheAmount = incomingTranches[loopTrancheIndex];
+            uint256 trancheAlreadyReturned = incomingTrancheStates[loopTrancheIndex];
+            uint256 trancheRemaining = trancheAmount - trancheAlreadyReturned;
+
+            if (trancheRemaining > 0) {
+                uint256 portionAmountApplied = remainingAmount > trancheRemaining
+                    ? trancheRemaining
+                    : remainingAmount;
+
+                incomingTrancheStates[loopTrancheIndex] += portionAmountApplied;
+                remainingAmount -= portionAmountApplied;
+
+                uint256 portionAppliedToDebt = 0;
+                uint256 portionAppliedToBonus = 0;
+
+                // Track if this amount goes to debt or bonus for this specific portion
+                // Consider the sum of (totalReturnedAmount state var + totalAppliedToDebtInCall so far) to check against expectedHoldAmount
+                if ((totalReturnedAmount + totalAppliedToDebtInCall) < expectedHoldAmount) {
+                    uint256 overallRemainingDebt = expectedHoldAmount -
+                        (totalReturnedAmount + totalAppliedToDebtInCall);
+                    uint256 toDebtForPortion = portionAmountApplied > overallRemainingDebt
+                        ? overallRemainingDebt
+                        : portionAmountApplied;
+                    portionAppliedToDebt = toDebtForPortion;
+                    portionAppliedToBonus = portionAmountApplied - toDebtForPortion;
                 } else {
-                    appliedToBonus += amountToApply;
+                    portionAppliedToBonus = portionAmountApplied;
                 }
-                
-                // If tranche is completed, move to next
-                if (incomingTrancheStates[currentTrancheIndex] == trancheAmount) {
-                    lastCompletedIncomingTranche = currentTrancheIndex + 1;
+
+                totalAppliedToDebtInCall += portionAppliedToDebt;
+                totalAppliedToBonusInCall += portionAppliedToBonus;
+
+                bool isTrancheNowComplete = incomingTrancheStates[loopTrancheIndex] ==
+                    trancheAmount;
+                bool wasReturnedOnTime = block.timestamp <=
+                    incomingTrancheExpired[loopTrancheIndex];
+
+                addressBook.eventEmitter().emitPool_IncomingTrancheUpdate(
+                    msg.sender,
+                    loopTrancheIndex,
+                    portionAmountApplied,
+                    isTrancheNowComplete,
+                    wasReturnedOnTime
+                );
+
+                // If tranche is completed, and it's the one we are sequentially processing, advance lastCompletedIncomingTranche
+                if (isTrancheNowComplete && loopTrancheIndex == lastCompletedIncomingTranche) {
+                    lastCompletedIncomingTranche = loopTrancheIndex + 1;
                 }
             }
-            
-            currentTrancheIndex++;
+
+            loopTrancheIndex++;
         }
 
-        uint256 appliedAmount = amount - remainingAmount;
-        require(appliedAmount > 0, "Pool: no amount applied");
+        uint256 totalAmountAppliedInCall = amount - remainingAmount;
+        require(totalAmountAppliedInCall > 0, "Pool: no amount applied");
 
         // Transfer tokens from sender
-        require(holdToken.transferFrom(msg.sender, address(this), appliedAmount), "Pool: transfer failed");
-        
-        // Update total returned amount
-        totalReturnedAmount += appliedAmount;
+        require(
+            holdToken.transferFrom(msg.sender, address(this), totalAmountAppliedInCall),
+            "Pool: transfer failed"
+        );
 
-        // Update reserves based on debt vs bonus allocation
-        if (appliedToDebt > 0) {
-            realHoldReserve += appliedToDebt;
-            virtualHoldReserve -= appliedToDebt;
+        // Update total returned amount (global state)
+        totalReturnedAmount += totalAmountAppliedInCall;
+
+        // Update reserves based on debt vs bonus allocation (global state)
+        if (totalAppliedToDebtInCall > 0) {
+            realHoldReserve += totalAppliedToDebtInCall;
+            virtualHoldReserve -= totalAppliedToDebtInCall;
         }
-        if (appliedToBonus > 0) {
-            awaitingBonusAmount += appliedToBonus;
+        if (totalAppliedToBonusInCall > 0) {
+            awaitingBonusAmount += totalAppliedToBonusInCall;
+            addressBook.eventEmitter().emitPool_AwaitingBonusAmountUpdated(awaitingBonusAmount);
+        }
+
+        addressBook.eventEmitter().emitPool_IncomingReturnSummary(
+            totalReturnedAmount,
+            lastCompletedIncomingTranche
+        );
+
+        if (totalAppliedToDebtInCall > 0) {
+            addressBook.eventEmitter().emitPool_ReservesUpdated(
+                realHoldReserve,
+                virtualHoldReserve,
+                virtualRwaReserve
+            );
         }
 
         // Check if fully returned
         if (!isFullyReturned && totalReturnedAmount == expectedHoldAmount + expectedBonusAmount) {
             isFullyReturned = true;
             fullReturnTimestamp = block.timestamp;
+            addressBook.eventEmitter().emitPool_FundsFullyReturned(fullReturnTimestamp);
         }
     }
 
@@ -362,11 +457,10 @@ contract Pool is ReentrancyGuard {
     /// @return holdAmountWithFee Total amount of HOLD tokens required including fee
     /// @return fee Entry fee amount
     /// @return actualRwaAmount Actual amount of RWA tokens that will be minted
-    function estimateMint(uint256 rwaAmount, bool allowPartial) public view returns (
-        uint256 holdAmountWithFee,
-        uint256 fee,
-        uint256 actualRwaAmount
-    ) {
+    function estimateMint(
+        uint256 rwaAmount,
+        bool allowPartial
+    ) public view returns (uint256 holdAmountWithFee, uint256 fee, uint256 actualRwaAmount) {
         require(rwaAmount > 0, "Pool: zero input");
         require(rwaAmount < virtualRwaReserve, "Pool: insufficient RWA reserve");
 
@@ -383,8 +477,9 @@ contract Pool is ReentrancyGuard {
         // Calculate base HOLD needed using constant product formula
         // k = virtualHoldReserve * virtualRwaReserve = (virtualHoldReserve + holdAmount) * (virtualRwaReserve - actualRwaAmount)
         // holdAmount = (k / (virtualRwaReserve - actualRwaAmount)) - (virtualHoldReserve + realHoldReserve)
-        uint256 holdAmount = (k / (virtualRwaReserve - actualRwaAmount)) - (virtualHoldReserve + realHoldReserve);
-        
+        uint256 holdAmount = (k / (virtualRwaReserve - actualRwaAmount)) -
+            (virtualHoldReserve + realHoldReserve);
+
         // Calculate fee and total amount
         fee = (holdAmount * entryFeePercent) / 10000;
         holdAmountWithFee = holdAmount + fee;
@@ -403,13 +498,16 @@ contract Pool is ReentrancyGuard {
         require(!paused, "Pool: paused");
         require(!isFullyReturned, "Pool: funds fully returned");
         require(block.timestamp >= entryPeriodStart, "Pool: entry period not started");
-        if(!isTargetReached) {
+        if (!isTargetReached) {
             require(block.timestamp < entryPeriodExpired, "Pool: entry period expired");
         }
         require(block.timestamp <= validUntil, "Pool: transaction expired");
         require(block.timestamp < completionPeriodExpired, "Pool: completion period expired");
 
-        (uint256 holdAmountWithFee, uint256 fee, uint256 actualRwaAmount) = estimateMint(rwaAmount, allowPartial);
+        (uint256 holdAmountWithFee, uint256 fee, uint256 actualRwaAmount) = estimateMint(
+            rwaAmount,
+            allowPartial
+        );
         require(holdAmountWithFee <= maxHoldAmount, "Pool: excessive input amount");
 
         // Transfer HOLD tokens from user
@@ -423,7 +521,7 @@ contract Pool is ReentrancyGuard {
 
         // Update awaiting RWA amount and check target
         awaitingRwaAmount += actualRwaAmount;
-        
+
         // Update real reserve and virtual RWA
         realHoldReserve += holdAmountWithFee - fee;
         virtualRwaReserve -= actualRwaAmount;
@@ -431,16 +529,44 @@ contract Pool is ReentrancyGuard {
         // Check if target is reached
         if (!isTargetReached && awaitingRwaAmount >= expectedRwaAmount) {
             isTargetReached = true;
-            
+
             // Move expected amount to outgoing tranches
-            require(realHoldReserve >= expectedHoldAmount, "Pool: insufficient balance for tranches");
+            require(
+                realHoldReserve >= expectedHoldAmount,
+                "Pool: insufficient balance for tranches"
+            );
             outgoingTranchesBalance = expectedHoldAmount;
             realHoldReserve -= expectedHoldAmount;
             virtualHoldReserve += expectedHoldAmount;
+
+            if (floatingOutTranchesTimestamps && block.timestamp < entryPeriodExpired) {
+                uint256 timeSaved = entryPeriodExpired - block.timestamp;
+                if (timeSaved > 1 days) {
+                    floatingTimestampOffset = timeSaved - 1 days;
+                }
+            }
+            addressBook.eventEmitter().emitPool_TargetReached(
+                outgoingTranchesBalance,
+                floatingTimestampOffset
+            );
         }
 
         // Mint RWA tokens
         rwaToken.mint(msg.sender, tokenId, actualRwaAmount);
+
+        addressBook.eventEmitter().emitPool_RwaMinted(
+            msg.sender,
+            actualRwaAmount,
+            (holdAmountWithFee - fee),
+            fee
+        );
+        addressBook.eventEmitter().emitPool_AwaitingRwaAmountUpdated(awaitingRwaAmount);
+        // k changes because virtualRwaReserve changes
+        addressBook.eventEmitter().emitPool_ReservesUpdated(
+            realHoldReserve,
+            virtualHoldReserve,
+            virtualRwaReserve
+        );
     }
 
     /// @notice Burns RWA tokens for HOLD
@@ -467,21 +593,21 @@ contract Pool is ReentrancyGuard {
             uint256 bonusAmountWithoutFee,
             uint256 bonusFee
         ) = estimateBurn(rwaAmount);
-        
+
         // Check minimum amounts separately
         require(holdAmountWithoutFee >= minHoldAmount, "Pool: insufficient hold amount");
         require(bonusAmountWithoutFee >= minBonusAmount, "Pool: insufficient bonus amount");
-        
+
         // Update reserves
         realHoldReserve -= (holdAmountWithoutFee + holdFee);
         virtualRwaReserve += rwaAmount;
-        
+
         // Update awaiting amounts
         awaitingRwaAmount -= rwaAmount;
         if (bonusAmountWithoutFee > 0) {
             awaitingBonusAmount -= (bonusAmountWithoutFee + bonusFee);
         }
-        
+
         // Burn RWA tokens
         rwaToken.burn(msg.sender, tokenId, rwaAmount);
 
@@ -494,6 +620,26 @@ contract Pool is ReentrancyGuard {
         // Transfer fee to treasury
         address treasury = address(addressBook.treasury());
         require(holdToken.transfer(treasury, holdFee + bonusFee), "Pool: fee transfer failed");
+
+        addressBook.eventEmitter().emitPool_RwaBurned(
+            msg.sender,
+            rwaAmount,
+            holdAmountWithoutFee,
+            bonusAmountWithoutFee,
+            holdFee,
+            bonusFee
+        );
+        addressBook.eventEmitter().emitPool_AwaitingRwaAmountUpdated(awaitingRwaAmount);
+        if (bonusAmountWithoutFee > 0) {
+            // Only emit if bonus amount actually changed due to this burn
+            addressBook.eventEmitter().emitPool_AwaitingBonusAmountUpdated(awaitingBonusAmount);
+        }
+        // k changes because virtualRwaReserve changes
+        addressBook.eventEmitter().emitPool_ReservesUpdated(
+            realHoldReserve,
+            virtualHoldReserve,
+            virtualRwaReserve
+        );
     }
 
     /// @notice Calculates HOLD amounts and fees for burning RWA
@@ -502,26 +648,35 @@ contract Pool is ReentrancyGuard {
     /// @return holdFee Exit fee on base amount
     /// @return bonusAmountWithoutFee Bonus amount before fee
     /// @return bonusFee Exit fee on bonus amount
-    function estimateBurn(uint256 rwaAmount) public view returns (
-        uint256 holdAmountWithoutFee,
-        uint256 holdFee,
-        uint256 bonusAmountWithoutFee,
-        uint256 bonusFee
-    ) {
+    function estimateBurn(
+        uint256 rwaAmount
+    )
+        public
+        view
+        returns (
+            uint256 holdAmountWithoutFee,
+            uint256 holdFee,
+            uint256 bonusAmountWithoutFee,
+            uint256 bonusFee
+        )
+    {
         require(rwaAmount > 0, "Pool: zero input");
         require(rwaAmount <= virtualRwaReserve, "Pool: insufficient RWA reserve");
 
         // Calculate total HOLD output using constant product formula
         // k = virtualHoldReserve * virtualRwaReserve = (virtualHoldReserve - holdAmount) * (virtualRwaReserve + rwaAmount)
         // holdAmount = (virtualHoldReserve + realHoldReserve) - (k / (virtualRwaReserve + rwaAmount))
-        uint256 totalHoldAmount = (virtualHoldReserve + realHoldReserve) - (k / (virtualRwaReserve + rwaAmount));
-        
+        uint256 totalHoldAmount = (virtualHoldReserve + realHoldReserve) -
+            (k / (virtualRwaReserve + rwaAmount));
+
         // Calculate total bonus amount if available
         uint256 totalBonusAmount = 0;
         bool hasBonuses = awaitingBonusAmount > 0 && awaitingRwaAmount > 0;
-        
+
         bool bonusesUnlocked = block.timestamp >= completionPeriodExpired ||
-            (!bonusAfterCompletion && isFullyReturned && block.timestamp >= fullReturnTimestamp + 1 days);
+            (!bonusAfterCompletion &&
+                isFullyReturned &&
+                block.timestamp >= fullReturnTimestamp + 1 days);
 
         if (hasBonuses && bonusesUnlocked) {
             totalBonusAmount = (awaitingBonusAmount * rwaAmount) / awaitingRwaAmount;
@@ -536,15 +691,33 @@ contract Pool is ReentrancyGuard {
         bonusAmountWithoutFee = totalBonusAmount - bonusFee;
     }
 
+    /// @notice Enables emergency pause on the pool
+    /// @dev Can only be called by governance. Pool operations will be blocked.
+    function enablePause() external {
+        addressBook.requireGovernance(msg.sender);
+        require(!paused, "Pool: already paused");
+        paused = true;
+        addressBook.eventEmitter().emitPool_PausedStateChanged(true);
+    }
+
+    /// @notice Disables emergency pause on the pool
+    /// @dev Can only be called by governance. Pool operations will be unblocked.
+    function disablePause() external {
+        addressBook.requireGovernance(msg.sender);
+        require(paused, "Pool: not paused");
+        paused = false;
+        addressBook.eventEmitter().emitPool_PausedStateChanged(false);
+    }
+
     /// @notice Returns arrays of outgoing tranches information
     /// @return amounts Array of outgoing tranche amounts
     /// @return timestamps Array of outgoing tranche delays
     /// @return states Array of outgoing tranche states (claimed amounts)
-    function getOutgoingTranches() external view returns (
-        uint256[] memory amounts,
-        uint256[] memory timestamps,
-        uint256[] memory states
-    ) {
+    function getOutgoingTranches()
+        external
+        view
+        returns (uint256[] memory amounts, uint256[] memory timestamps, uint256[] memory states)
+    {
         return (outgoingTranches, outgoingTranchTimestamps, outgoingTrancheStates);
     }
 
@@ -552,11 +725,23 @@ contract Pool is ReentrancyGuard {
     /// @return amounts Array of incoming tranche amounts
     /// @return expired Array of incoming tranche expiration timestamps
     /// @return states Array of incoming tranche states (returned amounts)
-    function getIncomingTranches() external view returns (
-        uint256[] memory amounts,
-        uint256[] memory expired,
-        uint256[] memory states
-    ) {
+    function getIncomingTranches()
+        external
+        view
+        returns (uint256[] memory amounts, uint256[] memory expired, uint256[] memory states)
+    {
         return (incomingTranches, incomingTrancheExpired, incomingTrancheStates);
+    }
+
+    function uniqueContractId() public pure override returns (bytes32) {
+        return keccak256("Pool");
+    }
+
+    function implementationVersion() public pure override returns (uint256) {
+        return 1;
+    }
+
+    function _verifyAuthorizeUpgradeRole() internal view override {
+        addressBook.requireTimelock(msg.sender);
     }
 }

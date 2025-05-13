@@ -41,6 +41,11 @@ const testConfigs = {
         { value: false, description: "bonus after return" }
     ],
 
+    floatingOutTranchesTimestampsValues: [
+        { value: true, description: "floating timestamps" },
+        { value: false, description: "fixed timestamps" }
+    ],
+
     // Target amounts configurations
     targetAmounts: [
         {
@@ -67,289 +72,289 @@ const testConfigs = {
         { value: 2000n, description: "20% reward" }
     ],
 
-    // Price impact coefficients
+    // Price impact coefficients (impact percent * 100)
     priceImpactCoefficients: {
-        "300": 1,
-        "125": 2,
-        "77.78": 3,
-        "56.25": 4,
-        "44": 5,
-        "36.11": 6,
-        "30.61": 7,
-        // "26.56": 8,
-        // "23.46": 9,
-        // "21": 10,
-        // "19.01": 11,
-        // "17.36": 12,
-        // "15.98": 13,
-        // "14.8": 14,
-        // "13.78": 15,
-        // "12.89": 16,
-        // "12.11": 17,
-        // "11.42": 18,
-        // "10.8": 19,
-        // "10.25": 20,
-        // "9.75": 21,
-        "9.3": 22,
-        "8.88": 23,
-        "8.51": 24,
-        "8.16": 25,
-        "7.84": 26,
-        "7.54": 27,
-        "7.27": 28,
-        "7.02": 29,
-        "6.78": 30,
-        "6.56": 31,
-        "6.35": 32,
-        "6.15": 33,
-        "5.97": 34,
-        "5.8": 35,
-        "5.63": 36,
-        "5.48": 37,
-        "5.33": 38,
-        "5.19": 39,
-        "5.06": 40,
-        "4.94": 41,
-        "4.82": 42,
-        "4.71": 43,
-        "4.6": 44,
-        "4.49": 45,
-        "4.4": 46,
-        "4.3": 47,
-        "4.21": 48,
-        "4.12": 49,
-        "4.04": 50,
-        "3.96": 51,
-        "3.88": 52,
-        "3.81": 53,
-        "3.74": 54,
-        "3.67": 55,
-        "3.6": 56,
-        "3.54": 57,
-        "3.48": 58,
-        "3.42": 59,
-        "3.36": 60,
-        "3.31": 61,
-        "3.25": 62,
-        "3.2": 63,
-        "3.15": 64,
-        "3.1": 65,
-        "3.05": 66,
-        "3.01": 67,
-        "2.96": 68,
-        "2.92": 69,
-        "2.88": 70,
-        "2.84": 71,
-        "2.8": 72,
-        "2.76": 73,
-        "2.72": 74,
-        "2.68": 75,
-        "2.65": 76,
-        "2.61": 77,
-        "2.58": 78,
-        "2.55": 79,
-        "2.52": 80,
-        "2.48": 81,
-        "2.45": 82,
-        "2.42": 83,
-        "2.4": 84,
-        "2.37": 85,
-        "2.34": 86,
-        "2.31": 87,
-        "2.29": 88,
-        "2.26": 89,
-        "2.23": 90,
-        "2.21": 91,
-        "2.19": 92,
-        "2.16": 93,
-        "2.14": 94,
-        "2.12": 95,
-        "2.09": 96,
-        "2.07": 97,
-        "2.05": 98,
-        "2.03": 99,
-        "2.01": 100,
-        "1.99": 101,
-        "1.97": 102,
-        "1.95": 103,
-        "1.93": 104,
-        "1.91": 105,
-        "1.9": 106,
-        "1.88": 107,
-        "1.86": 108,
-        "1.84": 109,
-        "1.83": 110,
-        "1.81": 111,
-        "1.79": 112,
-        "1.78": 113,
-        "1.76": 114,
-        "1.75": 115,
-        "1.73": 116,
-        "1.72": 117,
-        "1.7": 118,
-        "1.69": 119,
-        "1.67": 120,
-        "1.66": 121,
-        "1.65": 122,
-        "1.63": 123,
-        "1.62": 124,
-        "1.61": 125,
-        "1.59": 126,
-        "1.58": 127,
-        "1.57": 128,
-        "1.56": 129,
-        "1.54": 130,
-        "1.53": 131,
-        "1.52": 132,
-        "1.51": 133,
-        "1.5": 134,
-        "1.49": 135,
-        "1.48": 136,
-        "1.47": 137,
-        "1.45": 138,
-        "1.44": 139,
-        "1.43": 140,
-        "1.42": 141,
-        "1.41": 142,
-        "1.4": 143,
-        "1.39": 144,
-        "1.38": 145,
-        "1.37": 146,
-        "1.36": 148,
-        "1.35": 149,
-        "1.34": 150,
-        "1.33": 151,
-        "1.32": 152,
-        "1.31": 153,
-        "1.3": 154,
-        "1.29": 155,
-        "1.28": 157,
-        "1.27": 158,
-        "1.26": 159,
-        "1.25": 160,
-        "1.24": 162,
-        "1.23": 163,
-        "1.22": 164,
-        "1.21": 166,
-        "1.2": 167,
-        "1.19": 168,
-        "1.18": 170,
-        "1.17": 171,
-        "1.16": 173,
-        "1.15": 174,
-        "1.14": 176,
-        "1.13": 177,
-        "1.12": 179,
-        "1.11": 180,
-        "1.1": 182,
-        "1.09": 184,
-        "1.08": 185,
-        "1.07": 187,
-        "1.06": 189,
-        "1.05": 191,
-        "1.04": 192,
-        "1.03": 194,
-        "1.02": 196,
-        "1.01": 198,
-        "0.99": 202,
-        "0.98": 204,
-        "0.97": 206,
-        "0.96": 208,
-        "0.95": 210,
-        "0.94": 213,
-        "0.93": 215,
-        "0.92": 217,
-        "0.91": 220,
-        "0.9": 222,
-        "0.89": 224,
-        "0.88": 227,
-        "0.87": 230,
-        "0.86": 232,
-        "0.85": 235,
-        "0.84": 238,
-        "0.83": 241,
-        "0.82": 243,
-        "0.81": 246,
-        "0.8": 249,
-        "0.79": 253,
-        "0.78": 256,
-        "0.77": 259,
-        "0.76": 262,
-        "0.75": 266,
-        "0.74": 269,
-        "0.73": 273,
-        "0.72": 277,
-        "0.71": 281,
-        "0.7": 285,
-        "0.69": 289,
-        "0.68": 293,
-        "0.67": 297,
-        "0.66": 302,
-        "0.65": 306,
-        "0.64": 311,
-        "0.63": 316,
-        "0.62": 321,
-        "0.61": 326,
-        "0.6": 332,
-        "0.59": 337,
-        "0.58": 343,
-        "0.57": 349,
-        "0.56": 355,
-        "0.55": 361,
-        "0.54": 368,
-        "0.53": 375,
-        "0.52": 382,
-        "0.51": 389,
-        "0.5": 397,
-        "0.49": 405,
-        "0.48": 413,
-        "0.47": 422,
-        "0.46": 431,
-        "0.45": 441,
-        "0.44": 450,
-        "0.43": 461,
-        "0.42": 472,
-        "0.41": 483,
-        "0.4": 495,
-        "0.39": 507,
-        "0.38": 520,
-        "0.37": 534,
-        "0.36": 549,
-        "0.35": 564,
-        "0.34": 581,
-        "0.33": 598,
-        "0.32": 616,
-        "0.31": 636,
-        "0.3": 657,
-        "0.29": 679,
-        "0.28": 703,
-        "0.27": 728,
-        "0.26": 756,
-        "0.25": 785,
-        "0.24": 817,
-        "0.23": 852,
-        "0.22": 890,
-        "0.21": 931,
-        "0.2": 977,
-        "0.19": 1027,
-        "0.18": 1082,
-        "0.17": 1144,
-        "0.16": 1213,
-        "0.15": 1291,
-        "0.14": 1380,
-        "0.13": 1482,
-        "0.12": 1601,
-        "0.11": 1740,
-        "0.1": 1906,
-        "0.09": 2106,
-        "0.08": 2354,
-        "0.07": 2668,
-        "0.06": 3078,
-        "0.05": 3637,
-        "0.04": 4445,
-        "0.03": 5715,
-        "0.02": 8001,
-        "0.01": 13334
+            30000: 1,    // 300%
+        //     12500: 2,    // 125%
+        //     7778: 3,     // 77.78%
+        //     5625: 4,     // 56.25%
+        //     4400: 5,     // 44%
+        //     3611: 6,     // 36.11%
+        //     3061: 7,     // 30.61%
+        //     2656: 8,     // 26.56%
+        //     2346: 9,     // 23.46%
+        //     2100: 10,    // 21%
+        //     1901: 11,    // 19.01%
+        //     1736: 12,    // 17.36%
+        //     1598: 13,    // 15.98%
+        //     1480: 14,    // 14.8%
+        //     1378: 15,    // 13.78%
+        //     1289: 16,    // 12.89%
+        //     1211: 17,    // 12.11%
+        //     1142: 18,    // 11.42%
+        //     1080: 19,    // 10.8%
+        //     1025: 20,    // 10.25%
+        //     975: 21,     // 9.75%
+        // 930: 22,      // 9.3%
+        //     888: 23,     // 8.88%
+        //     851: 24,     // 8.51%
+        //     816: 25,     // 8.16%
+        //     784: 26,     // 7.84%
+        //     754: 27,     // 7.54%
+        //     727: 28,     // 7.27%
+        //     702: 29,     // 7.02%
+        //     678: 30,     // 6.78%
+        //     656: 31,     // 6.56%
+        //     635: 32,     // 6.35%
+        //     615: 33,     // 6.15%
+        //     597: 34,     // 5.97%
+        //     580: 35,     // 5.8%
+        //     563: 36,     // 5.63%
+        //     548: 37,     // 5.48%
+        //     533: 38,     // 5.33%
+        //     519: 39,     // 5.19%
+        //     506: 40,     // 5.06%
+        //     494: 41,     // 4.94%
+        //     482: 42,     // 4.82%
+        //     471: 43,     // 4.71%
+        //     460: 44,     // 4.6%
+        //     449: 45,     // 4.49%
+        //     440: 46,     // 4.4%
+            430: 47,     // 4.3%
+        //     421: 48,     // 4.21%
+        //     412: 49,     // 4.12%
+        //     404: 50,     // 4.04%
+        //     396: 51,     // 3.96%
+        //     388: 52,     // 3.88%
+        //     381: 53,     // 3.81%
+        //     374: 54,     // 3.74%
+        //     367: 55,     // 3.67%
+        //     360: 56,     // 3.6%
+        //     354: 57,     // 3.54%
+        //     348: 58,     // 3.48%
+        //     342: 59,     // 3.42%
+        //     336: 60,     // 3.36%
+        //     331: 61,     // 3.31%
+        //     325: 62,     // 3.25%
+        //     320: 63,     // 3.2%
+        //     315: 64,     // 3.15%
+        //     310: 65,     // 3.1%
+        //     305: 66,     // 3.05%
+        //     301: 67,     // 3.01%
+        //     296: 68,     // 2.96%
+        //     292: 69,     // 2.92%
+        //     288: 70,     // 2.88%
+        //     284: 71,     // 2.84%
+        //     280: 72,     // 2.8%
+        //     276: 73,     // 2.76%
+        //     272: 74,     // 2.72%
+        //     268: 75,     // 2.68%
+        //     265: 76,     // 2.65%
+        //     261: 77,     // 2.61%
+        //     258: 78,     // 2.58%
+        //     255: 79,     // 2.55%
+        //     252: 80,     // 2.52%
+        //     248: 81,     // 2.48%
+        //     245: 82,     // 2.45%
+        //     242: 83,     // 2.42%
+        //     240: 84,     // 2.4%
+        //     237: 85,     // 2.37%
+        //     234: 86,     // 2.34%
+        //     231: 87,     // 2.31%
+        //     229: 88,     // 2.29%
+        //     226: 89,     // 2.26%
+        //     223: 90,     // 2.23%
+        //     221: 91,     // 2.21%
+        //     219: 92,     // 2.19%
+        //     216: 93,     // 2.16%
+        //     214: 94,     // 2.14%
+        //     212: 95,     // 2.12%
+        //     209: 96,     // 2.09%
+        //     207: 97,     // 2.07%
+        //     205: 98,     // 2.05%
+        //     203: 99,     // 2.03%
+        //     201: 100,    // 2.01%
+        //     199: 101,    // 1.99%
+        //     197: 102,    // 1.97%
+        //     195: 103,    // 1.95%
+        //     193: 104,    // 1.93%
+        //     191: 105,    // 1.91%
+        //     190: 106,    // 1.9%
+        //     188: 107,    // 1.88%
+        //     186: 108,    // 1.86%
+        //     184: 109,    // 1.84%
+        //     183: 110,    // 1.83%
+        //     181: 111,    // 1.81%
+        //     179: 112,    // 1.79%
+        //     178: 113,    // 1.78%
+        //     176: 114,    // 1.76%
+        //     175: 115,    // 1.75%
+        //     173: 116,    // 1.73%
+        //     172: 117,    // 1.72%
+        //     170: 118,    // 1.7%
+        //     169: 119,    // 1.69%
+        //     167: 120,    // 1.67%
+        //     166: 121,    // 1.66%
+        //     165: 122,    // 1.65%
+        //     163: 123,    // 1.63%
+        //     162: 124,    // 1.62%
+        //     161: 125,    // 1.61%
+        //     159: 126,    // 1.59%
+        //     158: 127,    // 1.58%
+        //     157: 128,    // 1.57%
+        //     156: 129,    // 1.56%
+        //     154: 130,    // 1.54%
+        //     153: 131,    // 1.53%
+        //     152: 132,    // 1.52%
+        //     151: 133,    // 1.51%
+        //     150: 134,    // 1.5%
+        //     149: 135,    // 1.49%
+        //     148: 136,    // 1.48%
+        //     147: 137,    // 1.47%
+        //     145: 138,    // 1.45%
+        //     144: 139,    // 1.44%
+        //     143: 140,    // 1.43%
+        //     142: 141,    // 1.42%
+        //     141: 142,    // 1.41%
+        //     140: 143,    // 1.4%
+        //     139: 144,    // 1.39%
+        //     138: 145,    // 1.38%
+        //     137: 146,    // 1.37%
+        //     136: 148,    // 1.36%
+        //     135: 149,    // 1.35%
+        //     134: 150,    // 1.34%
+        //     133: 151,    // 1.33%
+        //     132: 152,    // 1.32%
+        //     131: 153,    // 1.31%
+        //     130: 154,    // 1.3%
+        //     129: 155,    // 1.29%
+        //     128: 157,    // 1.28%
+        //     127: 158,    // 1.27%
+        //     126: 159,    // 1.26%
+        //     125: 160,    // 1.25%
+        //     124: 162,    // 1.24%
+        //     123: 163,    // 1.23%
+        //     122: 164,    // 1.22%
+        //     121: 166,    // 1.21%
+        //     120: 167,    // 1.2%
+        //     119: 168,    // 1.19%
+        //     118: 170,    // 1.18%
+        //     117: 171,    // 1.17%
+        //     116: 173,    // 1.16%
+        //     115: 174,    // 1.15%
+        //     114: 176,    // 1.14%
+        //     113: 177,    // 1.13%
+        //     112: 179,    // 1.12%
+        //     111: 180,    // 1.11%
+        //     110: 182,    // 1.1%
+        //     109: 184,    // 1.09%
+        //     108: 185,    // 1.08%
+        //     107: 187,    // 1.07%
+        //     106: 189,    // 1.06%
+        //     105: 191,    // 1.05%
+        //     104: 192,    // 1.04%
+        //     103: 194,    // 1.03%
+        //     102: 196,    // 1.02%
+        //     101: 198,    // 1.01%
+        //     99: 202,     // 0.99%
+        //     98: 204,     // 0.98%
+        //     97: 206,     // 0.97%
+        //     96: 208,     // 0.96%
+        //     95: 210,     // 0.95%
+        //     94: 213,     // 0.94%
+        //     93: 215,     // 0.93%
+        //     92: 217,     // 0.92%
+        //     91: 220,     // 0.91%
+        //     90: 222,     // 0.9%
+        //     89: 224,     // 0.89%
+        //     88: 227,     // 0.88%
+        //     87: 230,     // 0.87%
+        //     86: 232,     // 0.86%
+        //     85: 235,     // 0.85%
+        //     84: 238,     // 0.84%
+        //     83: 241,     // 0.83%
+        //     82: 243,     // 0.82%
+        //     81: 246,     // 0.81%
+        //     80: 249,     // 0.8%
+        //     79: 253,     // 0.79%
+        //     78: 256,     // 0.78%
+        //     77: 259,     // 0.77%
+        //     76: 262,     // 0.76%
+        //     75: 266,     // 0.75%
+        //     74: 269,     // 0.74%
+        //     73: 273,     // 0.73%
+        //     72: 277,     // 0.72%
+        //     71: 281,     // 0.71%
+        //     70: 285,     // 0.7%
+        //     69: 289,     // 0.69%
+        //     68: 293,     // 0.68%
+            67: 297,     // 0.67%
+        //     66: 302,     // 0.66%
+        //     65: 306,     // 0.65%
+        //     64: 311,     // 0.64%
+        //     63: 316,     // 0.63%
+        //     62: 321,     // 0.62%
+        //     61: 326,     // 0.61%
+        //     60: 332,     // 0.6%
+        //     59: 337,     // 0.59%
+        //     58: 343,     // 0.58%
+        //     57: 349,     // 0.57%
+        //     56: 355,     // 0.56%
+        //     55: 361,     // 0.55%
+        //     54: 368,     // 0.54%
+        //     53: 375,     // 0.53%
+        //     52: 382,     // 0.52%
+        //     51: 389,     // 0.51%
+        //     50: 397,     // 0.5%
+        //     49: 405,     // 0.49%
+        //     48: 413,     // 0.48%
+        //     47: 422,     // 0.47%
+        //     46: 431,     // 0.46%
+        //     45: 441,     // 0.45%
+        //     44: 450,     // 0.44%
+        //     43: 461,     // 0.43%
+        //     42: 472,     // 0.42%
+        //     41: 483,     // 0.41%
+        //     40: 495,     // 0.4%
+        //     39: 507,     // 0.39%
+        //     38: 520,     // 0.38%
+        //     37: 534,     // 0.37%
+        //     36: 549,     // 0.36%
+        //     35: 564,     // 0.35%
+        //     34: 581,     // 0.34%
+        //     33: 598,     // 0.33%
+        //     32: 616,     // 0.32%
+        //     31: 636,     // 0.31%
+        //     30: 657,     // 0.3%
+        //     29: 679,     // 0.29%
+        //     28: 703,     // 0.28%
+        //     27: 728,     // 0.27%
+        //     26: 756,     // 0.26%
+        //     25: 785,     // 0.25%
+        //     24: 817,     // 0.24%
+        //     23: 852,     // 0.23%
+        //     22: 890,     // 0.22%
+        //     21: 931,     // 0.21%
+        //     20: 977,     // 0.2%
+        //     19: 1027,    // 0.19%
+        //     18: 1082,    // 0.18%
+        //     17: 1144,    // 0.17%
+            // 16: 1213,    // 0.16%
+        //     15: 1291,    // 0.15%
+        //     14: 1380,    // 0.14%
+        //     13: 1482,    // 0.13%
+        //     12: 1601,    // 0.12%
+        //     11: 1740,    // 0.11%
+        //     10: 1906,    // 0.1%
+        //     9: 2106,     // 0.09%
+        //     8: 2354,     // 0.08%
+        //     7: 2668,     // 0.07%
+        //     6: 3078,     // 0.06%
+            // 5: 3637,     // 0.05%
+        //     4: 4445,     // 0.04%
+        //     3: 5715,     // 0.03%
+        //     2: 8001,     // 0.02%
+        //     1: 13334     // 0.01%
     },
 
     // Helper to get all combinations
@@ -358,35 +363,42 @@ const testConfigs = {
             targetRwa: bigint,
             targetHold: bigint,
             rewardPercent: bigint,
+            priceImpactPercent: number,
             coefficient: number,
             fixedSell: boolean,
             allowEntryBurn: boolean,
             bonusAfterCompletion: boolean,
+            floatingOutTranchesTimestamps: boolean,
             description: string
         }> = [];
 
         for (const fixedSell of this.fixedSellValues) {
             for (const allowEntryBurn of this.allowEntryBurnValues) {
                 for (const bonusAfterCompletion of this.bonusAfterCompletionValues) {
-                    for (const amount of this.targetAmounts) {
-                        for (const reward of this.rewardPercents) {
-                            for (const [impact, coef] of Object.entries(this.priceImpactCoefficients)) {
-                                combinations.push({
-                                    targetRwa: amount.rwa,
-                                    targetHold: amount.hold,
-                                    rewardPercent: reward.value,
-                                    coefficient: coef,
-                                    fixedSell: fixedSell.value,
-                                    allowEntryBurn: allowEntryBurn.value,
-                                    bonusAfterCompletion: bonusAfterCompletion.value,
-                                    description: `${fixedSell.description}, ${allowEntryBurn.description}, ${bonusAfterCompletion.description}, ${amount.description}, ${reward.description}, ${impact}% price impact`
-                                });
+                    for (const floatingTimestamps of this.floatingOutTranchesTimestampsValues) {
+                        for (const amount of this.targetAmounts) {
+                            for (const reward of this.rewardPercents) {
+                                for (const [priceImpactPercent, coefficient] of Object.entries(this.priceImpactCoefficients)) {
+                                    combinations.push({
+                                        targetRwa: amount.rwa,
+                                        targetHold: amount.hold,
+                                        rewardPercent: reward.value,
+                                        priceImpactPercent: Number(priceImpactPercent),
+                                        coefficient: coefficient,
+                                        fixedSell: fixedSell.value,
+                                        allowEntryBurn: allowEntryBurn.value,
+                                        bonusAfterCompletion: bonusAfterCompletion.value,
+                                        floatingOutTranchesTimestamps: floatingTimestamps.value,
+                                        description: `${fixedSell.description}, ${allowEntryBurn.description}, ${bonusAfterCompletion.description}, ${floatingTimestamps.description}, ${amount.description}, ${reward.description}, ${Number(priceImpactPercent)/100}% price impact`
+                                    });
+                                }
                             }
                         }
                     }
                 }
             }
         }
+
 
         return combinations;
     }
@@ -395,7 +407,7 @@ const testConfigs = {
 describe("Pool tests", () => {
     let holdToken: IERC20;
     let rwaToken: RWA;
-    let config: Config;
+    let configContract: Config;
     let factory: Factory;
     let addressBook: AddressBook;
     let owner: SignerWithAddress;
@@ -420,15 +432,15 @@ describe("Pool tests", () => {
 
         factory = Factory__factory.connect((await deployments.get('Factory')).address, ethers.provider);
         addressBook = AddressBook__factory.connect((await deployments.get('AddressBook')).address, ethers.provider);
-        config = Config__factory.connect((await deployments.get('Config')).address, ethers.provider);
-        holdToken = IERC20__factory.connect(await config.holdToken(), ethers.provider);
+        configContract = Config__factory.connect((await deployments.get('Config')).address, ethers.provider);
+        holdToken = IERC20__factory.connect(await configContract.holdToken(), ethers.provider);
 
         // Mint USDT to user
         await ERC20Minter.mint(await holdToken.getAddress(), user.address, 1000000);
         await holdToken.connect(user).approve(await factory.getAddress(), ethers.MaxUint256);
 
         // Deploy RWA token through factory
-        const createRWAFee = await config.minCreateRWAFee();
+        const createRWAFee = await configContract.createRWAFeeMin();
         const signData = await SignaturesUtils.signRWADeployment({
             factory,
             user,
@@ -473,13 +485,12 @@ describe("Pool tests", () => {
             let targetRwa: bigint = config.targetRwa;
             let targetHold: bigint = config.targetHold;
             let rewardPercent: bigint = config.rewardPercent;
-            let expectedImpact: string = Object.entries(testConfigs.priceImpactCoefficients)
-                .find(([_, coef]) => coef === config.coefficient)?.[0] || "0";
+            let priceImpactPercent: number = config.priceImpactPercent;
 
 
 
             interface DeployPoolParams {
-                liquidityCoefficient: number;
+                priceImpactPercent?: number; // This will be converted to BigInt for factory call
                 outgoingTrancheAmounts?: bigint[];
                 outgoingTranchTimestamps?: number[];
                 incomingTrancheAmounts?: bigint[];
@@ -488,11 +499,14 @@ describe("Pool tests", () => {
                 fixedSell?: boolean;
                 allowEntryBurn?: boolean;
                 bonusAfterCompletion?: boolean;
+                floatingOutTranchesTimestamps?: boolean;
+                entryFeePercent?: number;
+                exitFeePercent?: number;
             }
 
-            async function deployPool(params: DeployPoolParams): Promise<Pool> {
+            async function deployPool(params?: DeployPoolParams): Promise<Pool> {
                 const {
-                    liquidityCoefficient,
+                    priceImpactPercent = config.priceImpactPercent,
                     outgoingTrancheAmounts,
                     outgoingTranchTimestamps,
                     incomingTrancheAmounts,
@@ -500,57 +514,90 @@ describe("Pool tests", () => {
                     entryPeriodStart,
                     fixedSell = config.fixedSell,
                     allowEntryBurn = config.allowEntryBurn,
-                    bonusAfterCompletion = config.bonusAfterCompletion
-                } = params;
-                const PoolFactory = await ethers.getContractFactory("Pool");
+                    bonusAfterCompletion = config.bonusAfterCompletion,
+                    floatingOutTranchesTimestamps = config.floatingOutTranchesTimestamps
+                } = params ?? {};
 
-                // Fixed parameters for testing
-                const entryFeePercent = 500n; // 5%
-                const exitFeePercent = 300n;  // 3%
                 const now = await getCurrentBlockTimestamp();
-                const _entryPeriodStart = entryPeriodStart || now;
+                const _entryPeriodStart = BigInt(entryPeriodStart || now);
 
                 // Default single outgoing tranche if not provided
                 const _outgoingTrancheAmounts = outgoingTrancheAmounts || [targetHold];
-                const _outgoingTranchTimestamps = outgoingTranchTimestamps || [_entryPeriodStart + 86400]; // 24 hours after start if not provided
+                const _outgoingTranchTimestamps = outgoingTranchTimestamps || [_entryPeriodStart + 86400n]; // 24 hours after start if not provided
 
                 // Calculate expected bonus amount
                 const expectedBonusAmount = (targetHold * rewardPercent) / 10000n;
 
                 // Default single incoming tranche if not provided
                 const _incomingTrancheAmounts = incomingTrancheAmounts || [targetHold + expectedBonusAmount];
-                const _incomingTrancheExpired = incomingTrancheExpired || [_entryPeriodStart + 172800]; // 48 hours after start if not provided
+                const _incomingTrancheExpired = incomingTrancheExpired || [BigInt(_outgoingTranchTimestamps[0]) + 172800n]; // 48 hours after start if not provided
 
-                const pool = await PoolFactory.deploy(
-                    await holdToken.getAddress(),
-                    await rwaToken.getAddress(),
-                    await addressBook.getAddress(),
-                    tokenId,
-                    "test_entity",
-                    "test_owner",
-                    "test_type",
-                    user.address,
-                    targetHold,
-                    targetRwa,
-                    liquidityCoefficient,
+                const entityId = "test_entity";
+                const entityOwnerId = "test_owner";
+                const entityOwnerType = "test_type";
+
+                const createPoolFeeRatio = await configContract.createPoolFeeRatioMin();
+                const entryFeePercent = await configContract.entryFeePercentMin();
+                const exitFeePercent = await configContract.exitFeePercentMin();
+
+                const poolSignData = await SignaturesUtils.signPoolDeployment({
+                    factory,
+                    user,
+                    signers: [signer1, signer2, signer3],
+                    createPoolFeeRatio,
+                    entityId,
+                    rwa: rwaToken,
+                    expectedHoldAmount: targetHold,
+                    expectedRwaAmount: targetRwa,
+                    priceImpactPercent: BigInt(priceImpactPercent),
+                    rewardPercent,
+                    entryPeriodStart: _entryPeriodStart,
                     entryFeePercent,
                     exitFeePercent,
-                    _entryPeriodStart,
-                    rewardPercent,
                     fixedSell,
                     allowEntryBurn,
                     bonusAfterCompletion,
+                    floatingOutTranchesTimestamps,
+                    outgoingTranches: _outgoingTrancheAmounts,
+                    outgoingTranchTimestamps: _outgoingTranchTimestamps.map(t => BigInt(t)),
+                    incomingTranches: _incomingTrancheAmounts,
+                    incomingTrancheExpired: _incomingTrancheExpired.map(t => BigInt(t))
+                });
+
+                const poolLengthBefore = await addressBook.poolsLength();
+
+                await factory.connect(user).deployPool(
+                    createPoolFeeRatio,
+                    entityId,
+                    await rwaToken.getAddress(),
+                    targetHold,
+                    targetRwa,
+                    BigInt(priceImpactPercent),
+                    rewardPercent,
+                    _entryPeriodStart,
+                    entryFeePercent,
+                    exitFeePercent,
+                    fixedSell,
+                    allowEntryBurn,
+                    bonusAfterCompletion,
+                    floatingOutTranchesTimestamps,
                     _outgoingTrancheAmounts,
-                    _outgoingTranchTimestamps,
+                    _outgoingTranchTimestamps.map(t => BigInt(t)),
                     _incomingTrancheAmounts,
-                    _incomingTrancheExpired
+                    _incomingTrancheExpired.map(t => BigInt(t)),
+                    poolSignData.signers,
+                    poolSignData.signatures,
+                    poolSignData.expired
                 );
+
+                const poolAddress = await addressBook.getPoolByIndex(poolLengthBefore);
+                const pool = Pool__factory.connect(poolAddress, ethers.provider);
 
                 // Approve pool and mint enough tokens
                 await ERC20Minter.mint(await holdToken.getAddress(), user.address, 10000000);
                 await holdToken.connect(user).approve(await pool.getAddress(), ethers.MaxUint256);
 
-                return Pool__factory.connect(await pool.getAddress(), ethers.provider);
+                return pool;
             }
 
             const swapAmountsByCount = new Map<number, SwapAmounts>();
@@ -581,7 +628,7 @@ describe("Pool tests", () => {
             for (const swapInfo of swapAmountsByCount.values()) {
                 it("should verify pool behavior", async () => {
                     const validUntil = (await getCurrentBlockTimestamp()) + 3600;
-                    const pool = await deployPool({ liquidityCoefficient: config.coefficient });
+                    const pool = await deployPool();
 
                     const initialK = (await pool.virtualHoldReserve()) * (await pool.virtualRwaReserve());
                     const initialPrice = Number(ethers.formatEther(await pool.virtualHoldReserve())) /
@@ -617,15 +664,15 @@ describe("Pool tests", () => {
                     // Verify price impact
                     const finalPrice = Number(ethers.formatEther(await pool.virtualHoldReserve() + await pool.realHoldReserve())) /
                         Number(await pool.virtualRwaReserve());
-                    const actualImpact = ((finalPrice - initialPrice) / initialPrice) * 100;
+                    const actualImpact = ((finalPrice - initialPrice) / initialPrice);
 
-                    expect(Math.abs(actualImpact - Number(expectedImpact))).to.be.lessThan(0.1,
-                        `Price impact ${actualImpact.toFixed(2)}% differs from expected ${expectedImpact}%`);
+                    expect(Math.abs(actualImpact * 10000 - config.priceImpactPercent)).to.be.lessThan(10,
+                        `Price impact ${actualImpact * 10000} differs from expected ${config.priceImpactPercent}`);
                 });
             }
 
             it("should not set isTargetReached when target not reached", async () => {
-                const pool = await deployPool({ liquidityCoefficient: config.coefficient });
+                const pool = await deployPool();
                 const validUntil = (await getCurrentBlockTimestamp()) + 3600;
 
                 // Mint half of target amount
@@ -638,7 +685,7 @@ describe("Pool tests", () => {
             });
 
             it("should set isTargetReached when target is reached", async () => {
-                const pool = await deployPool({ liquidityCoefficient: config.coefficient });
+                const pool = await deployPool();
                 const validUntil = Math.floor(Date.now() / 1000) + 3600;
 
                 // Mint full target amount
@@ -704,8 +751,7 @@ describe("Pool tests", () => {
 
                     // Deploy pool with configured tranches and periods
                     const pool = await deployPool({
-                        liquidityCoefficient: 20,
-                        fixedSell: false, 
+                        fixedSell: false,
                         outgoingTrancheAmounts: outgoingAmounts,
                         outgoingTranchTimestamps: outgoingTimestamps,
                         incomingTrancheAmounts: incomingAmounts,
@@ -920,7 +966,7 @@ describe("Pool tests", () => {
                 const completionPeriodExpired = now + 10 * 86400; // 10 days
 
                 // Deploy pool with default single tranches
-                const pool = await deployPool({ liquidityCoefficient: 20 });
+                const pool = await deployPool();
 
                 // Fill pool to reach target
                 const [holdAmountWithFee, fee, actualRwaAmount] = await pool.estimateMint(targetRwa, false);
@@ -1004,7 +1050,6 @@ describe("Pool tests", () => {
 
                 // Deploy pool
                 const pool = await deployPool({
-                    liquidityCoefficient: 20,
                     outgoingTrancheAmounts: outgoingAmounts,
                     outgoingTranchTimestamps: outgoingTimestamps,
                     incomingTrancheAmounts: incomingAmounts,
@@ -1061,9 +1106,9 @@ describe("Pool tests", () => {
 
                 expect(await holdToken.balanceOf(await pool.getAddress())).to.equal(balanceBefore3 + secondReturnAmount);
 
-                
-                
-                
+
+
+
                 const debtBeforeSecondReturn = targetHold - firstReturnAmount;
                 const debtPortion = debtBeforeSecondReturn > secondReturnAmount ? secondReturnAmount : debtBeforeSecondReturn;
                 const bonusPortion = secondReturnAmount > debtBeforeSecondReturn ? secondReturnAmount - debtBeforeSecondReturn : 0n;
@@ -1091,7 +1136,7 @@ describe("Pool tests", () => {
 
                 expect(await holdToken.balanceOf(await pool.getAddress())).to.equal(balanceBefore4 + finalReturnAmount);
 
-                
+
                 const debtPortion3 = remainingDebtBeforeFinal > finalReturnAmount ?
                     finalReturnAmount : remainingDebtBeforeFinal;
                 const bonusPortion3 = finalReturnAmount - debtPortion3;
@@ -1102,13 +1147,262 @@ describe("Pool tests", () => {
                 expect(await pool.isFullyReturned()).to.be.true;
             });
 
-            
+
+            describe("Floating timestamps specific tests", () => {
+                if (config.floatingOutTranchesTimestamps == true) {
+                    it("should adjust tranche timestamps when target reached early", async () => {
+                        const now = await getCurrentBlockTimestamp();
+                        const entryPeriodStart = now;
+                        const entryPeriodExpired = now + 10 * 86400; // 10 day
+
+                        // Configure 3 outgoing tranches
+                        const outgoingAmount1 = targetHold / 3n
+                        const outgoingAmount2 = targetHold / 3n
+                        const outgoingAmount3 = targetHold - outgoingAmount1 - outgoingAmount2
+                        const outgoingAmounts = [
+                            outgoingAmount1,
+                            outgoingAmount2,
+                            outgoingAmount3
+                        ];
+
+                        const outgoingTimestamps = [
+                            entryPeriodExpired,           // At entry expiry
+                            entryPeriodExpired + 86400,   // 1 day after entry expiry
+                            entryPeriodExpired + 172800   // 2 days after entry expiry
+                        ];
+
+                        const pool = await deployPool({
+                            outgoingTrancheAmounts: outgoingAmounts,
+                            outgoingTranchTimestamps: outgoingTimestamps,
+                            entryPeriodStart: entryPeriodStart,
+                            floatingOutTranchesTimestamps: true
+                        });
+
+                        // Reach target halfway through entry period
+                        await ethers.provider.send("evm_setNextBlockTimestamp", [entryPeriodStart + 43200]); // 12h after start
+                        await ethers.provider.send("evm_mine", []);
+
+                        const [holdAmountWithFee, fee, actualRwaAmount] = await pool.estimateMint(targetRwa, config.fixedSell);
+                        await pool.connect(user).mint(targetRwa, holdAmountWithFee, entryPeriodExpired, config.fixedSell);
+
+                        // Verify timestamp offset
+                        const currentTime = entryPeriodStart + 43200; // 12h after start
+                        const timeSaved = entryPeriodExpired - currentTime;
+                        const expectedOffset = timeSaved - 86400; // saved time - 1 day
+                        const actualOffset = await pool.floatingTimestampOffset();
+                        expect(actualOffset).to.be.closeTo(expectedOffset, 2); // Allow 2 seconds variance due to block timing
+
+                        // Calculate effective tranche timestamps with offset
+                        const effectiveFirstTranche = outgoingTimestamps[0] - Number(actualOffset);
+                        const effectiveSecondTranche = outgoingTimestamps[1] - Number(actualOffset);
+                        const effectiveThirdTranche = outgoingTimestamps[2] - Number(actualOffset);
+
+                        // Try to claim first tranche immediately - should succeed
+                        await ethers.provider.send("evm_setNextBlockTimestamp", [effectiveFirstTranche]);
+                        await ethers.provider.send("evm_mine", []);
+                        await pool.connect(user).claimOutgoingTranches([0]);
+
+                        // Try to claim second tranche after 1 day - should succeed
+                        await ethers.provider.send("evm_setNextBlockTimestamp", [effectiveSecondTranche]);
+                        await ethers.provider.send("evm_mine", []);
+                        await pool.connect(user).claimOutgoingTranches([1]);
+
+                        // Try to claim third tranche after 2 days - should succeed
+                        await ethers.provider.send("evm_setNextBlockTimestamp", [effectiveThirdTranche]);
+                        await ethers.provider.send("evm_mine", []);
+                        await pool.connect(user).claimOutgoingTranches([2]);
+                    });
+
+                    it("should not adjust timestamps if target reached less than 1 day early", async () => {
+                        const now = await getCurrentBlockTimestamp();
+                        const entryPeriodStart = now;
+                        const entryPeriodExpired = now + 86400; // 1 day
+
+                        const pool = await deployPool({
+                            entryPeriodStart: entryPeriodStart,
+                            floatingOutTranchesTimestamps: true
+                        });
+
+                        // Reach target 12 hours before expiry
+                        await ethers.provider.send("evm_setNextBlockTimestamp", [entryPeriodExpired - 43200]); // 12h before expiry
+                        await ethers.provider.send("evm_mine", []);
+
+                        const [holdAmountWithFee, fee, actualRwaAmount] = await pool.estimateMint(targetRwa, config.fixedSell);
+                        await pool.connect(user).mint(targetRwa, holdAmountWithFee, entryPeriodExpired, config.fixedSell);
+
+                        // Verify no timestamp offset
+                        expect(await pool.floatingTimestampOffset()).to.equal(0);
+                    });
+                }
+
+                if (config.floatingOutTranchesTimestamps == false) {
+                    it("should not adjust timestamps when feature disabled", async () => {
+                        const now = await getCurrentBlockTimestamp();
+                        const entryPeriodStart = now;
+                        const entryPeriodExpired = now + 86400; // 1 day
+
+                        const pool = await deployPool({
+                            entryPeriodStart: entryPeriodStart,
+                            floatingOutTranchesTimestamps: false
+                        });
+
+                        // Reach target halfway through entry period
+                        await ethers.provider.send("evm_setNextBlockTimestamp", [entryPeriodStart + 43200]); // 12h after start
+                        await ethers.provider.send("evm_mine", []);
+
+                        const [holdAmountWithFee, fee, actualRwaAmount] = await pool.estimateMint(targetRwa, config.fixedSell);
+                        await pool.connect(user).mint(targetRwa, holdAmountWithFee, entryPeriodExpired, config.fixedSell);
+
+                        // Verify no timestamp offset
+                        expect(await pool.floatingTimestampOffset()).to.equal(0);
+
+                        // Try to claim before original timestamp - should fail
+                        await expect(
+                            pool.connect(user).claimOutgoingTranches([0])
+                        ).to.be.revertedWith("Pool: tranche not yet available");
+                    });
+                }
+            });
+
+            describe("Security and edge cases", () => {
+                let governanceAddress: string;
+                let governanceSigner: SignerWithAddress;
+
+                beforeEach(async () => {
+                    // Get governance address from AddressBook
+                    governanceAddress = await addressBook.governance();
+
+                    // Impersonate governance account
+                    await ethers.provider.send("hardhat_impersonateAccount", [governanceAddress]);
+                    governanceSigner = await ethers.getSigner(governanceAddress);
+
+                    // Fund governance account with ETH for gas
+                    await owner.sendTransaction({
+                        to: governanceAddress,
+                        value: ethers.parseEther("1.0")
+                    });
+                });
+
+                it("should enforce pause controls", async () => {
+                    const pool = await deployPool({
+                        fixedSell: config.fixedSell,
+                        allowEntryBurn: config.allowEntryBurn,
+                        bonusAfterCompletion: config.bonusAfterCompletion
+                    });
+
+                    // Only governance can pause
+                    await expect(
+                        pool.connect(user).enablePause()
+                    ).to.be.revertedWith("AddressBook: not governance");
+
+                    // Pause from governance
+                    await pool.connect(governanceSigner).enablePause();
+                    expect(await pool.paused()).to.be.true;
+
+                    // Operations should be blocked
+                    const validUntil = (await getCurrentBlockTimestamp()) + 3600;
+                    await expect(
+                        pool.connect(user).mint(targetRwa, ethers.MaxUint256, validUntil, false)
+                    ).to.be.revertedWith("Pool: paused");
+
+                    await expect(
+                        pool.connect(user).burn(targetRwa, 0, 0, validUntil)
+                    ).to.be.revertedWith("Pool: paused");
+
+                    await expect(
+                        pool.connect(user).claimOutgoingTranches([0])
+                    ).to.be.revertedWith("Pool: paused");
+
+                    await expect(
+                        pool.connect(user).returnIncomingTranche(targetHold)
+                    ).to.be.revertedWith("Pool: paused");
+
+                    // Only governance can unpause
+                    await expect(
+                        pool.connect(user).disablePause()
+                    ).to.be.revertedWith("AddressBook: not governance");
+
+                    // Unpause from governance
+                    await pool.connect(owner).disablePause();
+                    expect(await pool.paused()).to.be.false;
+                });
+
+                it("should enforce upgrade authorization", async () => {
+                    const pool = await deployPool({
+                        fixedSell: config.fixedSell,
+                        allowEntryBurn: config.allowEntryBurn,
+                        bonusAfterCompletion: config.bonusAfterCompletion
+                    });
+
+                    // Deploy new implementation
+                    const PoolFactory = await ethers.getContractFactory("Pool");
+                    const newImplementation = await PoolFactory.deploy();
+
+                    // Only governance can upgrade
+                    await expect(
+                        pool.connect(user).upgradeToAndCall(await newImplementation.getAddress(), '0x')
+                    ).to.be.revertedWith("AddressBook: not governance");
+
+                    // Upgrade from governance should work
+                    await pool.connect(owner).upgradeToAndCall(await newImplementation.getAddress(), '0x');
+                });
+
+                it("should properly update lastCompletedIncomingTranche", async () => {
+                    const now = await getCurrentBlockTimestamp();
+                    const completionPeriod = now + 172800; // 2 days
+
+                    // Deploy pool with 3 incoming tranches
+                    const expectedBonusAmount = (targetHold * rewardPercent) / 10000n;
+                    const trancheAmount1 = (targetHold + expectedBonusAmount) / 3n;
+                    const trancheAmount2 = (targetHold + expectedBonusAmount) / 3n;
+                    const trancheAmount3 = (targetHold + expectedBonusAmount) - trancheAmount1 - trancheAmount2;
+
+                    const pool = await deployPool({
+                        fixedSell: config.fixedSell,
+                        incomingTrancheAmounts: [trancheAmount1, trancheAmount2, trancheAmount3],
+                        incomingTrancheExpired: [
+                            completionPeriod - 86400 * 2,  // 2 days before completion
+                            completionPeriod - 86400,      // 1 day before completion
+                            completionPeriod               // At completion
+                        ]
+                    });
+
+                    // Fill pool to reach target
+                    const [holdAmountWithFee, fee, actualRwaAmount] = await pool.estimateMint(targetRwa, config.fixedSell);
+                    await pool.connect(user).mint(targetRwa, holdAmountWithFee, now + 3600, config.fixedSell);
+
+                    expect(await pool.lastCompletedIncomingTranche()).to.equal(0);
+
+                    // Return full first tranche
+                    await holdToken.connect(user).approve(pool.getAddress(), trancheAmount1);
+                    await pool.connect(user).returnIncomingTranche(trancheAmount1);
+
+                    // lastCompletedIncomingTranche should advance to 1
+                    expect(await pool.lastCompletedIncomingTranche()).to.equal(1);
+
+                    // Return half second tranche
+                    const amount2 = trancheAmount2 / 2n
+                    await holdToken.connect(user).approve(pool.getAddress(), amount2);
+                    await pool.connect(user).returnIncomingTranche(amount2);
+
+                    // lastCompletedIncomingTranche should advance to 2
+                    expect(await pool.lastCompletedIncomingTranche()).to.equal(1);
+
+                    // Return final tranche
+                    const amount3 =  trancheAmount2 - amount2 + trancheAmount3
+                    await holdToken.connect(user).approve(pool.getAddress(), amount3);
+                    await pool.connect(user).returnIncomingTranche(amount3);
+
+                    // lastCompletedIncomingTranche should advance to 3
+                    expect(await pool.lastCompletedIncomingTranche()).to.equal(3);
+                });
+            });
+
             describe("Fixed sell specific tests", () => {
                 if (config.fixedSell == true) {
                     it("should handle partial RWA purchases when fixedSell=true", async () => {
                         const pool = await deployPool({
-                            liquidityCoefficient: 20,
-                            fixedSell: true, 
+                            fixedSell: true,
                             allowEntryBurn: config.allowEntryBurn,
                             bonusAfterCompletion: config.bonusAfterCompletion
                         });
@@ -1116,7 +1410,7 @@ describe("Pool tests", () => {
                         const now = await getCurrentBlockTimestamp();
                         const validUntil = now + 100;
 
-                        
+
                         const firstAmount = (targetRwa * 60n) / 100n;
                         const [holdAmount1, fee1, actualAmount1] = await pool.estimateMint(firstAmount, true);
                         await pool.connect(user).mint(firstAmount, holdAmount1, validUntil, true);
@@ -1132,16 +1426,15 @@ describe("Pool tests", () => {
 
                     it("should not limit purchases when fixedSell=false", async () => {
                         const pool = await deployPool({
-                            liquidityCoefficient: 20,
-                            fixedSell: false, 
+                            fixedSell: false,
                             allowEntryBurn: config.allowEntryBurn,
                             bonusAfterCompletion: config.bonusAfterCompletion
                         });
 
                         const now = await getCurrentBlockTimestamp();
                         const validUntil = now + 100;
-                        
-                        const amount = targetRwa * 2n;
+
+                        const amount = targetRwa * 3n / 2n;
                         const [holdAmount, fee, actualAmount] = await pool.estimateMint(amount, false);
                         await pool.connect(user).mint(amount, holdAmount, validUntil, false);
                         expect(actualAmount).to.equal(amount);
@@ -1150,26 +1443,25 @@ describe("Pool tests", () => {
 
             });
 
-            
+
             describe("Entry burn specific tests", () => {
                 if (config.allowEntryBurn == false) {
 
                     it("should prevent burning during entry period when allowEntryBurn=false", async () => {
                         const pool = await deployPool({
-                            liquidityCoefficient: 20,
                             fixedSell: config.fixedSell,
-                            allowEntryBurn: false, 
+                            allowEntryBurn: false,
                             bonusAfterCompletion: config.bonusAfterCompletion
                         });
 
                         const now = await getCurrentBlockTimestamp();
                         const validUntil = now + 100;
-                        
+
                         const mintAmount = targetRwa / 2n;
                         const [holdAmount, fee, actualAmount] = await pool.estimateMint(mintAmount, config.fixedSell);
                         await pool.connect(user).mint(mintAmount, holdAmount, validUntil, config.fixedSell);
 
-                        
+
                         const [, , minBonus] = await pool.estimateBurn(mintAmount);
                         await expect(
                             pool.connect(user).burn(mintAmount, 0, minBonus, validUntil)
@@ -1180,15 +1472,14 @@ describe("Pool tests", () => {
                 if (config.allowEntryBurn == true) {
                     it("should allow burning during entry period when allowEntryBurn=true", async () => {
                         const pool = await deployPool({
-                            liquidityCoefficient: 20,
                             fixedSell: config.fixedSell,
-                            allowEntryBurn: true, 
+                            allowEntryBurn: true,
                             bonusAfterCompletion: config.bonusAfterCompletion
                         });
 
                         const now = await getCurrentBlockTimestamp();
                         const validUntil = now + 100;
-                        
+
                         const mintAmount = targetRwa / 2n;
                         const [holdAmount, fee, actualAmount] = await pool.estimateMint(mintAmount, config.fixedSell);
                         await pool.connect(user).mint(mintAmount, holdAmount, validUntil, config.fixedSell);
@@ -1200,18 +1491,17 @@ describe("Pool tests", () => {
 
             });
 
-            
+
             describe("Bonus timing specific tests", () => {
                 if (config.bonusAfterCompletion == true) {
                     it("should allow bonus claims after completion period when bonusAfterCompletion=true", async () => {
                         const pool = await deployPool({
-                            liquidityCoefficient: 20,
                             fixedSell: config.fixedSell,
                             allowEntryBurn: config.allowEntryBurn,
-                            bonusAfterCompletion: true 
+                            bonusAfterCompletion: true
                         });
 
-                        
+
                         await testBonusClaimTiming(pool, true);
                     });
                 }
@@ -1219,24 +1509,22 @@ describe("Pool tests", () => {
                 if (config.bonusAfterCompletion == false) {
                     it("should allow bonus claims after return when bonusAfterCompletion=false", async () => {
                         const pool = await deployPool({
-                            liquidityCoefficient: 20,
                             fixedSell: config.fixedSell,
                             allowEntryBurn: config.allowEntryBurn,
-                            bonusAfterCompletion: false 
+                            bonusAfterCompletion: false
                         });
 
-                        
+
                         await testBonusClaimTiming(pool, false);
                     });
                 }
             });
 
-            
+
             if (config.fixedSell == true) {
 
                 it("should handle partial RWA purchases", async () => {
                     const pool = await deployPool({
-                        liquidityCoefficient: 20,
                         fixedSell: true
                     });
                     const validUntil = (await getCurrentBlockTimestamp()) + 3600;
@@ -1262,7 +1550,6 @@ describe("Pool tests", () => {
                 });
                 it("should enforce fixed RWA amount limit", async () => {
                     const pool = await deployPool({
-                        liquidityCoefficient: 20,
                         fixedSell: true
                     });
                     const validUntil = (await getCurrentBlockTimestamp()) + 3600;
@@ -1293,8 +1580,7 @@ describe("Pool tests", () => {
                     const completionPeriod = now + 172800; // 2 days
 
                     const pool = await deployPool({
-                        liquidityCoefficient: 20,
-                        fixedSell: false, 
+                        fixedSell: false,
                         outgoingTrancheAmounts: [targetHold],
                         outgoingTranchTimestamps: [entryPeriodExpired],
                         incomingTrancheAmounts: [targetHold + (targetHold * rewardPercent) / 10000n],
@@ -1318,8 +1604,7 @@ describe("Pool tests", () => {
                 });
                 it("should prevent minting after full return", async () => {
                     const pool = await deployPool({
-                        liquidityCoefficient: 20,
-                        fixedSell: false 
+                        fixedSell: false
                     });
                     const validUntil = (await getCurrentBlockTimestamp()) + 3600;
 
@@ -1351,7 +1636,6 @@ describe("Pool tests", () => {
 
                     // Deploy pool with burning not allowed during entry
                     const pool = await deployPool({
-                        liquidityCoefficient: 20,
                         outgoingTranchTimestamps: [entryPeriodExpired],
                         entryPeriodStart,
                         allowEntryBurn: false
@@ -1392,7 +1676,6 @@ describe("Pool tests", () => {
 
                     // Deploy pool with single tranches and bonuses after 1 day of return
                     const pool = await deployPool({
-                        liquidityCoefficient: 20,
                         bonusAfterCompletion: false
                     });
 
@@ -1461,19 +1744,19 @@ describe("Pool tests", () => {
                     expect(await pool.awaitingBonusAmount()).to.equal(expectedBonusAmount);
 
                     // Calculate exact bonus shares based on RWA proportions
-                    
+
                     const initialTotalRwa = await rwaToken['totalSupply(uint256)'](tokenId);
                     const approxBonus1 = (expectedBonusAmount * rwaUser1) / initialTotalRwa;
                     const approxBonus2 = (expectedBonusAmount * rwaUser2) / initialTotalRwa;
                     const approxBonus3 = expectedBonusAmount - approxBonus1 - approxBonus2;
 
-                    
+
                     let [holdAmountWithoutFee, holdFee, bonusAmountWithoutFee, bonusFee] = await pool.estimateBurn(rwaUser1);
                     const currentBonus = await pool.awaitingBonusAmount();
                     const currentRwa = await pool.awaitingRwaAmount();
                     const expectedBonus1 = (currentBonus * rwaUser1) / currentRwa;
                     expect(bonusAmountWithoutFee + bonusFee).to.equal(expectedBonus1);
-                    
+
 
                     now = await getCurrentBlockTimestamp();
                     validUntil = now + 3600;
@@ -1486,13 +1769,13 @@ describe("Pool tests", () => {
                         validUntil
                     );
 
-                    
+
                     [holdAmountWithoutFee, holdFee, bonusAmountWithoutFee, bonusFee] = await pool.estimateBurn(rwaUser2);
                     const currentBonus2 = await pool.awaitingBonusAmount();
                     const currentRwa2 = await pool.awaitingRwaAmount();
                     const expectedBonus2 = (currentBonus2 * rwaUser2) / currentRwa2;
                     expect(bonusAmountWithoutFee + bonusFee).to.equal(expectedBonus2);
-                    
+
                     expect(bonusAmountWithoutFee + bonusFee).to.be.closeTo(approxBonus2, 100);
                     await pool.connect(user2).burn(
                         rwaUser2,
@@ -1501,7 +1784,7 @@ describe("Pool tests", () => {
                         validUntil
                     );
 
-                    
+
                     [holdAmountWithoutFee, holdFee, bonusAmountWithoutFee, bonusFee] = await pool.estimateBurn(rwaUser3);
                     const currentBonus3 = await pool.awaitingBonusAmount();
                     const currentRwa3 = await pool.awaitingRwaAmount();
@@ -1523,7 +1806,6 @@ describe("Pool tests", () => {
                 it("should handle partial bonus distribution", async () => {
                     let now = await getCurrentBlockTimestamp();
                     const pool = await deployPool({
-                        liquidityCoefficient: 20,
                         bonusAfterCompletion: false
                     });
 
@@ -1639,12 +1921,12 @@ describe("Pool tests", () => {
 
 
 
-            
+
             async function testBonusClaimTiming(pool: Pool, isAfterCompletion: boolean) {
                 const now = await getCurrentBlockTimestamp();
                 const validUntil = now + 3600;
 
-                
+
                 const [holdAmountWithFee, fee, actualRwaAmount] = await pool.estimateMint(targetRwa, config.fixedSell);
                 await pool.connect(user).mint(targetRwa, holdAmountWithFee, validUntil, config.fixedSell);
 
@@ -1653,22 +1935,22 @@ describe("Pool tests", () => {
                 await holdToken.connect(user).approve(pool.getAddress(), totalReturn);
                 await pool.connect(user).returnIncomingTranche(totalReturn);
 
-                
+
                 const [, , bonusBefore, bonusFeeBefore] = await pool.estimateBurn(targetRwa);
                 expect(bonusBefore + bonusFeeBefore).to.equal(0);
 
                 if (isAfterCompletion) {
-                    
+
                     const completionPeriod = await pool.completionPeriodExpired();
                     await ethers.provider.send("evm_setNextBlockTimestamp", [Number(completionPeriod) + 1]);
                 } else {
-                    
+
                     const returnTimestamp = await pool.fullReturnTimestamp();
                     await ethers.provider.send("evm_setNextBlockTimestamp", [Number(returnTimestamp) + 86400 + 1]);
                 }
                 await ethers.provider.send("evm_mine", []);
 
-                
+
                 const [, , bonusAfter, bonusFeeAfter] = await pool.estimateBurn(targetRwa);
                 expect(bonusAfter + bonusFeeAfter).to.be.gt(0);
             }

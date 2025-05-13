@@ -24,74 +24,336 @@ contract EventEmitter is UUPSUpgradeable {
         genesisBlock = block.number;
     }
 
+    // --- Pool Events Start ---
 
-    function _authorizeUpgrade(address) internal view override {
-        addressBook.requireGovernance(msg.sender);
-    }
-
-    event Pool_AccumulatedAmountsUpdated(
-        address indexed emittedFrom,
-        string entityId,
-        uint256 accumulatedHoldAmount,
-        uint256 accumulatedRwaAmount
+    event Pool_OutgoingTrancheClaimed(
+        address indexed emittedFrom, // Pool contract address
+        address indexed claimer,
+        uint256 trancheIndex,
+        uint256 amountClaimed
     );
-    
+
+    event Pool_OutgoingClaimSummary(
+        address indexed emittedFrom, // Pool contract address
+        uint256 totalClaimedAmount,
+        uint256 outgoingTranchesBalance
+    );
+
+    event Pool_IncomingTrancheUpdate(
+        address indexed emittedFrom, // Pool contract address
+        address indexed returner,
+        uint256 trancheIndex,
+        uint256 amountAppliedToTranche,
+        bool isNowComplete,
+        bool wasOnTime
+    );
+
+    event Pool_IncomingReturnSummary(
+        address indexed emittedFrom, // Pool contract address
+        uint256 totalReturnedAmount,
+        uint256 lastCompletedIncomingTranche
+    );
+
+    event Pool_FundsFullyReturned(
+        address indexed emittedFrom, // Pool contract address
+        uint256 timestamp
+    );
+
+    event Pool_RwaMinted(
+        address indexed emittedFrom, // Pool contract address
+        address indexed minter,
+        uint256 rwaAmountMinted,
+        uint256 holdAmountPaid,
+        uint256 feePaid
+    );
+
     event Pool_TargetReached(
-        address indexed emittedFrom,
-        string entityId,
-        uint256 allocatedHoldAmount
-    );
-    
-    event Pool_FullyReturned(
-        address indexed emittedFrom,
-        string entityId,
-        bool isFullyReturned
-    );
-    
-    event Pool_ReturnedAmountUpdated(
-        address indexed emittedFrom,
-        string entityId,
-        uint256 returnedAmount
-    );
-    
-    event Pool_EmergencyStop(
-        address indexed emittedFrom,
-        string entityId,
-        bool paused
+        address indexed emittedFrom, // Pool contract address
+        uint256 outgoingTranchesBalance,
+        uint256 floatingTimestampOffset
     );
 
-    event Pool_AvailableReturnBalanceUpdated(
-        address indexed emittedFrom,
-        string entityId,
-        uint256 availableReturnBalance
+    event Pool_RwaBurned(
+        address indexed emittedFrom, // Pool contract address
+        address indexed burner,
+        uint256 rwaAmountBurned,
+        uint256 holdAmountReceived,
+        uint256 bonusAmountReceived,
+        uint256 holdFeePaid,
+        uint256 bonusFeePaid
+    );
+
+    event Pool_AwaitingRwaAmountUpdated(
+        address indexed emittedFrom, // Pool contract address
+        uint256 awaitingRwaAmount
+    );
+
+    event Pool_AwaitingBonusAmountUpdated(
+        address indexed emittedFrom, // Pool contract address
+        uint256 awaitingBonusAmount
+    );
+
+    event Pool_ReservesUpdated(
+        address indexed emittedFrom, // Pool contract address
+        uint256 realHoldReserve,
+        uint256 virtualHoldReserve,
+        uint256 virtualRwaReserve
+    );
+
+    event Pool_PausedStateChanged(
+        address indexed emittedFrom, // Pool contract address
+        bool isPaused
     );
 
     event Pool_Deployed(
-        address indexed emittedFrom,
+        address indexed emittedFrom, // Pool contract address
+        bool bonusAfterCompletion,
+        bool floatingOutTranchesTimestamps,
         address holdToken,
-        string entityId,
-        address rwa,
+        address rwaToken,
+        address addressBook,
         uint256 tokenId,
-        uint256 entryFeePercent,
-        uint256 exitFeePercent,
+        string entityId,
+        string entityOwnerId,
+        string entityOwnerType,
+        address owner,
         uint256 expectedHoldAmount,
         uint256 expectedRwaAmount,
+        uint256 expectedBonusAmount,
         uint256 rewardPercent,
-        uint256 expectedReturnAmount,
+        bool fixedSell,
+        bool allowEntryBurn,
+        uint256 entryPeriodStart,
         uint256 entryPeriodExpired,
         uint256 completionPeriodExpired,
-        string poolType,
-        bytes initializationData
+        uint256 k,
+        uint256 entryFeePercent,
+        uint256 exitFeePercent,
+        uint256[] outgoingTranches,
+        uint256[] outgoingTranchTimestamps,
+        uint256[] incomingTranches,
+        uint256[] incomingTrancheExpired
     );
 
-    event Pool_AllocatedHoldAmountClaimed(
-        address indexed emittedFrom,
-        string entityId,
-        uint256 allocatedHoldAmount
-    );
+    // --- Pool Emitter Functions Start ---
+
+    function emitPool_OutgoingTrancheClaimed(
+        address claimer,
+        uint256 trancheIndex,
+        uint256 amountClaimed
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_OutgoingTrancheClaimed(
+            msg.sender, 
+            claimer,
+            trancheIndex,
+            amountClaimed
+        );
+    }
+
+    function emitPool_OutgoingClaimSummary(
+        uint256 totalClaimedAmount,
+        uint256 outgoingTranchesBalance
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_OutgoingClaimSummary(
+            msg.sender, 
+            totalClaimedAmount,
+            outgoingTranchesBalance
+        );
+    }
+
+    function emitPool_IncomingTrancheUpdate(
+        address returner,
+        uint256 trancheIndex,
+        uint256 amountAppliedToTranche,
+        bool isNowComplete,
+        bool wasOnTime
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_IncomingTrancheUpdate(
+            msg.sender, 
+            returner,
+            trancheIndex,
+            amountAppliedToTranche,
+            isNowComplete,
+            wasOnTime
+        );
+    }
+
+    function emitPool_IncomingReturnSummary(
+        uint256 totalReturnedAmount,
+        uint256 lastCompletedIncomingTranche
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_IncomingReturnSummary(
+            msg.sender, 
+            totalReturnedAmount,
+            lastCompletedIncomingTranche
+        );
+    }
+
+    function emitPool_FundsFullyReturned(
+        uint256 timestamp
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_FundsFullyReturned(msg.sender, timestamp); 
+    }
+
+    function emitPool_RwaMinted(
+        address minter,
+        uint256 rwaAmountMinted,
+        uint256 holdAmountPaid,
+        uint256 feePaid
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_RwaMinted(
+            msg.sender, 
+            minter,
+            rwaAmountMinted,
+            holdAmountPaid,
+            feePaid
+        );
+    }
+
+    function emitPool_TargetReached(
+        uint256 outgoingTranchesBalance,
+        uint256 floatingTimestampOffset
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_TargetReached(
+            msg.sender, 
+            outgoingTranchesBalance,
+            floatingTimestampOffset
+        );
+    }
+
+    function emitPool_RwaBurned(
+        address burner,
+        uint256 rwaAmountBurned,
+        uint256 holdAmountReceived,
+        uint256 bonusAmountReceived,
+        uint256 holdFeePaid,
+        uint256 bonusFeePaid
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_RwaBurned(
+            msg.sender, 
+            burner,
+            rwaAmountBurned,
+            holdAmountReceived,
+            bonusAmountReceived,
+            holdFeePaid,
+            bonusFeePaid
+        );
+    }
+
+    function emitPool_AwaitingRwaAmountUpdated(
+        uint256 awaitingRwaAmount
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_AwaitingRwaAmountUpdated(msg.sender, awaitingRwaAmount); 
+    }
+
+    function emitPool_AwaitingBonusAmountUpdated(
+        uint256 awaitingBonusAmount
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_AwaitingBonusAmountUpdated(msg.sender, awaitingBonusAmount); 
+    }
+
+    function emitPool_ReservesUpdated(
+        uint256 realHoldReserve,
+        uint256 virtualHoldReserve,
+        uint256 virtualRwaReserve
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_ReservesUpdated(
+            msg.sender, 
+            realHoldReserve,
+            virtualHoldReserve,
+            virtualRwaReserve
+        );
+    }
+
+    function emitPool_PausedStateChanged(
+        bool isPaused
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_PausedStateChanged(msg.sender, isPaused); 
+    }
+
+    // Renamed from Pool_StaticConfigured to Pool_Deployed as per user's previous feedback and file state
+    function emitPool_Deployed(
+        bool bonusAfterCompletion,
+        bool floatingOutTranchesTimestamps,
+        address holdToken,
+        address rwaToken,
+        address _addressBook,
+        uint256 tokenId,
+        string memory entityId,
+        string memory entityOwnerId,
+        string memory entityOwnerType,
+        address owner,
+        uint256 expectedHoldAmount,
+        uint256 expectedRwaAmount,
+        uint256 expectedBonusAmount,
+        uint256 rewardPercent,
+        bool fixedSell,
+        bool allowEntryBurn,
+        uint256 entryPeriodStart,
+        uint256 entryPeriodExpired,
+        uint256 completionPeriodExpired,
+        uint256 k,
+        uint256 entryFeePercent,
+        uint256 exitFeePercent,
+        uint256[] memory outgoingTranches,
+        uint256[] memory outgoingTranchTimestamps,
+        uint256[] memory incomingTranches,
+        uint256[] memory incomingTrancheExpired
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_Deployed(
+            msg.sender, 
+            bonusAfterCompletion,
+            floatingOutTranchesTimestamps,
+            holdToken,
+            rwaToken,
+            _addressBook,
+            tokenId,
+            entityId,
+            entityOwnerId,
+            entityOwnerType,
+            owner,
+            expectedHoldAmount,
+            expectedRwaAmount,
+            expectedBonusAmount,
+            rewardPercent,
+            fixedSell,
+            allowEntryBurn,
+            entryPeriodStart,
+            entryPeriodExpired,
+            completionPeriodExpired,
+            k,
+            entryFeePercent,
+            exitFeePercent,
+            outgoingTranches,
+            outgoingTranchTimestamps,
+            incomingTranches,
+            incomingTrancheExpired
+        );
+    }
+
+    // --- Pool Events End ---
+
+
+    function _authorizeUpgrade(address) internal view override { // Renamed from internal to internal view
+        addressBook.requireGovernance(msg.sender);
+    }
+
 
     event RWA_Transfer(
-        address indexed emittedFrom,
+        address indexed emittedFrom, 
         address indexed from,
         address indexed to,
         uint256 tokenId,
@@ -99,7 +361,7 @@ contract EventEmitter is UUPSUpgradeable {
     );
 
     event RWA_Deployed(
-        address indexed emittedFrom,
+        address indexed emittedFrom, 
         address owner,
         string entityId
     );
@@ -110,138 +372,16 @@ contract EventEmitter is UUPSUpgradeable {
         uint256 tokenId,
         uint256 amount
     ) external {
-        addressBook.requireProtocolContract(msg.sender);
+        addressBook.requireProtocolContract(msg.sender); // Ensure caller is a registered RWA contract
         emit RWA_Transfer(msg.sender, from, to, tokenId, amount);
     }
 
 
-    function emitRWA_Deployed(
+    function emitRWA_Deployed( 
         address owner,
         string memory entityId
     ) external {
         addressBook.requireProtocolContract(msg.sender);
         emit RWA_Deployed(msg.sender, owner, entityId);
-    }
-
-    function emitPool_AccumulatedAmountsUpdated(
-        string memory entityId,
-        uint256 accumulatedHoldAmount,
-        uint256 accumulatedRwaAmount
-    ) external {
-        addressBook.requireProtocolContract(msg.sender);
-        emit Pool_AccumulatedAmountsUpdated(
-            msg.sender,
-            entityId,
-            accumulatedHoldAmount,
-            accumulatedRwaAmount
-        );
-    }
-
-    function emitPool_TargetReached(
-        string memory entityId,
-        uint256 allocatedHoldAmount
-    ) external {
-        addressBook.requireProtocolContract(msg.sender);
-        emit Pool_TargetReached(
-            msg.sender,
-            entityId,
-            allocatedHoldAmount
-        );
-    }
-
-    function emitPool_FullyReturned(
-        string memory entityId,
-        bool isFullyReturned
-    ) external {
-        addressBook.requireProtocolContract(msg.sender);
-        emit Pool_FullyReturned(
-            msg.sender,
-            entityId,
-            isFullyReturned
-        );
-    }
-
-    function emitPool_ReturnedAmountUpdated(
-        string memory entityId,
-        uint256 returnedAmount
-    ) external {
-        addressBook.requireProtocolContract(msg.sender);
-        emit Pool_ReturnedAmountUpdated(
-            msg.sender,
-            entityId,
-            returnedAmount
-        );
-    }
-
-    function emitPool_EmergencyStop(
-        string memory entityId,
-        bool paused
-    ) external {
-        addressBook.requireProtocolContract(msg.sender);
-        emit Pool_EmergencyStop(
-            msg.sender,
-            entityId,
-            paused
-        );
-    }
-
-    function emitPool_AvailableReturnBalanceUpdated(
-        string memory entityId,
-        uint256 availableReturnBalance
-    ) external {
-        addressBook.requireProtocolContract(msg.sender);
-        emit Pool_AvailableReturnBalanceUpdated(
-            msg.sender,
-            entityId,
-            availableReturnBalance
-        );
-    }
-
-    function emitPool_Deployed(
-        address holdToken,
-        string memory entityId,
-        address rwa,
-        uint256 tokenId,
-        uint256 entryFeePercent,
-        uint256 exitFeePercent,
-        uint256 expectedHoldAmount,
-        uint256 expectedRwaAmount,
-        uint256 rewardPercent,
-        uint256 expectedReturnAmount,
-        uint256 entryPeriodExpired,
-        uint256 completionPeriodExpired,
-        string memory poolType,
-        bytes memory initializationData
-    ) external {
-        addressBook.requireProtocolContract(msg.sender);
-        emit Pool_Deployed(
-            msg.sender,
-            holdToken,
-            entityId,
-            rwa,
-            tokenId,
-            entryFeePercent,
-            exitFeePercent,
-            expectedHoldAmount,
-            expectedRwaAmount,
-            rewardPercent,
-            expectedReturnAmount,
-            entryPeriodExpired,
-            completionPeriodExpired,
-            poolType,
-            initializationData
-        );
-    }
-
-    function emitPool_AllocatedHoldAmountClaimed(
-        string memory entityId,
-        uint256 allocatedHoldAmount
-    ) external {
-        addressBook.requireProtocolContract(msg.sender);
-        emit Pool_AllocatedHoldAmountClaimed(
-            msg.sender,
-            entityId,
-            allocatedHoldAmount
-        );
     }
 }

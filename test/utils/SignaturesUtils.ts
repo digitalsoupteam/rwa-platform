@@ -78,34 +78,44 @@ export default class SignaturesUtils {
     signers: SignerWithAddress[]
     expireIn?: number
     createPoolFeeRatio: bigint
-    poolType: string
     entityId: string
-    entityOwnerId: string
-    entityOwnerType: string
-    owner: SignerWithAddress
     rwa: RWA
     expectedHoldAmount: bigint
+    expectedRwaAmount: bigint
+    priceImpactPercent: bigint
     rewardPercent: bigint
-    entryPeriodDuration: bigint
-    completionPeriodDuration: bigint
-    payload: string
+    entryPeriodStart: bigint
+    entryFeePercent: bigint
+    exitFeePercent: bigint
+    fixedSell: boolean
+    allowEntryBurn: boolean
+    bonusAfterCompletion: boolean
+    floatingOutTranchesTimestamps: boolean
+    outgoingTranches: BigNumberish[]
+    outgoingTranchTimestamps: BigNumberish[]
+    incomingTranches: BigNumberish[]
+    incomingTrancheExpired: BigNumberish[]
   }): Promise<SignatureData> {
     const {
       chainId = await ethers.provider.getNetwork().then(n => n.chainId),
       factory,
       user,
-      poolType,
       entityId,
       rwa,
       expectedHoldAmount,
+      expectedRwaAmount,
+      priceImpactPercent,
       rewardPercent,
-      entryPeriodDuration,
-      completionPeriodDuration,
-      payload,
+      entryPeriodStart,
+      fixedSell,
+      allowEntryBurn,
+      bonusAfterCompletion,
+      floatingOutTranchesTimestamps,
+      outgoingTranches,
+      outgoingTranchTimestamps,
+      incomingTranches,
+      incomingTrancheExpired,
       signers,
-      entityOwnerId,
-      entityOwnerType,
-      owner,
       expireIn = 3600
     } = params
 
@@ -116,19 +126,25 @@ export default class SignaturesUtils {
         'uint256',
         'address',
         'address',
-        'string',
-        'uint256',
-        'string',
-        'string',
-        'string',
-        'string',
-        'address',
-        'address',
-        'uint256',
-        'uint256',
-        'uint256',
-        'uint256',
-        'bytes'
+        'string', // "deployPool"
+        'uint256', // createPoolFeeRatio
+        'string',  // entityId
+        'address', // rwa
+        'uint256', // expectedHoldAmount
+        'uint256', // expectedRwaAmount
+        'uint256', // priceImpactPercent
+        'uint256', // rewardPercent
+        'uint256', // entryPeriodStart
+        'uint256', // entryFeePercent
+        'uint256', // exitFeePercent
+        'bool',    // fixedSell
+        'bool',    // allowEntryBurn
+        'bool',    // bonusAfterCompletion
+        'bool',    // floatingOutTranchesTimestamps
+        'uint256[]', // outgoingTranches
+        'uint256[]', // outgoingTranchTimestamps
+        'uint256[]', // incomingTranches
+        'uint256[]'  // incomingTrancheExpired
       ],
       [
         chainId,
@@ -136,17 +152,23 @@ export default class SignaturesUtils {
         user.address,
         'deployPool',
         params.createPoolFeeRatio,
-        poolType,
         entityId,
-        entityOwnerId,
-        entityOwnerType,
-        owner.address,
         await rwa.getAddress(),
         expectedHoldAmount,
+        expectedRwaAmount,
+        priceImpactPercent,
         rewardPercent,
-        entryPeriodDuration,
-        completionPeriodDuration,
-        payload
+        entryPeriodStart,
+        params.entryFeePercent,
+        params.exitFeePercent,
+        fixedSell,
+        allowEntryBurn,
+        bonusAfterCompletion,
+        floatingOutTranchesTimestamps,
+        outgoingTranches,
+        outgoingTranchTimestamps,
+        incomingTranches,
+        incomingTrancheExpired
       ]
     )
 
@@ -166,15 +188,4 @@ export default class SignaturesUtils {
     }
   }
 
-  public static getStablePoolPayload(): string {
-    return '0x' 
-  }
-
-  public static getSpeculationPoolPayload(rwaMultiplierIndex: BigNumberish): string {
-    // Pass only the multiplier index for speculation pool
-    return ethers.AbiCoder.defaultAbiCoder().encode(
-      ['uint256'],
-      [rwaMultiplierIndex]
-    )
-  }
 }

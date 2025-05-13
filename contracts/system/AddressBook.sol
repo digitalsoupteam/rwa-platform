@@ -19,7 +19,7 @@ import { ReferralTreasury } from "../platform/ReferralTreasury.sol";
 import { Factory } from "../rwa/Factory.sol";
 // import { Router } from "../rwa/Router.sol";
 import { RWA } from "../rwa/RWA.sol";
-import { BasePool } from "../rwa/pools/BasePool.sol";
+import { Pool } from "../rwa/Pool.sol";
 
 /// @title AddressBook contract for managing system addresses
 /// @notice This contract stores and manages addresses of core protocol contracts
@@ -74,13 +74,10 @@ contract AddressBook is UUPSUpgradeable {
     address public rwaImplementation;
 
     /// @notice The implementation contract address for Speculation Pool
-    address public poolSpeculationImplementation;
+    address public poolImplementation;
 
-    /// @notice The implementation contract address for Stable Pool
-    address public poolStableImplementation;
-
-    /// @notice Array of all registered stable pools
-    BasePool[] internal pools;
+    /// @notice Array of all registered pools
+    Pool[] internal pools;
 
     /// @notice Mapping to check if an address is a registered speculation pool
     mapping(address => bool) public isPool;
@@ -125,7 +122,7 @@ contract AddressBook is UUPSUpgradeable {
     /// @dev Reverts if account is not governance
     /// @param account The address to check
     function requireGovernance(address account) public view {
-        require(account == address(governance), "Only Governance!");
+        require(account == address(governance), "AddressBook: not governance");
     }
 
     /// @notice Checks if an address has timelock rights
@@ -360,17 +357,9 @@ contract AddressBook is UUPSUpgradeable {
     /// @notice Sets the Speculation Pool implementation contract address
     /// @dev Can only be called by governance
     /// @param newImplementation The address of the new Speculation Pool implementation
-    function setPoolSpeculationImplementation(address newImplementation) external {
+    function setPoolImplementation(address newImplementation) external {
         requireGovernance(msg.sender);
-        poolSpeculationImplementation = newImplementation;
-    }
-
-    /// @notice Sets the Stable Pool implementation contract address
-    /// @dev Can only be called by governance
-    /// @param newImplementation The address of the new Stable Pool implementation
-    function setPoolStableImplementation(address newImplementation) external {
-        requireGovernance(msg.sender);
-        poolStableImplementation = newImplementation;
+        poolImplementation = newImplementation;
     }
 
     /// @notice Checks if an address is a registered protocol contract
@@ -383,7 +372,7 @@ contract AddressBook is UUPSUpgradeable {
     /// @notice Adds a new  pool to the system
     /// @dev Can only be called by factory
     /// @param pool The address of the pool to add
-    function addPool(BasePool pool) external {
+    function addPool(Pool pool) external {
         requireFactory(msg.sender);
         require(!isPool[address(pool)], "Pool already exists");
         pools.push(pool);
@@ -405,7 +394,7 @@ contract AddressBook is UUPSUpgradeable {
     /// @notice Returns pool at specific index
     /// @param index Index of the pool to return
     /// @return BasePool Pool at specified index
-    function getPoolByIndex(uint256 index) external view returns(BasePool) {
+    function getPoolByIndex(uint256 index) external view returns(Pool) {
         require(index < pools.length, "Index out of bounds");
         return pools[index];
     }

@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { deployments } from 'hardhat'
-import { impersonateAccount, setBalance, time } from '@nomicfoundation/hardhat-network-helpers'
+import {  time } from '@nomicfoundation/hardhat-network-helpers'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import {
   Factory,
@@ -12,23 +12,15 @@ import {
   Config__factory,
   RWA,
   RWA__factory,
-  SpeculationPool,
-  SpeculationPool__factory,
-  StablePool,
-  StablePool__factory,
+  Pool__factory,
   IERC20,
   IERC20__factory,
   Treasury,
   Treasury__factory,
-  UUPSUpgradeable,
-  UUPSUpgradeable__factory,
-  Governance,
-  Governance__factory,
   EventEmitter,
   EventEmitter__factory,
 } from '../../typechain-types'
 import ERC20Minter from '../utils/ERC20Minter'
-import { BigNumberish, EventLog } from 'ethers'
 import SignaturesUtils from '../utils/SignaturesUtils'
 
 describe('Factory Contract Tests', () => {
@@ -77,6 +69,7 @@ describe('Factory Contract Tests', () => {
     initSnapshot = await ethers.provider.send('evm_snapshot', [])
   })
 
+
   describe('Basic Functionality', () => {
     describe('RWA Token Creation', () => {
       it('should create RWA with correct setup', async () => {
@@ -84,7 +77,7 @@ describe('Factory Contract Tests', () => {
         const entityId = "test_entity"
         const entityOwnerId = "test_owner"
         const entityOwnerType = "test_type"
-        const createRWAFee = await config.minCreateRWAFee()
+        const createRWAFee = await config.createRWAFeeMin()
 
         const signData = await SignaturesUtils.signRWADeployment({
           factory,
@@ -137,15 +130,18 @@ describe('Factory Contract Tests', () => {
 
     describe('Pools Creation', () => {
       let rwa: RWA
+      const entityId = "test_pool_new"
+      const entityOwnerId = "test_owner_new"
+      const entityOwnerType = "test_type_new"
       
       beforeEach(async () => {
-        const createRWAFee = await config.minCreateRWAFee()
+        const createRWAFee = await config.createRWAFeeMin()
         const signData = await SignaturesUtils.signRWADeployment({
           factory,
           user,
-          entityId: "test_entity",
-          entityOwnerId: "test_owner",
-          entityOwnerType: "test_type",
+          entityId,
+          entityOwnerId,
+          entityOwnerType,
           owner: user,
           createRWAFee,
           signers: [signer1, signer2, signer3]
@@ -153,9 +149,9 @@ describe('Factory Contract Tests', () => {
 
         await factory.connect(user).deployRWA(
           createRWAFee,
-          "test_entity",
-          "test_owner",
-          "test_type",
+          entityId,
+          entityOwnerId,
+          entityOwnerType,
           user.address,
           signData.signers,
           signData.signatures,
@@ -166,55 +162,77 @@ describe('Factory Contract Tests', () => {
         rwa = RWA__factory.connect(rwaAddress, ethers.provider)
       })
 
-      it('should create stable pool with correct setup', async () => {
-        // Get minimum values from config
-        const expectedHoldAmount = await config.minExpectedHoldAmount()
-        const rewardPercent = await config.minRewardPercent()
-        const entryPeriodDuration = await config.minEntryPeriodDuration()
-        const completionPeriodDuration = await config.minCompletionPeriodDuration()
-        const entityId = "test_pool"
+      it('should create a new Pool with correct setup', async () => {
+        // Pool parameters
+        const expectedHoldAmount = ethers.parseEther("10000") // 10k HOLD
+        const expectedRwaAmount = BigInt(1000000) // 1M RWA
+        const priceImpactPercent = BigInt(1) // 0.01% price impact
+        const rewardPercent = BigInt(500) // 5%
+        const entryPeriodStart = BigInt(await time.latest()) + BigInt(3600) // Starts in 1 hour
+        const fixedSell = true
+        const allowEntryBurn = false
+        const bonusAfterCompletion = true
+        const floatingOutTranchesTimestamps = false
+        const entryFeePercent = await config.entryFeePercentMin()
+        const exitFeePercent = await config.exitFeePercentMin()
 
-        const baseRwaAmount = await config.baseRwaAmount()
-        const calculatedFixedMintPrice = expectedHoldAmount / baseRwaAmount
-        const calculatedExpectedHoldAmount = baseRwaAmount * calculatedFixedMintPrice
+        // Example tranches (adjust as needed for your Pool logic)
+        const outgoingTranches = [expectedHoldAmount / 2n, expectedHoldAmount / 2n]
+        const outgoingTranchTimestamps = [entryPeriodStart + BigInt(86400), entryPeriodStart + BigInt(2 * 86400)] // 1 day, 2 days after start
+        const expectedBonusAmount = (expectedHoldAmount * rewardPercent) / 10000n
+        const incomingTranches = [(expectedHoldAmount + expectedBonusAmount) / 2n, (expectedHoldAmount + expectedBonusAmount) / 2n]
+        const incomingTrancheExpired = [entryPeriodStart + BigInt(10 * 86400), entryPeriodStart + BigInt(12 * 86400)] // 10 days, 12 days after start
 
         const poolLengthBefore = await addressBook.poolsLength()
         const treasuryBalanceBefore = await holdToken.balanceOf(await treasury.getAddress())
         const userBalanceBefore = await holdToken.balanceOf(user.address)
 
-        const createPoolFeeRatio = await config.minCreatePoolFeeRatio()
+        const createPoolFeeRatio = await config.createPoolFeeRatioMin()
+
         const poolSignData = await SignaturesUtils.signPoolDeployment({
           factory,
           user,
           signers: [signer1, signer2, signer3],
           createPoolFeeRatio,
-          poolType: "stable",
           entityId,
-          entityOwnerId: "test_owner",
-          entityOwnerType: "test_type",
-          owner: user,
           rwa,
           expectedHoldAmount,
+          expectedRwaAmount,
+          priceImpactPercent,
           rewardPercent,
-          entryPeriodDuration,
-          completionPeriodDuration,
-          payload: SignaturesUtils.getStablePoolPayload()
+          entryPeriodStart,
+          entryFeePercent,
+          exitFeePercent,
+          fixedSell,
+          allowEntryBurn,
+          bonusAfterCompletion,
+          floatingOutTranchesTimestamps,
+          outgoingTranches,
+          outgoingTranchTimestamps,
+          incomingTranches,
+          incomingTrancheExpired
         })
 
         await expect(
           factory.connect(user).deployPool(
             createPoolFeeRatio,
-            "stable",
             entityId,
-            "test_owner",
-            "test_type",
-            user.address,
             rwa,
             expectedHoldAmount,
+            expectedRwaAmount,
+            priceImpactPercent,
             rewardPercent,
-            entryPeriodDuration,
-            completionPeriodDuration,
-            SignaturesUtils.getStablePoolPayload(),
+            entryPeriodStart,
+            entryFeePercent,
+            exitFeePercent,
+            fixedSell,
+            allowEntryBurn,
+            bonusAfterCompletion,
+            floatingOutTranchesTimestamps,
+            outgoingTranches,
+            outgoingTranchTimestamps,
+            incomingTranches,
+            incomingTrancheExpired,
             poolSignData.signers,
             poolSignData.signatures,
             poolSignData.expired
@@ -222,107 +240,32 @@ describe('Factory Contract Tests', () => {
         ).to.emit(eventEmitter, 'Pool_Deployed')
 
         const poolAddress = await addressBook.getPoolByIndex(poolLengthBefore)
-        const pool = StablePool__factory.connect(poolAddress, ethers.provider)
+        const pool = Pool__factory.connect(poolAddress, ethers.provider)
 
         // Verify pool parameters
         expect(await pool.entityId()).to.equal(entityId)
-        expect(await pool.entityOwnerId()).to.equal("test_owner")
-        expect(await pool.entityOwnerType()).to.equal("test_type")
-        expect(await pool.rwa()).to.equal(await rwa.getAddress())
-        expect(await pool.owner()).to.equal(user.address)
-        expect(await pool.expectedHoldAmount()).to.equal(calculatedExpectedHoldAmount)
-        expect(await pool.rewardPercent()).to.equal(rewardPercent)
-        expect(await pool.fixedMintPrice()).to.equal(calculatedFixedMintPrice)
-
-        // Verify matching with RWA
-        expect(await pool.entityOwnerId()).to.equal(await rwa.entityOwnerId())
-        expect(await pool.entityOwnerType()).to.equal(await rwa.entityOwnerType())
-        expect(await pool.owner()).to.equal(await rwa.owner())
-
-        // Verify pool registration
-        expect(await addressBook.isPool(poolAddress)).to.be.true
-        expect(await addressBook.poolsLength()).to.equal(poolLengthBefore + 1n)
-
-        // Verify fees
-        const fee = expectedHoldAmount * createPoolFeeRatio / 10000n
-        expect(await holdToken.balanceOf(await treasury.getAddress())).to.equal(
-          treasuryBalanceBefore + fee
-        )
-        expect(await holdToken.balanceOf(user.address)).to.equal(
-          userBalanceBefore - fee
-        )
-      })
-
-      it('should create speculation pool with correct setup', async () => {
-        // Get minimum values from config
-        const expectedHoldAmount = await config.minExpectedHoldAmount()
-        const rewardPercent = await config.minRewardPercent()
-        const entryPeriodDuration = await config.minEntryPeriodDuration()
-        const completionPeriodDuration = await config.minCompletionPeriodDuration()
-        const entityId = "test_pool"
-        const rwaMultiplierIndex = 0
-
-        const rwaMultiplier = await config.getSpeculationRwaMultiplier(rwaMultiplierIndex) 
-        const calculatedVirtualHoldReserve = expectedHoldAmount * await config.speculationHoldMultiplier()
-        const calculatedVirtualRwaReserve = rwaMultiplier * await config.baseRwaAmount()
-
-        const poolLengthBefore = await addressBook.poolsLength()
-        const treasuryBalanceBefore = await holdToken.balanceOf(await treasury.getAddress())
-        const userBalanceBefore = await holdToken.balanceOf(user.address)
-
-        const createPoolFeeRatio = await config.minCreatePoolFeeRatio()
-        const poolSignData = await SignaturesUtils.signPoolDeployment({
-          factory,
-          user,
-          signers: [signer1, signer2, signer3],
-          createPoolFeeRatio,
-          poolType: "speculation",
-          entityId,
-          entityOwnerId: "test_owner",
-          entityOwnerType: "test_type",
-          owner: user,
-          rwa,
-          expectedHoldAmount,
-          rewardPercent,
-          entryPeriodDuration,
-          completionPeriodDuration,
-          payload: SignaturesUtils.getSpeculationPoolPayload(rwaMultiplierIndex)
-        })
-
-        await expect(
-          factory.connect(user).deployPool(
-            createPoolFeeRatio,
-            "speculation",
-            entityId,
-            "test_owner",
-            "test_type",
-            user.address,
-            rwa,
-            expectedHoldAmount,
-            rewardPercent,
-            entryPeriodDuration,
-            completionPeriodDuration,
-            SignaturesUtils.getSpeculationPoolPayload(rwaMultiplierIndex),
-            poolSignData.signers,
-            poolSignData.signatures,
-            poolSignData.expired
-          )
-        ).to.emit(eventEmitter, 'Pool_Deployed')
-
-        const poolAddress = await addressBook.getPoolByIndex(poolLengthBefore)
-        const pool = SpeculationPool__factory.connect(poolAddress, ethers.provider)
-
-        // Verify pool parameters
-        expect(await pool.entityId()).to.equal(entityId)
-        expect(await pool.entityOwnerId()).to.equal("test_owner")
-        expect(await pool.entityOwnerType()).to.equal("test_type")
-        expect(await pool.rwa()).to.equal(await rwa.getAddress())
+        expect(await pool.entityOwnerId()).to.equal(entityOwnerId)
+        expect(await pool.entityOwnerType()).to.equal(entityOwnerType)
+        expect(await pool.rwaToken()).to.equal(await rwa.getAddress())
         expect(await pool.owner()).to.equal(user.address)
         expect(await pool.expectedHoldAmount()).to.equal(expectedHoldAmount)
+        expect(await pool.expectedRwaAmount()).to.equal(expectedRwaAmount)
         expect(await pool.rewardPercent()).to.equal(rewardPercent)
-        expect(await pool.virtualHoldReserve()).to.equal(calculatedVirtualHoldReserve)
-        expect(await pool.virtualRwaReserve()).to.equal(calculatedVirtualRwaReserve)
-        expect(await pool.realHoldReserve()).to.equal(0)
+        expect(await pool.entryPeriodStart()).to.equal(entryPeriodStart)
+        expect(await pool.fixedSell()).to.equal(fixedSell)
+        expect(await pool.allowEntryBurn()).to.equal(allowEntryBurn)
+        expect(await pool.bonusAfterCompletion()).to.equal(bonusAfterCompletion)
+        expect(await pool.floatingOutTranchesTimestamps()).to.equal(floatingOutTranchesTimestamps)
+        expect(await pool.entryFeePercent()).to.equal(entryFeePercent)
+        expect(await pool.exitFeePercent()).to.equal(exitFeePercent)
+
+
+        // Verify k value (virtualHoldReserve * virtualRwaReserve)
+        const liquidityCoefficient = await config.getLiquidityCoefficient(priceImpactPercent)
+        const virtualHoldReserve = expectedHoldAmount * liquidityCoefficient
+        const virtualRwaReserve = expectedRwaAmount * (liquidityCoefficient + 1n)
+        expect(await pool.k()).to.equal(virtualHoldReserve * virtualRwaReserve)
+
 
         // Verify matching with RWA
         expect(await pool.entityOwnerId()).to.equal(await rwa.entityOwnerId())
@@ -334,7 +277,7 @@ describe('Factory Contract Tests', () => {
         expect(await addressBook.poolsLength()).to.equal(poolLengthBefore + 1n)
 
         // Verify fees
-        const fee = expectedHoldAmount * createPoolFeeRatio / 10000n
+        const fee = (expectedHoldAmount * createPoolFeeRatio) / 10000n
         expect(await holdToken.balanceOf(await treasury.getAddress())).to.equal(
           treasuryBalanceBefore + fee
         )

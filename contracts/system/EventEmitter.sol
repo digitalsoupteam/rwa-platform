@@ -1,23 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { AddressBook } from "./AddressBook.sol";
 
-contract EventEmitter is UUPSUpgradeable {
+contract EventEmitter is UpgradeableContract {
     /// @notice Address book contract reference
     AddressBook public addressBook;
     
     uint256 public genesisBlock;
 
-    constructor() {
-        _disableInitializers();
-    }
+    constructor() UpgradeableContract() {}
 
     function initialize(address initialAddressBook) external initializer {
-        __UUPSUpgradeable_init_unchained();
+        __UpgradeableContract_init();
 
         require(initialAddressBook != address(0), "Invalid address book");
         addressBook = AddressBook(initialAddressBook);
@@ -347,8 +345,16 @@ contract EventEmitter is UUPSUpgradeable {
     // --- Pool Events End ---
 
 
-    function _authorizeUpgrade(address) internal view override { // Renamed from internal to internal view
-        addressBook.requireGovernance(msg.sender);
+    function uniqueContractId() public pure override returns (bytes32) {
+        return keccak256("EventEmitter");
+    }
+
+    function implementationVersion() public pure override returns (uint256) {
+        return 1;
+    }
+
+    function _verifyAuthorizeUpgradeRole() internal view override {
+        addressBook.requireTimelock(msg.sender);
     }
 
 

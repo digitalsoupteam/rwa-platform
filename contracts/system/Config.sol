@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { AddressBook } from "./AddressBook.sol";
@@ -9,7 +9,7 @@ import { AddressBook } from "./AddressBook.sol";
 /// @title Configuration contract for RWA protocol
 /// @notice Stores all configurable parameters for the protocol
 /// @dev Upgradeable contract using UUPS proxy pattern
-contract Config is UUPSUpgradeable {
+contract Config is UpgradeableContract {
     /// @notice Address book contract reference
     AddressBook public addressBook;
     
@@ -50,7 +50,19 @@ contract Config is UUPSUpgradeable {
     uint256 public rewardPercentMin;
     uint256 public rewardPercentMax;
 
-    // --- Entry Period Configuration ---
+    // --- Period Configuration ---
+    /// @notice Minimum duration for entry period (between start and expired)
+    uint256 public entryPeriodMinDuration;
+    
+    /// @notice Maximum duration for entry period (between start and expired)
+    uint256 public entryPeriodMaxDuration;
+
+    /// @notice Minimum duration for completion period (between entry expired and completion expired)
+    uint256 public completionPeriodMinDuration;
+    
+    /// @notice Maximum duration for completion period (between entry expired and completion expired)
+    uint256 public completionPeriodMaxDuration;
+
     /// @notice Maximum past offset for entry period start (e.g. 1 days for yesterday)
     uint256 public maxEntryStartPastOffset;
     
@@ -78,9 +90,7 @@ contract Config is UUPSUpgradeable {
     mapping(uint256 => uint256) public liquidityCoefficients;
 
     /// @notice Constructor that disables initializers
-    constructor() {
-        _disableInitializers();
-    }
+    constructor() UpgradeableContract() {}
 
     function initialize(
         address initialAddressBook,
@@ -101,6 +111,10 @@ contract Config is UUPSUpgradeable {
         uint256 initialExitFeePercentMax,
         uint256 initialRewardPercentMin,
         uint256 initialRewardPercentMax,
+        uint256 initialEntryPeriodMinDuration,
+        uint256 initialEntryPeriodMaxDuration,
+        uint256 initialCompletionPeriodMinDuration,
+        uint256 initialCompletionPeriodMaxDuration,
         uint256 initialMaxEntryStartPastOffset,
         uint256 initialMaxEntryStartFutureOffset,
         uint256 initialOutgoingTranchesMinCount,
@@ -116,7 +130,7 @@ contract Config is UUPSUpgradeable {
         uint256[] memory initialPriceImpactPercentages,
         uint256[] memory initialCoefficients
     ) external initializer {
-        __UUPSUpgradeable_init();
+        __UpgradeableContract_init();
 
         require(initialAddressBook != address(0), "Invalid address book");
         require(initialHoldToken != address(0), "Invalid hold token");
@@ -131,6 +145,12 @@ contract Config is UUPSUpgradeable {
         require(initialEntryFeePercentMax <= 10000, "Entry fee too high"); // Max 100%
         require(initialExitFeePercentMax <= 10000, "Exit fee too high"); // Max 100%
         require(initialRewardPercentMin < initialRewardPercentMax, "Invalid reward range");
+
+        // Validate period durations
+        require(initialEntryPeriodMinDuration > 0, "Invalid entry period min duration");
+        require(initialEntryPeriodMaxDuration > initialEntryPeriodMinDuration, "Invalid entry period max duration");
+        require(initialCompletionPeriodMinDuration > 0, "Invalid completion period min duration");
+        require(initialCompletionPeriodMaxDuration > initialCompletionPeriodMinDuration, "Invalid completion period max duration");
 
         // Validate entry period offsets
         require(initialMaxEntryStartPastOffset > 0, "Invalid past offset");
@@ -168,6 +188,10 @@ contract Config is UUPSUpgradeable {
         rewardPercentMin = initialRewardPercentMin;
         rewardPercentMax = initialRewardPercentMax;
 
+        entryPeriodMinDuration = initialEntryPeriodMinDuration;
+        entryPeriodMaxDuration = initialEntryPeriodMaxDuration;
+        completionPeriodMinDuration = initialCompletionPeriodMinDuration;
+        completionPeriodMaxDuration = initialCompletionPeriodMaxDuration;
         maxEntryStartPastOffset = initialMaxEntryStartPastOffset;
         maxEntryStartFutureOffset = initialMaxEntryStartFutureOffset;
 
@@ -193,10 +217,16 @@ contract Config is UUPSUpgradeable {
         }
     }
 
-    /// @notice Authorizes an upgrade to a new implementation
-    /// @param newImplementation Address of new implementation
-    function _authorizeUpgrade(address newImplementation) internal view override {
-        addressBook.requireGovernance(msg.sender);
+    function uniqueContractId() public pure override returns (bytes32) {
+        return keccak256("Config");
+    }
+
+    function implementationVersion() public pure override returns (uint256) {
+        return 1;
+    }
+
+    function _verifyAuthorizeUpgradeRole() internal view override {
+        addressBook.requireTimelock(msg.sender);
     }
 
     /// @notice Updates base metadata URI
@@ -304,6 +334,28 @@ contract Config is UUPSUpgradeable {
         require(newMaxFutureOffset > newMaxPastOffset, "Invalid future offset");
         maxEntryStartPastOffset = newMaxPastOffset;
         maxEntryStartFutureOffset = newMaxFutureOffset;
+    }
+
+    /// @notice Updates entry period duration range
+    /// @param newMin New minimum duration
+    /// @param newMax New maximum duration
+    function updateEntryPeriodDurationRange(uint256 newMin, uint256 newMax) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newMin > 0, "Invalid entry period min duration");
+        require(newMax > newMin, "Invalid entry period max duration");
+        entryPeriodMinDuration = newMin;
+        entryPeriodMaxDuration = newMax;
+    }
+
+    /// @notice Updates completion period duration range
+    /// @param newMin New minimum duration
+    /// @param newMax New maximum duration
+    function updateCompletionPeriodDurationRange(uint256 newMin, uint256 newMax) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newMin > 0, "Invalid completion period min duration");
+        require(newMax > newMin, "Invalid completion period max duration");
+        completionPeriodMinDuration = newMin;
+        completionPeriodMaxDuration = newMax;
     }
 
     /// @notice Updates outgoing tranches configuration

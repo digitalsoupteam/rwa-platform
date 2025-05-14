@@ -74,7 +74,7 @@ const testConfigs = {
 
     // Price impact coefficients (impact percent * 100)
     priceImpactCoefficients: {
-            30000: 1,    // 300%
+        30000: 1,    // 300%
         //     12500: 2,    // 125%
         //     7778: 3,     // 77.78%
         //     5625: 4,     // 56.25%
@@ -120,7 +120,7 @@ const testConfigs = {
         //     460: 44,     // 4.6%
         //     449: 45,     // 4.49%
         //     440: 46,     // 4.4%
-            430: 47,     // 4.3%
+        430: 47,     // 4.3%
         //     421: 48,     // 4.21%
         //     412: 49,     // 4.12%
         //     404: 50,     // 4.04%
@@ -288,7 +288,7 @@ const testConfigs = {
         //     70: 285,     // 0.7%
         //     69: 289,     // 0.69%
         //     68: 293,     // 0.68%
-            67: 297,     // 0.67%
+        // 67: 297,     // 0.67%
         //     66: 302,     // 0.66%
         //     65: 306,     // 0.65%
         //     64: 311,     // 0.64%
@@ -339,7 +339,7 @@ const testConfigs = {
         //     19: 1027,    // 0.19%
         //     18: 1082,    // 0.18%
         //     17: 1144,    // 0.17%
-            // 16: 1213,    // 0.16%
+        // 16: 1213,    // 0.16%
         //     15: 1291,    // 0.15%
         //     14: 1380,    // 0.14%
         //     13: 1482,    // 0.13%
@@ -350,8 +350,8 @@ const testConfigs = {
         //     8: 2354,     // 0.08%
         //     7: 2668,     // 0.07%
         //     6: 3078,     // 0.06%
-            // 5: 3637,     // 0.05%
-        //     4: 4445,     // 0.04%
+        // 5: 3637,     // 0.05%
+            4: 4445,     // 0.04%
         //     3: 5715,     // 0.03%
         //     2: 8001,     // 0.02%
         //     1: 13334     // 0.01%
@@ -389,7 +389,7 @@ const testConfigs = {
                                         allowEntryBurn: allowEntryBurn.value,
                                         bonusAfterCompletion: bonusAfterCompletion.value,
                                         floatingOutTranchesTimestamps: floatingTimestamps.value,
-                                        description: `${fixedSell.description}, ${allowEntryBurn.description}, ${bonusAfterCompletion.description}, ${floatingTimestamps.description}, ${amount.description}, ${reward.description}, ${Number(priceImpactPercent)/100}% price impact`
+                                        description: `${fixedSell.description}, ${allowEntryBurn.description}, ${bonusAfterCompletion.description}, ${floatingTimestamps.description}, ${amount.description}, ${reward.description}, ${Number(priceImpactPercent) / 100}% price impact`
                                     });
                                 }
                             }
@@ -496,6 +496,8 @@ describe("Pool tests", () => {
                 incomingTrancheAmounts?: bigint[];
                 incomingTrancheExpired?: number[];
                 entryPeriodStart?: number;
+                entryPeriodExpired?: number;
+                completionPeriodExpired?: number;
                 fixedSell?: boolean;
                 allowEntryBurn?: boolean;
                 bonusAfterCompletion?: boolean;
@@ -512,6 +514,8 @@ describe("Pool tests", () => {
                     incomingTrancheAmounts,
                     incomingTrancheExpired,
                     entryPeriodStart,
+                    entryPeriodExpired,
+                    completionPeriodExpired,
                     fixedSell = config.fixedSell,
                     allowEntryBurn = config.allowEntryBurn,
                     bonusAfterCompletion = config.bonusAfterCompletion,
@@ -520,22 +524,21 @@ describe("Pool tests", () => {
 
                 const now = await getCurrentBlockTimestamp();
                 const _entryPeriodStart = BigInt(entryPeriodStart || now);
+                const _entryPeriodExpired = BigInt(entryPeriodExpired || Number(_entryPeriodStart) + Number(await configContract.entryPeriodMinDuration()));
+                const _completionPeriodExpired = BigInt(completionPeriodExpired || Number(_entryPeriodExpired) + Number(await configContract.completionPeriodMinDuration()));
 
                 // Default single outgoing tranche if not provided
                 const _outgoingTrancheAmounts = outgoingTrancheAmounts || [targetHold];
-                const _outgoingTranchTimestamps = outgoingTranchTimestamps || [_entryPeriodStart + 86400n]; // 24 hours after start if not provided
+                const _outgoingTranchTimestamps = outgoingTranchTimestamps || [_entryPeriodExpired];
 
                 // Calculate expected bonus amount
                 const expectedBonusAmount = (targetHold * rewardPercent) / 10000n;
 
                 // Default single incoming tranche if not provided
                 const _incomingTrancheAmounts = incomingTrancheAmounts || [targetHold + expectedBonusAmount];
-                const _incomingTrancheExpired = incomingTrancheExpired || [BigInt(_outgoingTranchTimestamps[0]) + 172800n]; // 48 hours after start if not provided
+                const _incomingTrancheExpired = incomingTrancheExpired || [_completionPeriodExpired];
 
                 const entityId = "test_entity";
-                const entityOwnerId = "test_owner";
-                const entityOwnerType = "test_type";
-
                 const createPoolFeeRatio = await configContract.createPoolFeeRatioMin();
                 const entryFeePercent = await configContract.entryFeePercentMin();
                 const exitFeePercent = await configContract.exitFeePercentMin();
@@ -552,6 +555,8 @@ describe("Pool tests", () => {
                     priceImpactPercent: BigInt(priceImpactPercent),
                     rewardPercent,
                     entryPeriodStart: _entryPeriodStart,
+                    entryPeriodExpired: _entryPeriodExpired,
+                    completionPeriodExpired: _completionPeriodExpired,
                     entryFeePercent,
                     exitFeePercent,
                     fixedSell,
@@ -575,6 +580,8 @@ describe("Pool tests", () => {
                     BigInt(priceImpactPercent),
                     rewardPercent,
                     _entryPeriodStart,
+                    _entryPeriodExpired,
+                    _completionPeriodExpired,
                     entryFeePercent,
                     exitFeePercent,
                     fixedSell,
@@ -709,6 +716,9 @@ describe("Pool tests", () => {
             if (config.fixedSell == false) {
                 it("should handle mixed tranche operations", async () => {
                     const now = await getCurrentBlockTimestamp();
+                    const entryPeriodStart = now;
+                    const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration());
+                    const completionPeriodExpired = entryPeriodExpired + Number(await configContract.completionPeriodMinDuration());
 
                     // Configure 5 outgoing tranches
                     const outgoingAmounts = [
@@ -721,11 +731,11 @@ describe("Pool tests", () => {
 
                     // Calculate timestamps for outgoing tranches
                     const outgoingTimestamps = [
-                        now + 86400,
-                        now + 3 * 86400,
-                        now + 5 * 86400,
-                        now + 7 * 86400,
-                        now + 9 * 86400
+                        entryPeriodExpired,
+                        entryPeriodExpired + 6 * 86400,
+                        entryPeriodExpired + 12 * 86400,
+                        entryPeriodExpired + 18 * 86400,
+                        entryPeriodExpired + 24 * 86400,
                     ];
 
                     // Calculate expected bonus
@@ -742,11 +752,11 @@ describe("Pool tests", () => {
 
                     // Incoming tranches with specific expiration timestamps
                     const incomingExpired = [
-                        now + 2 * 86400,
-                        now + 4 * 86400,
-                        now + 6 * 86400,
-                        now + 8 * 86400,
-                        now + 10 * 86400      // At completion period expiry
+                        completionPeriodExpired - 25 * 86400,
+                        completionPeriodExpired - 19 * 86400,
+                        completionPeriodExpired - 13 * 86400,
+                        completionPeriodExpired - 7 * 86400,
+                        completionPeriodExpired,
                     ];
 
                     // Deploy pool with configured tranches and periods
@@ -893,11 +903,6 @@ describe("Pool tests", () => {
                                 "Virtual RWA should not change on return");
                         }
 
-                        // Get final state and verify estimates haven't changed
-                        const virtualHold = await pool.virtualHoldReserve();
-                        const realHold = await pool.realHoldReserve();
-                        const virtualRwa = await pool.virtualRwaReserve();
-
                         const [mintAmountAfter, mintFeeAfter, actualRwaAmountAfter] = await pool.estimateMint(testRwaAmount, false);
                         const [holdAfter, holdFeeAfter, bonusAfter, bonusFeeAfter] = await pool.estimateBurn(testRwaAmount);
 
@@ -962,8 +967,6 @@ describe("Pool tests", () => {
 
             it("should handle single tranche operations", async () => {
                 const now = await getCurrentBlockTimestamp();
-                const entryPeriodExpired = now + 86400; // 24 hours
-                const completionPeriodExpired = now + 10 * 86400; // 10 days
 
                 // Deploy pool with default single tranches
                 const pool = await deployPool();
@@ -981,7 +984,7 @@ describe("Pool tests", () => {
                 const balanceBefore = await holdToken.balanceOf(user.address);
 
                 // Move time to entry period expiry and claim
-                await ethers.provider.send("evm_setNextBlockTimestamp", [entryPeriodExpired]);
+                await ethers.provider.send("evm_setNextBlockTimestamp", [Number(await pool.entryPeriodExpired())]);
                 await ethers.provider.send("evm_mine", []);
 
                 await pool.connect(user).claimOutgoingTranches([0]);
@@ -999,7 +1002,7 @@ describe("Pool tests", () => {
                 const awaitingBonusBefore = await pool.awaitingBonusAmount();
 
                 // Move time to completion period and return
-                await ethers.provider.send("evm_setNextBlockTimestamp", [completionPeriodExpired]);
+                await ethers.provider.send("evm_setNextBlockTimestamp", [Number(await pool.completionPeriodExpired())]);
                 await ethers.provider.send("evm_mine", []);
 
                 const expectedBonusAmount = (targetHold * rewardPercent) / 10000n;
@@ -1020,8 +1023,9 @@ describe("Pool tests", () => {
 
             it("should handle partial returns across tranches", async () => {
                 const now = await getCurrentBlockTimestamp();
-                const entryPeriodExpired = now + 86400; // 24 hours
-                const completionPeriodExpired = now + 10 * 86400; // 10 days
+                const entryPeriodStart = now;
+                const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration());
+                const completionPeriodExpired = entryPeriodExpired + Number(await configContract.completionPeriodMinDuration());
 
                 // Configure 2 outgoing tranches
                 const outgoingAmounts = [
@@ -1030,8 +1034,8 @@ describe("Pool tests", () => {
                 ];
 
                 const outgoingTimestamps = [
-                    now + 86400,    // First tranche after 24h
-                    now + 172800,   // Second tranche after 48h
+                    entryPeriodExpired,
+                    entryPeriodExpired + 86400,
                 ];
 
                 // Calculate expected bonus
@@ -1054,7 +1058,9 @@ describe("Pool tests", () => {
                     outgoingTranchTimestamps: outgoingTimestamps,
                     incomingTrancheAmounts: incomingAmounts,
                     incomingTrancheExpired: incomingExpired,
-                    entryPeriodStart: now
+                    entryPeriodStart,
+                    entryPeriodExpired,
+                    completionPeriodExpired
                 });
 
                 // Fill pool and claim both tranches
@@ -1106,9 +1112,6 @@ describe("Pool tests", () => {
 
                 expect(await holdToken.balanceOf(await pool.getAddress())).to.equal(balanceBefore3 + secondReturnAmount);
 
-
-
-
                 const debtBeforeSecondReturn = targetHold - firstReturnAmount;
                 const debtPortion = debtBeforeSecondReturn > secondReturnAmount ? secondReturnAmount : debtBeforeSecondReturn;
                 const bonusPortion = secondReturnAmount > debtBeforeSecondReturn ? secondReturnAmount - debtBeforeSecondReturn : 0n;
@@ -1153,7 +1156,7 @@ describe("Pool tests", () => {
                     it("should adjust tranche timestamps when target reached early", async () => {
                         const now = await getCurrentBlockTimestamp();
                         const entryPeriodStart = now;
-                        const entryPeriodExpired = now + 10 * 86400; // 10 day
+                        const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration())
 
                         // Configure 3 outgoing tranches
                         const outgoingAmount1 = targetHold / 3n
@@ -1216,7 +1219,7 @@ describe("Pool tests", () => {
                     it("should not adjust timestamps if target reached less than 1 day early", async () => {
                         const now = await getCurrentBlockTimestamp();
                         const entryPeriodStart = now;
-                        const entryPeriodExpired = now + 86400; // 1 day
+                        const entryPeriodExpired = now + Number(await configContract.entryPeriodMinDuration());
 
                         const pool = await deployPool({
                             entryPeriodStart: entryPeriodStart,
@@ -1327,25 +1330,6 @@ describe("Pool tests", () => {
                     expect(await pool.paused()).to.be.false;
                 });
 
-                it("should enforce upgrade authorization", async () => {
-                    const pool = await deployPool({
-                        fixedSell: config.fixedSell,
-                        allowEntryBurn: config.allowEntryBurn,
-                        bonusAfterCompletion: config.bonusAfterCompletion
-                    });
-
-                    // Deploy new implementation
-                    const PoolFactory = await ethers.getContractFactory("Pool");
-                    const newImplementation = await PoolFactory.deploy();
-
-                    // Only governance can upgrade
-                    await expect(
-                        pool.connect(user).upgradeToAndCall(await newImplementation.getAddress(), '0x')
-                    ).to.be.revertedWith("AddressBook: not governance");
-
-                    // Upgrade from governance should work
-                    await pool.connect(owner).upgradeToAndCall(await newImplementation.getAddress(), '0x');
-                });
 
                 it("should properly update lastCompletedIncomingTranche", async () => {
                     const now = await getCurrentBlockTimestamp();
@@ -1389,7 +1373,7 @@ describe("Pool tests", () => {
                     expect(await pool.lastCompletedIncomingTranche()).to.equal(1);
 
                     // Return final tranche
-                    const amount3 =  trancheAmount2 - amount2 + trancheAmount3
+                    const amount3 = trancheAmount2 - amount2 + trancheAmount3
                     await holdToken.connect(user).approve(pool.getAddress(), amount3);
                     await pool.connect(user).returnIncomingTranche(amount3);
 
@@ -1576,15 +1560,17 @@ describe("Pool tests", () => {
                 it("should prevent minting after completion period expired", async () => {
                     const now = await getCurrentBlockTimestamp();
                     const entryPeriodStart = now;
-                    const entryPeriodExpired = now + 86400; // 1 day
-                    const completionPeriod = now + 172800; // 2 days
+                    const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration())
+                    const completionPeriodExpired = entryPeriodExpired + Number(await configContract.completionPeriodMinDuration())
 
                     const pool = await deployPool({
                         fixedSell: false,
                         outgoingTrancheAmounts: [targetHold],
                         outgoingTranchTimestamps: [entryPeriodExpired],
                         incomingTrancheAmounts: [targetHold + (targetHold * rewardPercent) / 10000n],
-                        incomingTrancheExpired: [completionPeriod],
+                        incomingTrancheExpired: [completionPeriodExpired],
+                        completionPeriodExpired,
+                        entryPeriodExpired,
                         entryPeriodStart
                     });
 
@@ -1593,15 +1579,16 @@ describe("Pool tests", () => {
                     await pool.connect(user).mint(targetRwa, holdAmountWithFee, entryPeriodExpired - 1, false);
 
                     // Move time past completion period
-                    await ethers.provider.send("evm_setNextBlockTimestamp", [completionPeriod + 1]);
+                    await ethers.provider.send("evm_setNextBlockTimestamp", [completionPeriodExpired + 1]);
                     await ethers.provider.send("evm_mine", []);
 
                     // Try to mint more after completion period
                     const [holdAmountWithFee2, fee2, actualRwaAmount2] = await pool.estimateMint(1n, false);
                     await expect(
-                        pool.connect(user).mint(1n, holdAmountWithFee2, completionPeriod + 3600, false)
+                        pool.connect(user).mint(1n, holdAmountWithFee2, completionPeriodExpired + 3600, false)
                     ).to.be.revertedWith("Pool: completion period expired");
                 });
+
                 it("should prevent minting after full return", async () => {
                     const pool = await deployPool({
                         fixedSell: false
@@ -1632,12 +1619,13 @@ describe("Pool tests", () => {
                 it("should control burning during entry period", async () => {
                     const now = await getCurrentBlockTimestamp();
                     const entryPeriodStart = now + 3600; // Start in 1 hour
-                    const entryPeriodExpired = entryPeriodStart + 86400; // Entry period 24 hours
+                    const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration())
 
                     // Deploy pool with burning not allowed during entry
                     const pool = await deployPool({
                         outgoingTranchTimestamps: [entryPeriodExpired],
                         entryPeriodStart,
+                        entryPeriodExpired,
                         allowEntryBurn: false
                     });
 
@@ -1712,7 +1700,6 @@ describe("Pool tests", () => {
 
                     // Get state before final mint that reaches target
                     const virtualHoldBefore = await pool.virtualHoldReserve();
-                    const realHoldBefore = await pool.realHoldReserve();
                     const virtualRwaBefore = await pool.virtualRwaReserve();
 
                     [holdAmountWithFee, fee, actualRwaAmount] = await pool.estimateMint(rwaUser3, false);
@@ -1735,7 +1722,7 @@ describe("Pool tests", () => {
 
                     // Move time 1 day forward to enable bonuses
                     await ethers.provider.send("evm_setNextBlockTimestamp", [
-                        (await getCurrentBlockTimestamp()) + 86400 + 1
+                       Number(await pool.entryPeriodExpired())
                     ]);
                     await ethers.provider.send("evm_mine", []);
 
@@ -1750,13 +1737,11 @@ describe("Pool tests", () => {
                     const approxBonus2 = (expectedBonusAmount * rwaUser2) / initialTotalRwa;
                     const approxBonus3 = expectedBonusAmount - approxBonus1 - approxBonus2;
 
-
                     let [holdAmountWithoutFee, holdFee, bonusAmountWithoutFee, bonusFee] = await pool.estimateBurn(rwaUser1);
                     const currentBonus = await pool.awaitingBonusAmount();
                     const currentRwa = await pool.awaitingRwaAmount();
                     const expectedBonus1 = (currentBonus * rwaUser1) / currentRwa;
                     expect(bonusAmountWithoutFee + bonusFee).to.equal(expectedBonus1);
-
 
                     now = await getCurrentBlockTimestamp();
                     validUntil = now + 3600;
@@ -1838,7 +1823,6 @@ describe("Pool tests", () => {
 
                     // Get state before final mint that reaches target
                     const virtualHoldBefore = await pool.virtualHoldReserve();
-                    const realHoldBefore = await pool.realHoldReserve();
                     const virtualRwaBefore = await pool.virtualRwaReserve();
 
                     [holdAmountWithFee, fee, actualRwaAmount] = await pool.estimateMint(rwaUser3, false);
@@ -1861,7 +1845,7 @@ describe("Pool tests", () => {
 
                     // Move time 1 day forward to enable bonuses
                     await ethers.provider.send("evm_setNextBlockTimestamp", [
-                        (await getCurrentBlockTimestamp()) + 86400 + 1
+                       Number(await pool.entryPeriodExpired())
                     ]);
                     await ethers.provider.send("evm_mine", []);
 

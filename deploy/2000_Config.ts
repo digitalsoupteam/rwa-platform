@@ -41,6 +41,12 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const initialRewardPercentMin = 100 // 1%
   const initialRewardPercentMax = 10000 // 100%
 
+  // Period duration parameters
+  const initialEntryPeriodMinDuration = 7 * 24 * 60 * 60 // 7 days
+  const initialEntryPeriodMaxDuration = 90 * 24 * 60 * 60 // 90 days
+  const initialCompletionPeriodMinDuration = 30 * 24 * 60 * 60 // 30 days
+  const initialCompletionPeriodMaxDuration = 365 * 24 * 60 * 60 // 365 days
+
   // Entry period parameters
   const initialMaxEntryStartPastOffset = 24 * 60 * 60 // 1 day
   const initialMaxEntryStartFutureOffset = 180 * 24 * 60 * 60 // 180 days
@@ -377,6 +383,10 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             initialExitFeePercentMax,
             initialRewardPercentMin,
             initialRewardPercentMax,
+            initialEntryPeriodMinDuration,
+            initialEntryPeriodMaxDuration,
+            initialCompletionPeriodMinDuration,
+            initialCompletionPeriodMaxDuration,
             initialMaxEntryStartPastOffset,
             initialMaxEntryStartFutureOffset,
             initialOutgoingTranchesMinCount,

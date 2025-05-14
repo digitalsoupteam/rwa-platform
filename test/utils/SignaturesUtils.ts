@@ -85,6 +85,8 @@ export default class SignaturesUtils {
     priceImpactPercent: bigint
     rewardPercent: bigint
     entryPeriodStart: bigint
+    entryPeriodExpired: bigint
+    completionPeriodExpired: bigint
     entryFeePercent: bigint
     exitFeePercent: bigint
     fixedSell: boolean
@@ -107,6 +109,8 @@ export default class SignaturesUtils {
       priceImpactPercent,
       rewardPercent,
       entryPeriodStart,
+      entryPeriodExpired,
+      completionPeriodExpired,
       fixedSell,
       allowEntryBurn,
       bonusAfterCompletion,
@@ -135,6 +139,8 @@ export default class SignaturesUtils {
         'uint256', // priceImpactPercent
         'uint256', // rewardPercent
         'uint256', // entryPeriodStart
+        'uint256', // entryPeriodExpired
+        'uint256', // completionPeriodExpired
         'uint256', // entryFeePercent
         'uint256', // exitFeePercent
         'bool',    // fixedSell
@@ -159,6 +165,8 @@ export default class SignaturesUtils {
         priceImpactPercent,
         rewardPercent,
         entryPeriodStart,
+        entryPeriodExpired,
+        completionPeriodExpired,
         params.entryFeePercent,
         params.exitFeePercent,
         fixedSell,

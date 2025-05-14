@@ -112,6 +112,8 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
         uint256 priceImpactPercent,
         uint256 rewardPercent,
         uint256 entryPeriodStart,
+        uint256 entryPeriodExpired,
+        uint256 completionPeriodExpired,
         uint256 entryFeePercent,
         uint256 exitFeePercent,
         bool fixedSell,
@@ -188,7 +190,6 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
                 incomingTranches.length <= config.incomingTranchesMaxCount(),
             "Factory: invalid incoming tranches count"
         );
-
         require(
             outgoingTranches.length == outgoingTranchTimestamps.length,
             "Factory: outgoing tranche arrays length mismatch"
@@ -197,9 +198,29 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
             incomingTranches.length == incomingTrancheExpired.length,
             "Factory: incoming tranche arrays length mismatch"
         );
+
+        uint256 entryPeriodDuration = entryPeriodExpired - entryPeriodStart;
         require(
-            outgoingTranchTimestamps[0] > entryPeriodStart,
-            "Factory: first outgoing tranche must be after entry start"
+            entryPeriodDuration >= config.entryPeriodMinDuration() &&
+                entryPeriodDuration <= config.entryPeriodMaxDuration(),
+            "Factory: entry period duration out of allowed range"
+        );
+
+        uint256 completionPeriodDuration = completionPeriodExpired - entryPeriodExpired;
+        require(
+            completionPeriodDuration >= config.completionPeriodMinDuration() &&
+                completionPeriodDuration <= config.completionPeriodMaxDuration(),
+            "Factory: completion period duration out of allowed range"
+        );
+
+        require(
+            outgoingTranchTimestamps[0] >= entryPeriodExpired,
+            "Factory: first outgoing tranche must be after entry period"
+        );
+
+        require(
+            incomingTrancheExpired[incomingTranches.length - 1] <= completionPeriodExpired,
+            "Factory: last incoming tranche must be before completion period"
         );
 
         uint256 totalOutgoing = 0;
@@ -265,11 +286,6 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
             "Factory: incoming tranches must equal total expected amount"
         );
 
-        require(
-            incomingTrancheExpired[incomingTrancheExpired.length - 1] > outgoingTranchTimestamps[0],
-            "Factory: completion must be after entry period"
-        );
-
         IERC20 holdToken = config.holdToken();
         holdToken.transferFrom(
             msg.sender,
@@ -294,6 +310,8 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
                             priceImpactPercent,
                             rewardPercent,
                             entryPeriodStart,
+                            entryPeriodExpired,
+                            completionPeriodExpired,
                             entryFeePercent,
                             exitFeePercent,
                             fixedSell,
@@ -321,6 +339,10 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
 
         _addressBook.addPool(Pool(proxy));
 
+        // Calculate values
+        uint256 liquidityCoefficient = config.getLiquidityCoefficient(priceImpactPercent);
+        uint256 expectedBonusAmount = (expectedHoldAmount * rewardPercent) / 10000;
+
         Pool(proxy).initialize(
             address(config.holdToken()),
             address(rwa),
@@ -333,10 +355,14 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
             expectedHoldAmount,
             expectedRwaAmount,
             priceImpactPercent,
+            liquidityCoefficient,
             entryFeePercent,
             exitFeePercent,
             entryPeriodStart,
+            entryPeriodExpired,
+            completionPeriodExpired,
             rewardPercent,
+            expectedBonusAmount,
             fixedSell,
             allowEntryBurn,
             bonusAfterCompletion,

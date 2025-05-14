@@ -105,8 +105,10 @@ describe('Pool Upgrade Tests', () => {
         const expectedHoldAmount = ethers.parseEther("10000")
         const expectedRwaAmount = BigInt(1000000)
         const priceImpactPercent = BigInt(1)
-        const rewardPercent = BigInt(500)
+        const rewardPercent = await config.rewardPercentMin()
         const entryPeriodStart = BigInt(await time.latest()) + BigInt(3600)
+        const entryPeriodExpired = entryPeriodStart + BigInt(await config.entryPeriodMinDuration())
+        const completionPeriodExpired = entryPeriodExpired + BigInt(await config.completionPeriodMinDuration())
         const fixedSell = true
         const allowEntryBurn = false
         const bonusAfterCompletion = true
@@ -114,11 +116,18 @@ describe('Pool Upgrade Tests', () => {
         const entryFeePercent = await config.entryFeePercentMin()
         const exitFeePercent = await config.exitFeePercentMin()
 
+        // Минимально допустимое количество транчей
         const outgoingTranches = [expectedHoldAmount / 2n, expectedHoldAmount / 2n]
-        const outgoingTranchTimestamps = [entryPeriodStart + BigInt(86400), entryPeriodStart + BigInt(2 * 86400)]
+        const outgoingTranchTimestamps = [
+            entryPeriodExpired,
+            entryPeriodExpired + BigInt(await config.outgoingTranchesMinInterval())
+        ]
         const expectedBonusAmount = (expectedHoldAmount * rewardPercent) / 10000n
         const incomingTranches = [(expectedHoldAmount + expectedBonusAmount) / 2n, (expectedHoldAmount + expectedBonusAmount) / 2n]
-        const incomingTrancheExpired = [entryPeriodStart + BigInt(10 * 86400), entryPeriodStart + BigInt(12 * 86400)]
+        const incomingTrancheExpired = [
+            completionPeriodExpired - BigInt(await config.incomingTranchesMinInterval()),
+            completionPeriodExpired
+        ]
 
         const createPoolFeeRatio = await config.createPoolFeeRatioMin()
 
@@ -134,6 +143,8 @@ describe('Pool Upgrade Tests', () => {
             priceImpactPercent,
             rewardPercent,
             entryPeriodStart,
+            entryPeriodExpired,
+            completionPeriodExpired,
             entryFeePercent,
             exitFeePercent,
             fixedSell,
@@ -155,6 +166,8 @@ describe('Pool Upgrade Tests', () => {
             priceImpactPercent,
             rewardPercent,
             entryPeriodStart,
+            entryPeriodExpired,
+            completionPeriodExpired,
             entryFeePercent,
             exitFeePercent,
             fixedSell,
@@ -213,11 +226,28 @@ describe('Pool Upgrade Tests', () => {
         expect(await pool.implementationVersion()).to.equal(currentVersion + 1n)
     })
 
-    it('should not allow upgrade to version+2', async () => {
+    it('should allow upgrade to version+100', async () => {
         const timelockAddress = await addressBook.timelock()
         const currentVersion = await pool.implementationVersion()
         const uniqueId = await pool.uniqueContractId()
-        const newImplementation = await new PoolNewImplementation__factory(owner).deploy(currentVersion + 2n, timelockAddress, uniqueId)
+        const newImplementation = await new PoolNewImplementation__factory(owner).deploy(currentVersion + 100n, timelockAddress, uniqueId)
+        await newImplementation.waitForDeployment()
+
+        const initData = newImplementation.interface.encodeFunctionData('initialize')
+        const tx = await pool.connect(governance).upgradeToAndCall(
+            await newImplementation.getAddress(),
+            initData
+        )
+        await tx.wait()
+
+        expect(await pool.implementationVersion()).to.equal(currentVersion + 100n)
+    })
+
+    it('should not allow upgrade to version+101', async () => {
+        const timelockAddress = await addressBook.timelock()
+        const currentVersion = await pool.implementationVersion()
+        const uniqueId = await pool.uniqueContractId()
+        const newImplementation = await new PoolNewImplementation__factory(owner).deploy(currentVersion + 101n, timelockAddress, uniqueId)
         await newImplementation.waitForDeployment()
 
         await expect(
@@ -225,7 +255,7 @@ describe('Pool Upgrade Tests', () => {
                 await newImplementation.getAddress(),
                 newImplementation.interface.encodeFunctionData('initialize')
             )
-        ).to.be.revertedWith('UpgradeableContract: new version must be greater than current')
+        ).to.be.revertedWith('UpgradeableContract: invalid version upgrade')
     })
 
     it('should not allow upgrade to a lower version', async () => {
@@ -240,7 +270,7 @@ describe('Pool Upgrade Tests', () => {
                 await newImplementation.getAddress(),
                 newImplementation.interface.encodeFunctionData('initialize')
             )
-        ).to.be.revertedWith('UpgradeableContract: new version must be greater than current')
+        ).to.be.revertedWith('UpgradeableContract: invalid version upgrade')
     })
 
     it('should not allow upgrade to the same version', async () => {
@@ -255,7 +285,7 @@ describe('Pool Upgrade Tests', () => {
                 await newImplementation.getAddress(),
                 newImplementation.interface.encodeFunctionData('initialize')
             )
-        ).to.be.revertedWith('UpgradeableContract: new version must be greater than current')
+        ).to.be.revertedWith('UpgradeableContract: invalid version upgrade')
     })
 
     it('should not allow upgrade from not upgrade role', async () => {

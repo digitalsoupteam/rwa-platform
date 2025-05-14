@@ -13,6 +13,14 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
     // --- Static Configuration Parameters ---
     // Variables set during initialization and then immutable.
 
+    /// @notice Price impact percent used for AMM calculations
+    /// @dev Set during initialization and then immutable.
+    uint256 public priceImpactPercent;
+
+    /// @notice Liquidity coefficient used for AMM calculations
+    /// @dev Set during initialization and then immutable.
+    uint256 public liquidityCoefficient;
+
     /// @notice HOLD token contract
     /// @dev Set during initialization and then immutable.
     IERC20 public holdToken;
@@ -183,10 +191,14 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         uint256 _expectedHoldAmount,
         uint256 _expectedRwaAmount,
         uint256 _priceImpactPercent,
+        uint256 _liquidityCoefficient,
         uint256 _entryFeePercent,
         uint256 _exitFeePercent,
         uint256 _entryPeriodStart,
+        uint256 _entryPeriodExpired,
+        uint256 _completionPeriodExpired,
         uint256 _rewardPercent,
+        uint256 _expectedBonusAmount,
         bool _fixedSell,
         bool _allowEntryBurn,
         bool _bonusAfterCompletion,
@@ -201,11 +213,11 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         __UpgradeableContract_init();
         __ReentrancyGuard_init_unchained();
 
-        Config config = addressBook.config();
-        uint256 _liquidityCoefficient = config.getLiquidityCoefficient(_priceImpactPercent);
+        priceImpactPercent = _priceImpactPercent;
+        liquidityCoefficient = _liquidityCoefficient;
         entryPeriodStart = _entryPeriodStart;
-        entryPeriodExpired = _outgoingTranchTimestamps[0];
-        completionPeriodExpired = _incomingTrancheExpired[_incomingTrancheExpired.length - 1];
+        entryPeriodExpired = _entryPeriodExpired;
+        completionPeriodExpired = _completionPeriodExpired;
         holdToken = IERC20(_holdToken);
         rwaToken = RWA(_rwaToken);
         tokenId = _tokenId;
@@ -216,7 +228,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         expectedHoldAmount = _expectedHoldAmount;
         expectedRwaAmount = _expectedRwaAmount;
         rewardPercent = _rewardPercent;
-        expectedBonusAmount = (_expectedHoldAmount * _rewardPercent) / 10000;
+        expectedBonusAmount = _expectedBonusAmount;
 
         // Initialize state
         isTargetReached = false;

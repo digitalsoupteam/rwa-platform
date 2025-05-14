@@ -75,11 +75,28 @@ describe('Factory Upgrade Tests', () => {
         expect(await factory.implementationVersion()).to.equal(currentVersion + 1n)
     })
 
-    it('should not allow upgrade to version+2', async () => {
+    it('should allow upgrade to version+100', async () => {
         const governanceAddress = await addressBook.governance()
         const currentVersion = await factory.implementationVersion()
         const uniqueId = await factory.uniqueContractId()
-        const newImplementation = await new FactoryNewImplementation__factory(owner).deploy(currentVersion + 2n, governanceAddress, uniqueId)
+        const newImplementation = await new FactoryNewImplementation__factory(owner).deploy(currentVersion + 100n, governanceAddress, uniqueId)
+        await newImplementation.waitForDeployment()
+
+        const initData = newImplementation.interface.encodeFunctionData('initialize')
+        const tx = await factory.connect(governance).upgradeToAndCall(
+            await newImplementation.getAddress(),
+            initData
+        )
+        await tx.wait()
+
+        expect(await factory.implementationVersion()).to.equal(currentVersion + 100n)
+    })
+
+    it('should not allow upgrade to version+101', async () => {
+        const governanceAddress = await addressBook.governance()
+        const currentVersion = await factory.implementationVersion()
+        const uniqueId = await factory.uniqueContractId()
+        const newImplementation = await new FactoryNewImplementation__factory(owner).deploy(currentVersion + 101n, governanceAddress, uniqueId)
         await newImplementation.waitForDeployment()
 
         await expect(
@@ -87,7 +104,7 @@ describe('Factory Upgrade Tests', () => {
                 await newImplementation.getAddress(),
                 newImplementation.interface.encodeFunctionData('initialize')
             )
-        ).to.be.revertedWith('UpgradeableContract: new version must be greater than current')
+        ).to.be.revertedWith('UpgradeableContract: invalid version upgrade')
     })
 
     it('should not allow upgrade to a lower version', async () => {
@@ -102,7 +119,7 @@ describe('Factory Upgrade Tests', () => {
                 await newImplementation.getAddress(),
                 newImplementation.interface.encodeFunctionData('initialize')
             )
-        ).to.be.revertedWith('UpgradeableContract: new version must be greater than current')
+        ).to.be.revertedWith('UpgradeableContract: invalid version upgrade')
     })
 
     it('should not allow upgrade to the same version', async () => {
@@ -117,9 +134,24 @@ describe('Factory Upgrade Tests', () => {
                 await newImplementation.getAddress(),
                 newImplementation.interface.encodeFunctionData('initialize')
             )
-        ).to.be.revertedWith('UpgradeableContract: new version must be greater than current')
+        ).to.be.revertedWith('UpgradeableContract: invalid version upgrade')
     })
 
+
+    it('should not allow upgrade with wrong uniqueContractId', async () => {
+        const governanceAddress = await addressBook.governance()
+        const currentVersion = await factory.implementationVersion()
+        const wrongUniqueId = ethers.keccak256(ethers.toUtf8Bytes("WrongFactory"))
+        const newImplementation = await new FactoryNewImplementation__factory(owner).deploy(currentVersion + 1n, governanceAddress, wrongUniqueId)
+        await newImplementation.waitForDeployment()
+
+        await expect(
+            factory.connect(governance).upgradeToAndCall(
+                await newImplementation.getAddress(),
+                newImplementation.interface.encodeFunctionData('initialize')
+            )
+        ).to.be.revertedWith('UpgradeableContract: uniqueContractId not equals')
+    })
 
     it('should not allow upgrade from not upgrade role', async () => {
         const governanceAddress = await addressBook.governance()

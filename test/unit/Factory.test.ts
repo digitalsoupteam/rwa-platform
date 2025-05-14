@@ -167,8 +167,10 @@ describe('Factory Contract Tests', () => {
         const expectedHoldAmount = ethers.parseEther("10000") // 10k HOLD
         const expectedRwaAmount = BigInt(1000000) // 1M RWA
         const priceImpactPercent = BigInt(1) // 0.01% price impact
-        const rewardPercent = BigInt(500) // 5%
+        const rewardPercent = await config.rewardPercentMin()
         const entryPeriodStart = BigInt(await time.latest()) + BigInt(3600) // Starts in 1 hour
+        const entryPeriodExpired = entryPeriodStart + BigInt(await config.entryPeriodMinDuration())
+        const completionPeriodExpired = entryPeriodExpired + BigInt(await config.completionPeriodMinDuration())
         const fixedSell = true
         const allowEntryBurn = false
         const bonusAfterCompletion = true
@@ -176,12 +178,18 @@ describe('Factory Contract Tests', () => {
         const entryFeePercent = await config.entryFeePercentMin()
         const exitFeePercent = await config.exitFeePercentMin()
 
-        // Example tranches (adjust as needed for your Pool logic)
+        // Минимально допустимое количество транчей
         const outgoingTranches = [expectedHoldAmount / 2n, expectedHoldAmount / 2n]
-        const outgoingTranchTimestamps = [entryPeriodStart + BigInt(86400), entryPeriodStart + BigInt(2 * 86400)] // 1 day, 2 days after start
+        const outgoingTranchTimestamps = [
+            entryPeriodExpired,
+            entryPeriodExpired + BigInt(await config.outgoingTranchesMinInterval())
+        ]
         const expectedBonusAmount = (expectedHoldAmount * rewardPercent) / 10000n
         const incomingTranches = [(expectedHoldAmount + expectedBonusAmount) / 2n, (expectedHoldAmount + expectedBonusAmount) / 2n]
-        const incomingTrancheExpired = [entryPeriodStart + BigInt(10 * 86400), entryPeriodStart + BigInt(12 * 86400)] // 10 days, 12 days after start
+        const incomingTrancheExpired = [
+            completionPeriodExpired - BigInt(await config.incomingTranchesMinInterval()),
+            completionPeriodExpired
+        ]
 
         const poolLengthBefore = await addressBook.poolsLength()
         const treasuryBalanceBefore = await holdToken.balanceOf(await treasury.getAddress())
@@ -201,6 +209,8 @@ describe('Factory Contract Tests', () => {
           priceImpactPercent,
           rewardPercent,
           entryPeriodStart,
+          entryPeriodExpired,
+          completionPeriodExpired,
           entryFeePercent,
           exitFeePercent,
           fixedSell,
@@ -223,6 +233,8 @@ describe('Factory Contract Tests', () => {
             priceImpactPercent,
             rewardPercent,
             entryPeriodStart,
+            entryPeriodExpired,
+            completionPeriodExpired,
             entryFeePercent,
             exitFeePercent,
             fixedSell,
@@ -252,12 +264,27 @@ describe('Factory Contract Tests', () => {
         expect(await pool.expectedRwaAmount()).to.equal(expectedRwaAmount)
         expect(await pool.rewardPercent()).to.equal(rewardPercent)
         expect(await pool.entryPeriodStart()).to.equal(entryPeriodStart)
+        expect(await pool.entryPeriodExpired()).to.equal(entryPeriodExpired)
+        expect(await pool.completionPeriodExpired()).to.equal(completionPeriodExpired)
         expect(await pool.fixedSell()).to.equal(fixedSell)
         expect(await pool.allowEntryBurn()).to.equal(allowEntryBurn)
         expect(await pool.bonusAfterCompletion()).to.equal(bonusAfterCompletion)
         expect(await pool.floatingOutTranchesTimestamps()).to.equal(floatingOutTranchesTimestamps)
         expect(await pool.entryFeePercent()).to.equal(entryFeePercent)
         expect(await pool.exitFeePercent()).to.equal(exitFeePercent)
+
+        // Verify period durations are within allowed ranges
+        const entryPeriodDuration = entryPeriodExpired - entryPeriodStart
+        expect(entryPeriodDuration).to.be.gte(await config.entryPeriodMinDuration())
+        expect(entryPeriodDuration).to.be.lte(await config.entryPeriodMaxDuration())
+
+        const completionPeriodDuration = completionPeriodExpired - entryPeriodExpired
+        expect(completionPeriodDuration).to.be.gte(await config.completionPeriodMinDuration())
+        expect(completionPeriodDuration).to.be.lte(await config.completionPeriodMaxDuration())
+
+        // Verify tranche timestamps
+        expect(outgoingTranchTimestamps[0]).to.be.gte(entryPeriodExpired)
+        expect(incomingTrancheExpired[incomingTrancheExpired.length - 1]).to.be.lte(completionPeriodExpired)
 
 
         // Verify k value (virtualHoldReserve * virtualRwaReserve)

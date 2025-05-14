@@ -7,23 +7,19 @@ import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
 import {
   EventEmitter,
   EventEmitter__factory,
-  Factory,
-  Factory__factory,
   AddressBook,
   AddressBook__factory,
-  UUPSUpgradeable,
-  UUPSUpgradeable__factory,
-  Governance,
-  Governance__factory,
+  Config,
+  Config__factory,
 } from '../../typechain-types'
 
 describe('EventEmitter Contract Unit Tests', () => {
   let eventEmitter: EventEmitter
-  let factory: Factory
   let addressBook: AddressBook
+  let config: Config
   let testOwner: HardhatEthersSigner
   let user: HardhatEthersSigner
-  let impersonateFactory: SignerWithAddress
+  let impersonatedConfig: SignerWithAddress
   let initSnapshot: string
 
   before(async () => {
@@ -39,17 +35,20 @@ describe('EventEmitter Contract Unit Tests', () => {
       ethers.provider,
     )
 
-    factory = Factory__factory.connect((await deployments.get('Factory')).address, ethers.provider)
-
     addressBook = AddressBook__factory.connect(
       (await deployments.get('AddressBook')).address,
       ethers.provider,
     )
 
-    // Impersonate Factory contract to test protocol events
-    await impersonateAccount(await factory.getAddress())
-    impersonateFactory = await ethers.getSigner(await factory.getAddress())
-    await setBalance(impersonateFactory.address, ethers.parseEther('100'))
+    config = Config__factory.connect(
+      (await deployments.get('Config')).address,
+      ethers.provider,
+    )
+
+    // Impersonate Config contract since it's already registered as protocol contract
+    await impersonateAccount(await config.getAddress())
+    impersonatedConfig = await ethers.getSigner(await config.getAddress())
+    await setBalance(impersonatedConfig.address, ethers.parseEther('100'))
 
     initSnapshot = await ethers.provider.send('evm_snapshot', [])
   })
@@ -69,233 +68,130 @@ describe('EventEmitter Contract Unit Tests', () => {
     })
   })
 
-  describe('Event Emission', () => {
-    it('should emit Factory_RWADeployed event when called by protocol contract', async () => {
-      const token = ethers.Wallet.createRandom().address
-      const owner = ethers.Wallet.createRandom().address
-      const entityId = "test-entity"
-
-      await expect(eventEmitter.connect(impersonateFactory).emitFactory_RWADeployed(token, owner, entityId))
-        .to.emit(eventEmitter, 'Factory_RWADeployed')
-        .withArgs(await factory.getAddress(), token, owner, entityId)
-    })
-
-    it('should emit Factory_PoolDeployed event when called by protocol contract', async () => {
-      const pool = ethers.Wallet.createRandom().address
-      const owner = ethers.Wallet.createRandom().address
-      const entityId = "entity-1"
-      const rwa = ethers.Wallet.createRandom().address
-      const rwaId = 1n
-      const expectedHoldAmount = ethers.parseEther('1000')
-      const rewardPercent = 1500n
-      const entryPeriodExpired = 1234567890n
-      const completionPeriodExpired = 1234567999n
-      const poolType = "stable"
-      const payload = "0x"
+  describe('Pool Events', () => {
+    it('should emit Pool_OutgoingTrancheClaimed when called by protocol contract', async () => {
+      const claimer = ethers.Wallet.createRandom().address
+      const trancheIndex = 1n
+      const amountClaimed = ethers.parseEther('100')
 
       await expect(
-        eventEmitter.connect(impersonateFactory).emitFactory_PoolDeployed(
-          pool,
-          owner,
-          entityId,
-          rwa,
-          rwaId,
-          expectedHoldAmount,
-          rewardPercent,
-          entryPeriodExpired,
-          completionPeriodExpired,
-          poolType,
-          payload
-        ),
-      )
-        .to.emit(eventEmitter, 'Factory_PoolDeployed')
-        .withArgs(
-          await factory.getAddress(),
-          pool,
-          owner,
-          entityId,
-          rwa,
-          rwaId,
-          expectedHoldAmount,
-          rewardPercent,
-          entryPeriodExpired,
-          completionPeriodExpired,
-          poolType,
-          payload
+        eventEmitter.connect(impersonatedConfig).emitPool_OutgoingTrancheClaimed(
+          claimer,
+          trancheIndex,
+          amountClaimed
         )
+      )
+        .to.emit(eventEmitter, 'Pool_OutgoingTrancheClaimed')
+        .withArgs(impersonatedConfig.address, claimer, trancheIndex, amountClaimed)
     })
 
-    it('should revert when non-protocol contract tries to emit event', async () => {
-      const token = ethers.Wallet.createRandom().address
-      const owner = ethers.Wallet.createRandom().address
+    it('should revert Pool_OutgoingTrancheClaimed when called by non-protocol contract', async () => {
+      const claimer = ethers.Wallet.createRandom().address
+      const trancheIndex = 1n
+      const amountClaimed = ethers.parseEther('100')
 
       await expect(
-        eventEmitter.connect(user).emitFactory_RWADeployed(token, owner, ""),
+        eventEmitter.connect(user).emitPool_OutgoingTrancheClaimed(
+          claimer,
+          trancheIndex,
+          amountClaimed
+        )
       ).to.be.revertedWith('Not a protocol contract!')
     })
-  })
 
-  describe('BasePool Events', () => {
-    it('should emit BasePool_AccumulatedAmountsUpdated event when called by protocol contract', async () => {
-      const entityId = "test-entity"
-      const accumulatedHoldAmount = ethers.parseEther('100')
-      const accumulatedRwaAmount = ethers.parseEther('50')
+    it('should emit Pool_RwaMinted when called by protocol contract', async () => {
+      const minter = ethers.Wallet.createRandom().address
+      const rwaAmountMinted = ethers.parseEther('100')
+      const holdAmountPaid = ethers.parseEther('50')
+      const feePaid = ethers.parseEther('1')
 
       await expect(
-        eventEmitter.connect(impersonateFactory).emitBasePool_AccumulatedAmountsUpdated(
-          entityId,
-          accumulatedHoldAmount,
-          accumulatedRwaAmount
+        eventEmitter.connect(impersonatedConfig).emitPool_RwaMinted(
+          minter,
+          rwaAmountMinted,
+          holdAmountPaid,
+          feePaid
         )
       )
-        .to.emit(eventEmitter, 'BasePool_AccumulatedAmountsUpdated')
-        .withArgs(await factory.getAddress(), entityId, accumulatedHoldAmount, accumulatedRwaAmount)
+        .to.emit(eventEmitter, 'Pool_RwaMinted')
+        .withArgs(impersonatedConfig.address, minter, rwaAmountMinted, holdAmountPaid, feePaid)
     })
 
-    it('should emit BasePool_TargetReached event when called by protocol contract', async () => {
-      const entityId = "test-entity"
-      const allocatedHoldAmount = ethers.parseEther('1000')
+    it('should emit Pool_RwaBurned when called by protocol contract', async () => {
+      const burner = ethers.Wallet.createRandom().address
+      const rwaAmountBurned = ethers.parseEther('100')
+      const holdAmountReceived = ethers.parseEther('50')
+      const bonusAmountReceived = ethers.parseEther('10')
+      const holdFeePaid = ethers.parseEther('1')
+      const bonusFeePaid = ethers.parseEther('0.2')
 
       await expect(
-        eventEmitter.connect(impersonateFactory).emitBasePool_TargetReached(entityId, allocatedHoldAmount)
-      )
-        .to.emit(eventEmitter, 'BasePool_TargetReached')
-        .withArgs(await factory.getAddress(), entityId, allocatedHoldAmount)
-    })
-
-    it('should emit BasePool_FullyReturned event when called by protocol contract', async () => {
-      const entityId = "test-entity"
-      const isFullyReturned = true
-
-      await expect(
-        eventEmitter.connect(impersonateFactory).emitBasePool_FullyReturned(entityId, isFullyReturned)
-      )
-        .to.emit(eventEmitter, 'BasePool_FullyReturned')
-        .withArgs(await factory.getAddress(), entityId, isFullyReturned)
-    })
-
-    it('should emit BasePool_ReturnedAmountUpdated event when called by protocol contract', async () => {
-      const entityId = "test-entity"
-      const returnedAmount = ethers.parseEther('500')
-
-      await expect(
-        eventEmitter.connect(impersonateFactory).emitBasePool_ReturnedAmountUpdated(entityId, returnedAmount)
-      )
-        .to.emit(eventEmitter, 'BasePool_ReturnedAmountUpdated')
-        .withArgs(await factory.getAddress(), entityId, returnedAmount)
-    })
-
-    it('should emit BasePool_EmergencyStop event when called by protocol contract', async () => {
-      const entityId = "test-entity"
-      const paused = true
-
-      await expect(
-        eventEmitter.connect(impersonateFactory).emitBasePool_EmergencyStop(entityId, paused)
-      )
-        .to.emit(eventEmitter, 'BasePool_EmergencyStop')
-        .withArgs(await factory.getAddress(), entityId, paused)
-    })
-
-    it('should emit BasePool_AvailableReturnBalanceUpdated event when called by protocol contract', async () => {
-      const entityId = "test-entity"
-      const availableReturnBalance = ethers.parseEther('750')
-
-      await expect(
-        eventEmitter.connect(impersonateFactory).emitBasePool_AvailableReturnBalanceUpdated(
-          entityId,
-          availableReturnBalance
+        eventEmitter.connect(impersonatedConfig).emitPool_RwaBurned(
+          burner,
+          rwaAmountBurned,
+          holdAmountReceived,
+          bonusAmountReceived,
+          holdFeePaid,
+          bonusFeePaid
         )
       )
-        .to.emit(eventEmitter, 'BasePool_AvailableReturnBalanceUpdated')
-        .withArgs(await factory.getAddress(), entityId, availableReturnBalance)
-    })
-
-    it('should emit BasePool_AllocatedHoldAmountClaimed event when called by protocol contract', async () => {
-      const entityId = "test-entity"
-      const allocatedHoldAmount = ethers.parseEther('1000')
-
-      await expect(
-        eventEmitter.connect(impersonateFactory).emitBasePool_AllocatedHoldAmountClaimed(
-          entityId,
-          allocatedHoldAmount
+        .to.emit(eventEmitter, 'Pool_RwaBurned')
+        .withArgs(
+          impersonatedConfig.address,
+          burner,
+          rwaAmountBurned,
+          holdAmountReceived,
+          bonusAmountReceived,
+          holdFeePaid,
+          bonusFeePaid
         )
-      )
-        .to.emit(eventEmitter, 'BasePool_AllocatedHoldAmountClaimed')
-        .withArgs(await factory.getAddress(), entityId, allocatedHoldAmount)
     })
   })
 
   describe('RWA Events', () => {
-    it('should emit RWA_Transfer event when called by protocol contract', async () => {
+    it('should emit RWA_Transfer when called by protocol contract', async () => {
       const from = ethers.Wallet.createRandom().address
       const to = ethers.Wallet.createRandom().address
       const tokenId = 1n
       const amount = ethers.parseEther('100')
 
-      await expect(eventEmitter.connect(impersonateFactory).emitRWA_Transfer(from, to, tokenId, amount))
+      await expect(
+        eventEmitter.connect(impersonatedConfig).emitRWA_Transfer(from, to, tokenId, amount)
+      )
         .to.emit(eventEmitter, 'RWA_Transfer')
-        .withArgs(await factory.getAddress(), from, to, tokenId, amount)
+        .withArgs(impersonatedConfig.address, from, to, tokenId, amount)
+    })
+
+    it('should emit RWA_Deployed when called by protocol contract', async () => {
+      const owner = ethers.Wallet.createRandom().address
+      const entityId = "test-entity"
+
+      await expect(
+        eventEmitter.connect(impersonatedConfig).emitRWA_Deployed(owner, entityId)
+      )
+        .to.emit(eventEmitter, 'RWA_Deployed')
+        .withArgs(impersonatedConfig.address, owner, entityId)
+    })
+
+    it('should revert RWA_Transfer when called by non-protocol contract', async () => {
+      const from = ethers.Wallet.createRandom().address
+      const to = ethers.Wallet.createRandom().address
+      const tokenId = 1n
+      const amount = ethers.parseEther('100')
+
+      await expect(
+        eventEmitter.connect(user).emitRWA_Transfer(from, to, tokenId, amount)
+      ).to.be.revertedWith('Not a protocol contract!')
     })
   })
 
-  describe('upgrades', () => {
-    let newEventEmitter: EventEmitter
-    let proxyEventEmitter: UUPSUpgradeable
-    let governance: Governance
-    let impersonateGovernance: SignerWithAddress
-
-    beforeEach(async () => {
-      governance = Governance__factory.connect(await addressBook.governance(), ethers.provider)
-      await impersonateAccount(await governance.getAddress())
-      impersonateGovernance = await ethers.getSigner(await governance.getAddress())
-      proxyEventEmitter = UUPSUpgradeable__factory.connect(
-        await eventEmitter.getAddress(),
-        ethers.provider,
-      )
-      const EventEmitter = await ethers.getContractFactory('EventEmitter')
-      newEventEmitter = await EventEmitter.deploy()
+  describe('Contract Management', () => {
+    it('should return correct unique contract id', async () => {
+      expect(await eventEmitter.uniqueContractId()).to.equal(ethers.keccak256(ethers.toUtf8Bytes("EventEmitter")))
     })
 
-    it('should upgrade contract', async () => {
-      await expect(
-        proxyEventEmitter
-          .connect(impersonateGovernance)
-          .upgradeToAndCall(await newEventEmitter.getAddress(), '0x'),
-      ).to.not.be.reverted
-
-      expect(await eventEmitter.getAddress()).to.equal(await ethers.resolveAddress(eventEmitter))
-    })
-
-    it('should not allow non-owner to upgrade', async () => {
-      await expect(
-        eventEmitter.connect(user).upgradeToAndCall(await newEventEmitter.getAddress(), '0x'),
-      ).to.be.revertedWith('Only Governance!')
-    })
-
-    it('should not allow upgrade to non-contract address', async () => {
-      await expect(
-        eventEmitter.connect(impersonateGovernance).upgradeToAndCall(user.address, '0x'),
-      ).to.be.revertedWithoutReason()
-    })
-
-    it('should preserve state after upgrade', async () => {
-      const addressBookBefore = await eventEmitter.addressBook()
-
-      await eventEmitter
-        .connect(impersonateGovernance)
-        .upgradeToAndCall(await newEventEmitter.getAddress(), '0x')
-
-      expect(await eventEmitter.addressBook()).to.equal(addressBookBefore)
-    })
-
-    it('should emit Upgraded event', async () => {
-      await expect(
-        eventEmitter
-          .connect(impersonateGovernance)
-          .upgradeToAndCall(await newEventEmitter.getAddress(), '0x'),
-      )
-        .to.emit(eventEmitter, 'Upgraded')
-        .withArgs(await newEventEmitter.getAddress())
+    it('should return correct implementation version', async () => {
+      expect(await eventEmitter.implementationVersion()).to.equal(1n)
     })
   })
 })

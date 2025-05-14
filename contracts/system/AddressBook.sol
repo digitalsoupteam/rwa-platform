@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 
 import { Config } from "./Config.sol";
 import { EventEmitter } from "./EventEmitter.sol";
@@ -24,7 +24,7 @@ import { Pool } from "../rwa/Pool.sol";
 /// @title AddressBook contract for managing system addresses
 /// @notice This contract stores and manages addresses of core protocol contracts
 /// @dev Handles setting and managing addresses for all protocol contracts
-contract AddressBook is UUPSUpgradeable {
+contract AddressBook is UpgradeableContract {
     /// @notice The governance contract address
     Governance public governance;
 
@@ -97,25 +97,26 @@ contract AddressBook is UUPSUpgradeable {
     /// @notice Number of authorized signers
     uint256 public signersLength;
 
-    /// @notice Contract constructor
-    /// @dev Disables initializers at deployment
-    constructor() {
-        _disableInitializers();
-    }
+    constructor() UpgradeableContract() {}
 
     /// @notice Initializes the contract setting initial governance
     /// @dev Can only be called once through initializer modifier
     function initialize() external initializer {
-        __UUPSUpgradeable_init_unchained();
+        __UpgradeableContract_init();
         governance = Governance(msg.sender);
         timelock = Timelock(payable(msg.sender));
     }
 
-    /// @notice Authorizes an upgrade to a new implementation
-    /// @dev Internal function that can only be called by governance
-    /// @param newImplementation The address of the new implementation
-    function _authorizeUpgrade(address newImplementation) internal override {
-        requireGovernance(msg.sender);
+    function uniqueContractId() public pure override returns (bytes32) {
+        return keccak256("AddressBook");
+    }
+
+    function implementationVersion() public pure override returns (uint256) {
+        return 1;
+    }
+
+    function _verifyAuthorizeUpgradeRole() internal view override {
+        requireTimelock(msg.sender);
     }
 
     /// @notice Checks if an address has governance rights

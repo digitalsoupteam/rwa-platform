@@ -15,7 +15,10 @@ abstract contract UpgradeableContract is
     UUPSUpgradeable,
     ERC165Upgradeable
 {
-    function upgradeToAndCall(address newImplementation, bytes memory data) public payable virtual override onlyProxy {
+    function upgradeToAndCall(
+        address newImplementation,
+        bytes memory data
+    ) public payable virtual override onlyProxy {
         require(data.length > 0, "UpgradeableContract: empty upgrade data");
         super.upgradeToAndCall(newImplementation, data);
     }
@@ -54,10 +57,18 @@ abstract contract UpgradeableContract is
             IUniqueVersionedContract(newImplementation).uniqueContractId() == uniqueContractId(),
             "UpgradeableContract: uniqueContractId not equals"
         );
+        uint256 newVersion = IUniqueVersionedContract(newImplementation).implementationVersion();
+        uint256 currentVersion = implementationVersion();
         require(
-            IUniqueVersionedContract(newImplementation).implementationVersion() ==
-                implementationVersion() + 1,
-            "UpgradeableContract: new version must be greater than current"
+            newVersion > currentVersion && newVersion <= currentVersion + 100,
+            "UpgradeableContract: invalid version upgrade"
         );
     }
+
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[50] private __gap;
 }

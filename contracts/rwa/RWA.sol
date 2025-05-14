@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import { ERC1155SupplyUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
@@ -10,7 +10,7 @@ import { AddressBook } from "../system/AddressBook.sol";
 /// @title RWA Token Contract
 /// @notice Contract for managing real world asset tokens
 /// @dev Implements ERC1155 standard with upgradeable functionality
-contract RWA is UUPSUpgradeable, ERC1155Upgradeable, ERC1155SupplyUpgradeable {
+contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeable {
     /// @notice Address book contract reference
     AddressBook public addressBook;
 
@@ -27,10 +27,7 @@ contract RWA is UUPSUpgradeable, ERC1155Upgradeable, ERC1155SupplyUpgradeable {
     /// @notice Unique token ID amount
     uint256 public tokensLength;
 
-    /// @notice Prevents initialization of implementation contract
-    constructor() {
-        _disableInitializers();
-    }
+    constructor() UpgradeableContract() {}
 
     /// @notice Initializes the contract
     /// @dev Can only be called once
@@ -45,8 +42,9 @@ contract RWA is UUPSUpgradeable, ERC1155Upgradeable, ERC1155SupplyUpgradeable {
         require(initialOwner != address(0), "Invalid owner");
         require(initialAddressBook != address(0), "Invalid addressBook");
 
-        __UUPSUpgradeable_init_unchained();
+        __UpgradeableContract_init();
         __ERC1155_init_unchained("");
+        __ERC1155Supply_init_unchained();
         addressBook = AddressBook(initialAddressBook);
         owner = initialOwner;
         entityId = initialEntityId;
@@ -59,11 +57,20 @@ contract RWA is UUPSUpgradeable, ERC1155Upgradeable, ERC1155SupplyUpgradeable {
         );
     }
 
-    /// @notice Authorizes an upgrade to a new implementation
-    /// @dev Can only be called by governance address
-    /// @param newImplementation Address of the new implementation contract
-    function _authorizeUpgrade(address newImplementation) internal override {
-        addressBook.requireGovernance(msg.sender);
+    function uniqueContractId() public pure override returns (bytes32) {
+        return keccak256("RWA");
+    }
+
+    function implementationVersion() public pure override returns (uint256) {
+        return 1;
+    }
+
+    function _verifyAuthorizeUpgradeRole() internal view override {
+        addressBook.requireTimelock(msg.sender);
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override(UpgradeableContract, ERC1155Upgradeable) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 
     /// @notice override base function

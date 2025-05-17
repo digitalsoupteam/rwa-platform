@@ -91,7 +91,7 @@ export default class SignaturesUtils {
     exitFeePercent: bigint
     fixedSell: boolean
     allowEntryBurn: boolean
-    bonusAfterCompletion: boolean
+    awaitCompletionExpired: boolean
     floatingOutTranchesTimestamps: boolean
     outgoingTranches: BigNumberish[]
     outgoingTranchTimestamps: BigNumberish[]
@@ -113,7 +113,7 @@ export default class SignaturesUtils {
       completionPeriodExpired,
       fixedSell,
       allowEntryBurn,
-      bonusAfterCompletion,
+      awaitCompletionExpired,
       floatingOutTranchesTimestamps,
       outgoingTranches,
       outgoingTranchTimestamps,
@@ -145,7 +145,7 @@ export default class SignaturesUtils {
         'uint256', // exitFeePercent
         'bool',    // fixedSell
         'bool',    // allowEntryBurn
-        'bool',    // bonusAfterCompletion
+        'bool',    // awaitCompletionExpired
         'bool',    // floatingOutTranchesTimestamps
         'uint256[]', // outgoingTranches
         'uint256[]', // outgoingTranchTimestamps
@@ -171,7 +171,7 @@ export default class SignaturesUtils {
         params.exitFeePercent,
         fixedSell,
         allowEntryBurn,
-        bonusAfterCompletion,
+        awaitCompletionExpired,
         floatingOutTranchesTimestamps,
         outgoingTranches,
         outgoingTranchTimestamps,

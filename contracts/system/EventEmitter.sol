@@ -25,20 +25,20 @@ contract EventEmitter is UpgradeableContract {
     // --- Pool Events Start ---
 
     event Pool_OutgoingTrancheClaimed(
-        address indexed emittedFrom, // Pool contract address
+        address indexed emittedFrom, 
         address indexed claimer,
         uint256 trancheIndex,
         uint256 amountClaimed
     );
 
     event Pool_OutgoingClaimSummary(
-        address indexed emittedFrom, // Pool contract address
+        address indexed emittedFrom, 
         uint256 totalClaimedAmount,
         uint256 outgoingTranchesBalance
     );
 
     event Pool_IncomingTrancheUpdate(
-        address indexed emittedFrom, // Pool contract address
+        address indexed emittedFrom, 
         address indexed returner,
         uint256 trancheIndex,
         uint256 amountAppliedToTranche,
@@ -47,18 +47,18 @@ contract EventEmitter is UpgradeableContract {
     );
 
     event Pool_IncomingReturnSummary(
-        address indexed emittedFrom, // Pool contract address
+        address indexed emittedFrom, 
         uint256 totalReturnedAmount,
         uint256 lastCompletedIncomingTranche
     );
 
     event Pool_FundsFullyReturned(
-        address indexed emittedFrom, // Pool contract address
+        address indexed emittedFrom, 
         uint256 timestamp
     );
 
     event Pool_RwaMinted(
-        address indexed emittedFrom, // Pool contract address
+        address indexed emittedFrom, 
         address indexed minter,
         uint256 rwaAmountMinted,
         uint256 holdAmountPaid,
@@ -66,13 +66,13 @@ contract EventEmitter is UpgradeableContract {
     );
 
     event Pool_TargetReached(
-        address indexed emittedFrom, // Pool contract address
+        address indexed emittedFrom, 
         uint256 outgoingTranchesBalance,
         uint256 floatingTimestampOffset
     );
 
     event Pool_RwaBurned(
-        address indexed emittedFrom, // Pool contract address
+        address indexed emittedFrom, 
         address indexed burner,
         uint256 rwaAmountBurned,
         uint256 holdAmountReceived,
@@ -82,34 +82,33 @@ contract EventEmitter is UpgradeableContract {
     );
 
     event Pool_AwaitingRwaAmountUpdated(
-        address indexed emittedFrom, // Pool contract address
+        address indexed emittedFrom, 
         uint256 awaitingRwaAmount
     );
 
     event Pool_AwaitingBonusAmountUpdated(
-        address indexed emittedFrom, // Pool contract address
+        address indexed emittedFrom, 
         uint256 awaitingBonusAmount
     );
 
     event Pool_ReservesUpdated(
-        address indexed emittedFrom, // Pool contract address
+        address indexed emittedFrom, 
         uint256 realHoldReserve,
         uint256 virtualHoldReserve,
         uint256 virtualRwaReserve
     );
 
     event Pool_PausedStateChanged(
-        address indexed emittedFrom, // Pool contract address
+        address indexed emittedFrom, 
         bool isPaused
     );
 
     event Pool_Deployed(
-        address indexed emittedFrom, // Pool contract address
-        bool bonusAfterCompletion,
+        address indexed emittedFrom, 
+        bool awaitCompletionExpired,
         bool floatingOutTranchesTimestamps,
         address holdToken,
         address rwaToken,
-        address addressBook,
         uint256 tokenId,
         string entityId,
         string entityOwnerId,
@@ -283,11 +282,10 @@ contract EventEmitter is UpgradeableContract {
 
     // Renamed from Pool_StaticConfigured to Pool_Deployed as per user's previous feedback and file state
     function emitPool_Deployed(
-        bool bonusAfterCompletion,
+        bool awaitCompletionExpired,
         bool floatingOutTranchesTimestamps,
         address holdToken,
         address rwaToken,
-        address _addressBook,
         uint256 tokenId,
         string memory entityId,
         string memory entityOwnerId,
@@ -313,11 +311,10 @@ contract EventEmitter is UpgradeableContract {
         addressBook.requireProtocolContract(msg.sender);
         emit Pool_Deployed(
             msg.sender, 
-            bonusAfterCompletion,
+            awaitCompletionExpired,
             floatingOutTranchesTimestamps,
             holdToken,
             rwaToken,
-            _addressBook,
             tokenId,
             entityId,
             entityOwnerId,

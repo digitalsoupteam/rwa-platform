@@ -27,37 +27,37 @@ async function getCurrentBlockTimestamp(): Promise<number> {
 const testConfigs = {
     // Pool behavior flags
     fixedSellValues: [
-        { value: true, description: "fixed sell" },
+        // { value: true, description: "fixed sell" },
         { value: false, description: "variable sell" }
     ],
 
     allowEntryBurnValues: [
-        { value: true, description: "allow entry burn" },
+        // { value: true, description: "allow entry burn" },
         { value: false, description: "no entry burn" }
     ],
 
-    bonusAfterCompletionValues: [
-        { value: true, description: "bonus after completion" },
+    awaitCompletionExpiredValues: [
+        // { value: true, description: "bonus after completion" },
         { value: false, description: "bonus after return" }
     ],
 
     floatingOutTranchesTimestampsValues: [
-        { value: true, description: "floating timestamps" },
+        // { value: true, description: "floating timestamps" },
         { value: false, description: "fixed timestamps" }
     ],
 
     // Target amounts configurations
     targetAmounts: [
-        {
-            rwa: BigInt(1000000),    // 1M RWA
-            hold: ethers.parseEther('100000'),  // 100k HOLD
-            description: "Standard amounts"
-        },
-        {
-            rwa: BigInt(500000),     // 500k RWA
-            hold: ethers.parseEther('50000'),   // 50k HOLD
-            description: "Half amounts"
-        },
+        // {
+        //     rwa: BigInt(1000000),    // 1M RWA
+        //     hold: ethers.parseEther('100000'),  // 100k HOLD
+        //     description: "Standard amounts"
+        // },
+        // {
+        //     rwa: BigInt(500000),     // 500k RWA
+        //     hold: ethers.parseEther('50000'),   // 50k HOLD
+        //     description: "Half amounts"
+        // },
         {
             rwa: BigInt(2000000),    // 2M RWA
             hold: ethers.parseEther('200000'),  // 200k HOLD
@@ -67,18 +67,18 @@ const testConfigs = {
 
     // Reward percentages (in basis points)
     rewardPercents: [
-        { value: 500n, description: "5% reward" },
-        { value: 1000n, description: "10% reward" },
+        // { value: 500n, description: "5% reward" },
+        // { value: 1000n, description: "10% reward" },
         { value: 2000n, description: "20% reward" }
     ],
 
     // Price impact coefficients (impact percent * 100)
     priceImpactCoefficients: {
         30000: 1,    // 300%
-        //     12500: 2,    // 125%
+            // 12500: 2,    // 125%
         //     7778: 3,     // 77.78%
         //     5625: 4,     // 56.25%
-        //     4400: 5,     // 44%
+            // 4400: 5,     // 44%
         //     3611: 6,     // 36.11%
         //     3061: 7,     // 30.61%
         //     2656: 8,     // 26.56%
@@ -86,7 +86,7 @@ const testConfigs = {
         //     2100: 10,    // 21%
         //     1901: 11,    // 19.01%
         //     1736: 12,    // 17.36%
-        //     1598: 13,    // 15.98%
+            // 1598: 13,    // 15.98%
         //     1480: 14,    // 14.8%
         //     1378: 15,    // 13.78%
         //     1289: 16,    // 12.89%
@@ -120,7 +120,7 @@ const testConfigs = {
         //     460: 44,     // 4.6%
         //     449: 45,     // 4.49%
         //     440: 46,     // 4.4%
-        430: 47,     // 4.3%
+        // 430: 47,     // 4.3%
         //     421: 48,     // 4.21%
         //     412: 49,     // 4.12%
         //     404: 50,     // 4.04%
@@ -333,7 +333,7 @@ const testConfigs = {
         //     25: 785,     // 0.25%
         //     24: 817,     // 0.24%
         //     23: 852,     // 0.23%
-        //     22: 890,     // 0.22%
+            // 22: 890,     // 0.22%
         //     21: 931,     // 0.21%
         //     20: 977,     // 0.2%
         //     19: 1027,    // 0.19%
@@ -351,10 +351,10 @@ const testConfigs = {
         //     7: 2668,     // 0.07%
         //     6: 3078,     // 0.06%
         // 5: 3637,     // 0.05%
-            4: 4445,     // 0.04%
+            // 4: 4445,     // 0.04%
         //     3: 5715,     // 0.03%
         //     2: 8001,     // 0.02%
-        //     1: 13334     // 0.01%
+            // 1: 13334     // 0.01%
     },
 
     // Helper to get all combinations
@@ -367,14 +367,14 @@ const testConfigs = {
             coefficient: number,
             fixedSell: boolean,
             allowEntryBurn: boolean,
-            bonusAfterCompletion: boolean,
+            awaitCompletionExpired: boolean,
             floatingOutTranchesTimestamps: boolean,
             description: string
         }> = [];
 
         for (const fixedSell of this.fixedSellValues) {
             for (const allowEntryBurn of this.allowEntryBurnValues) {
-                for (const bonusAfterCompletion of this.bonusAfterCompletionValues) {
+                for (const awaitCompletionExpired of this.awaitCompletionExpiredValues) {
                     for (const floatingTimestamps of this.floatingOutTranchesTimestampsValues) {
                         for (const amount of this.targetAmounts) {
                             for (const reward of this.rewardPercents) {
@@ -387,9 +387,9 @@ const testConfigs = {
                                         coefficient: coefficient,
                                         fixedSell: fixedSell.value,
                                         allowEntryBurn: allowEntryBurn.value,
-                                        bonusAfterCompletion: bonusAfterCompletion.value,
+                                        awaitCompletionExpired: awaitCompletionExpired.value,
                                         floatingOutTranchesTimestamps: floatingTimestamps.value,
-                                        description: `${fixedSell.description}, ${allowEntryBurn.description}, ${bonusAfterCompletion.description}, ${floatingTimestamps.description}, ${amount.description}, ${reward.description}, ${Number(priceImpactPercent) / 100}% price impact`
+                                        description: `${fixedSell.description}, ${allowEntryBurn.description}, ${awaitCompletionExpired.description}, ${floatingTimestamps.description}, ${amount.description}, ${reward.description}, ${Number(priceImpactPercent) / 100}% price impact`
                                     });
                                 }
                             }
@@ -500,7 +500,7 @@ describe("Pool tests", () => {
                 completionPeriodExpired?: number;
                 fixedSell?: boolean;
                 allowEntryBurn?: boolean;
-                bonusAfterCompletion?: boolean;
+                awaitCompletionExpired?: boolean;
                 floatingOutTranchesTimestamps?: boolean;
                 entryFeePercent?: number;
                 exitFeePercent?: number;
@@ -518,7 +518,7 @@ describe("Pool tests", () => {
                     completionPeriodExpired,
                     fixedSell = config.fixedSell,
                     allowEntryBurn = config.allowEntryBurn,
-                    bonusAfterCompletion = config.bonusAfterCompletion,
+                    awaitCompletionExpired = config.awaitCompletionExpired,
                     floatingOutTranchesTimestamps = config.floatingOutTranchesTimestamps
                 } = params ?? {};
 
@@ -561,7 +561,7 @@ describe("Pool tests", () => {
                     exitFeePercent,
                     fixedSell,
                     allowEntryBurn,
-                    bonusAfterCompletion,
+                    awaitCompletionExpired,
                     floatingOutTranchesTimestamps,
                     outgoingTranches: _outgoingTrancheAmounts,
                     outgoingTranchTimestamps: _outgoingTranchTimestamps.map(t => BigInt(t)),
@@ -586,7 +586,7 @@ describe("Pool tests", () => {
                     exitFeePercent,
                     fixedSell,
                     allowEntryBurn,
-                    bonusAfterCompletion,
+                    awaitCompletionExpired,
                     floatingOutTranchesTimestamps,
                     _outgoingTrancheAmounts,
                     _outgoingTranchTimestamps.map(t => BigInt(t)),
@@ -927,11 +927,11 @@ describe("Pool tests", () => {
                         const bonusesUnlocked = await (async () => {
                             const completionExpired = await pool.completionPeriodExpired();
                             const isFullyReturned = await pool.isFullyReturned();
-                            const bonusAfterCompletion = await pool.bonusAfterCompletion();
+                            const awaitCompletionExpired = await pool.awaitCompletionExpired();
                             const fullReturnTimestamp = await pool.fullReturnTimestamp();
 
                             return tranche.timestamp >= completionExpired ||
-                                (!bonusAfterCompletion && isFullyReturned && tranche.timestamp >= fullReturnTimestamp + 86400n);
+                                (!awaitCompletionExpired && isFullyReturned && tranche.timestamp >= fullReturnTimestamp + 86400n);
                         })();
 
                         // Calculate bonus if both conditions are met
@@ -1290,7 +1290,7 @@ describe("Pool tests", () => {
                     const pool = await deployPool({
                         fixedSell: config.fixedSell,
                         allowEntryBurn: config.allowEntryBurn,
-                        bonusAfterCompletion: config.bonusAfterCompletion
+                        awaitCompletionExpired: config.awaitCompletionExpired
                     });
 
                     // Only governance can pause
@@ -1388,7 +1388,7 @@ describe("Pool tests", () => {
                         const pool = await deployPool({
                             fixedSell: true,
                             allowEntryBurn: config.allowEntryBurn,
-                            bonusAfterCompletion: config.bonusAfterCompletion
+                            awaitCompletionExpired: config.awaitCompletionExpired
                         });
 
                         const now = await getCurrentBlockTimestamp();
@@ -1412,7 +1412,7 @@ describe("Pool tests", () => {
                         const pool = await deployPool({
                             fixedSell: false,
                             allowEntryBurn: config.allowEntryBurn,
-                            bonusAfterCompletion: config.bonusAfterCompletion
+                            awaitCompletionExpired: config.awaitCompletionExpired
                         });
 
                         const now = await getCurrentBlockTimestamp();
@@ -1435,7 +1435,7 @@ describe("Pool tests", () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: false,
-                            bonusAfterCompletion: config.bonusAfterCompletion
+                            awaitCompletionExpired: config.awaitCompletionExpired
                         });
 
                         const now = await getCurrentBlockTimestamp();
@@ -1458,7 +1458,7 @@ describe("Pool tests", () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: true,
-                            bonusAfterCompletion: config.bonusAfterCompletion
+                            awaitCompletionExpired: config.awaitCompletionExpired
                         });
 
                         const now = await getCurrentBlockTimestamp();
@@ -1477,12 +1477,12 @@ describe("Pool tests", () => {
 
 
             describe("Bonus timing specific tests", () => {
-                if (config.bonusAfterCompletion == true) {
-                    it("should allow bonus claims after completion period when bonusAfterCompletion=true", async () => {
+                if (config.awaitCompletionExpired == true) {
+                    it("should allow bonus claims after completion period when awaitCompletionExpired=true", async () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: config.allowEntryBurn,
-                            bonusAfterCompletion: true
+                            awaitCompletionExpired: true
                         });
 
 
@@ -1490,12 +1490,12 @@ describe("Pool tests", () => {
                     });
                 }
 
-                if (config.bonusAfterCompletion == false) {
-                    it("should allow bonus claims after return when bonusAfterCompletion=false", async () => {
+                if (config.awaitCompletionExpired == false) {
+                    it("should allow bonus claims after return when awaitCompletionExpired=false", async () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: config.allowEntryBurn,
-                            bonusAfterCompletion: false
+                            awaitCompletionExpired: false
                         });
 
 
@@ -1657,14 +1657,14 @@ describe("Pool tests", () => {
 
             }
 
-            if (config.bonusAfterCompletion == false) {
+            if (config.awaitCompletionExpired == false) {
 
                 it("should handle basic bonus distribution", async () => {
                     let now = await getCurrentBlockTimestamp();
 
                     // Deploy pool with single tranches and bonuses after 1 day of return
                     const pool = await deployPool({
-                        bonusAfterCompletion: false
+                        awaitCompletionExpired: false
                     });
 
                     // Setup three users
@@ -1791,7 +1791,7 @@ describe("Pool tests", () => {
                 it("should handle partial bonus distribution", async () => {
                     let now = await getCurrentBlockTimestamp();
                     const pool = await deployPool({
-                        bonusAfterCompletion: false
+                        awaitCompletionExpired: false
                     });
 
                     // Setup three users

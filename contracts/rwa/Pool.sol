@@ -71,7 +71,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
 
     /// @notice If true, bonuses are available after completionExpired. If false, after 1 day since full return
     /// @dev Set during initialization and then immutable.
-    bool public bonusAfterCompletion;
+    bool public awaitCompletionExpired;
 
     /// @notice If true, outgoing tranche timestamps will be adjusted if target is reached early
     /// @dev Set during initialization and then immutable.
@@ -201,7 +201,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         uint256 _expectedBonusAmount,
         bool _fixedSell,
         bool _allowEntryBurn,
-        bool _bonusAfterCompletion,
+        bool _awaitCompletionExpired,
         bool _floatingOutTranchesTimestamps,
         uint256[] memory _outgoingTranches,
         uint256[] memory _outgoingTranchTimestamps,
@@ -235,7 +235,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         isFullyReturned = false;
         paused = false;
         fixedSell = _fixedSell;
-        bonusAfterCompletion = _bonusAfterCompletion;
+        awaitCompletionExpired = _awaitCompletionExpired;
         floatingOutTranchesTimestamps = _floatingOutTranchesTimestamps;
         allowEntryBurn = _allowEntryBurn;
         awaitingRwaAmount = 0;
@@ -268,11 +268,10 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         awaitingBonusAmount = 0;
 
         addressBook.eventEmitter().emitPool_Deployed(
-            bonusAfterCompletion,
+            awaitCompletionExpired,
             floatingOutTranchesTimestamps,
             address(holdToken),
             address(rwaToken),
-            address(addressBook),
             tokenId,
             entityId,
             entityOwnerId,
@@ -509,12 +508,12 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
     ) external nonReentrant {
         require(!paused, "Pool: paused");
         require(!isFullyReturned, "Pool: funds fully returned");
+        require(block.timestamp < completionPeriodExpired, "Pool: completion period expired");
         require(block.timestamp >= entryPeriodStart, "Pool: entry period not started");
         if (!isTargetReached) {
             require(block.timestamp < entryPeriodExpired, "Pool: entry period expired");
         }
         require(block.timestamp <= validUntil, "Pool: transaction expired");
-        require(block.timestamp < completionPeriodExpired, "Pool: completion period expired");
 
         (uint256 holdAmountWithFee, uint256 fee, uint256 actualRwaAmount) = estimateMint(
             rwaAmount,
@@ -618,6 +617,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         awaitingRwaAmount -= rwaAmount;
         if (bonusAmountWithoutFee > 0) {
             awaitingBonusAmount -= (bonusAmountWithoutFee + bonusFee);
+            addressBook.eventEmitter().emitPool_AwaitingBonusAmountUpdated(awaitingBonusAmount);
         }
 
         // Burn RWA tokens
@@ -642,10 +642,6 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
             bonusFee
         );
         addressBook.eventEmitter().emitPool_AwaitingRwaAmountUpdated(awaitingRwaAmount);
-        if (bonusAmountWithoutFee > 0) {
-            // Only emit if bonus amount actually changed due to this burn
-            addressBook.eventEmitter().emitPool_AwaitingBonusAmountUpdated(awaitingBonusAmount);
-        }
         // k changes because virtualRwaReserve changes
         addressBook.eventEmitter().emitPool_ReservesUpdated(
             realHoldReserve,
@@ -684,16 +680,11 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         // Calculate total bonus amount if available
         uint256 totalBonusAmount = 0;
         bool hasBonuses = awaitingBonusAmount > 0 && awaitingRwaAmount > 0;
-
-        bool bonusesUnlocked = block.timestamp >= completionPeriodExpired ||
-            (!bonusAfterCompletion &&
-                isFullyReturned &&
-                block.timestamp >= fullReturnTimestamp + 1 days);
-
-        if (hasBonuses && bonusesUnlocked) {
+    
+        if (hasBonuses && checkBonusesUnlocked()) {
             totalBonusAmount = (awaitingBonusAmount * rwaAmount) / awaitingRwaAmount;
         }
-
+    
         // Calculate fees
         holdFee = (totalHoldAmount * exitFeePercent) / 10000;
         bonusFee = (totalBonusAmount * exitFeePercent) / 10000;
@@ -701,6 +692,16 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         // Calculate amounts without fees
         holdAmountWithoutFee = totalHoldAmount - holdFee;
         bonusAmountWithoutFee = totalBonusAmount - bonusFee;
+    }
+
+    /// @notice Checks if bonuses are unlocked
+    /// @return True if bonuses are unlocked, false otherwise
+    function checkBonusesUnlocked() public view returns (bool) {
+        return
+            block.timestamp >= completionPeriodExpired ||
+            (!awaitCompletionExpired &&
+                isFullyReturned &&
+                block.timestamp >= fullReturnTimestamp + 1 days);
     }
 
     /// @notice Enables emergency pause on the pool

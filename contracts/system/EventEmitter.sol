@@ -355,6 +355,11 @@ contract EventEmitter is UpgradeableContract {
     }
 
 
+    event RWA_PausedStateChanged(
+        address indexed emittedFrom,
+        bool isPaused
+    );
+
     event RWA_Transfer(
         address indexed emittedFrom, 
         address indexed from,
@@ -380,7 +385,14 @@ contract EventEmitter is UpgradeableContract {
     }
 
 
-    function emitRWA_Deployed( 
+    function emitRWA_PausedStateChanged(
+        bool isPaused
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit RWA_PausedStateChanged(msg.sender, isPaused);
+    }
+
+    function emitRWA_Deployed(
         address owner,
         string memory entityId
     ) external {

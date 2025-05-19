@@ -14,6 +14,9 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
     /// @notice Address book contract reference
     AddressBook public addressBook;
 
+    /// @notice Emergency pause flag
+    bool public paused;
+
     /// @notice Owner address
     address public owner;
 
@@ -80,6 +83,7 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
         uint256[] memory ids,
         uint256[] memory values
     ) internal virtual override(ERC1155Upgradeable, ERC1155SupplyUpgradeable) {
+        require(!paused, "RWA: paused");
         super._update(from, to, ids, values);
         
         // Emit our custom event for each token transfer
@@ -93,6 +97,7 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
     /// @param pool The address of the pool managing this token
     /// @return uint256 token id
     function createToken(address pool) external returns (uint256) {
+        require(!paused, "RWA: paused");
         addressBook.requireFactory(msg.sender);
         uint256 tokenId = ++tokensLength;
         require(pools[tokenId] == address(0), "Token already exists");
@@ -109,6 +114,7 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
     /// @param tokenId The ID of the token to mint
     /// @param amount The amount of tokens to mint
     function mint(address account, uint256 tokenId, uint256 amount) external {
+        require(!paused, "RWA: paused");
         // require(msg.sender == pools[tokenId], "Only pool can mint");
         require(account != address(0), "Invalid recipient");
         require(amount > 0, "Amount must be greater than 0");
@@ -122,6 +128,7 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
     /// @param tokenId The ID of the token to burn
     /// @param amount The amount of tokens to burn
     function burn(address account, uint256 tokenId, uint256 amount) external {
+        require(!paused, "RWA: paused");
         // require(msg.sender == pools[tokenId], "Only pool can burn");
         require(account != address(0), "Invalid account");
         require(amount > 0, "Amount must be greater than 0");
@@ -145,5 +152,23 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
                 Strings.toString(tokenId)
             )
         );
+    }
+
+    /// @notice Enables emergency pause on the contract
+    /// @dev Can only be called by governance. Contract operations will be blocked.
+    function enablePause() external {
+        addressBook.requireGovernance(msg.sender);
+        require(!paused, "RWA: already paused");
+        paused = true;
+        addressBook.eventEmitter().emitRWA_PausedStateChanged(true);
+    }
+
+    /// @notice Disables emergency pause on the contract
+    /// @dev Can only be called by governance. Contract operations will be unblocked.
+    function disablePause() external {
+        addressBook.requireGovernance(msg.sender);
+        require(paused, "RWA: not paused");
+        paused = false;
+        addressBook.eventEmitter().emitRWA_PausedStateChanged(false);
     }
 }

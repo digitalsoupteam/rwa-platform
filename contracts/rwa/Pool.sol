@@ -294,6 +294,12 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
             incomingTranches,
             incomingTrancheExpired
         );
+
+        addressBook.eventEmitter().emitPool_ReservesUpdated(
+            realHoldReserve,
+            virtualHoldReserve,
+            virtualRwaReserve
+        );
     }
 
     /// @notice Claims specified outgoing tranches

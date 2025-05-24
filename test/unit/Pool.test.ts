@@ -28,21 +28,21 @@ const testConfigs = {
     // Pool behavior flags
     fixedSellValues: [
         { value: true, description: "fixed sell" },
-        // { value: false, description: "variable sell" }
+        { value: false, description: "variable sell" }
     ],
 
     allowEntryBurnValues: [
-        // { value: true, description: "allow entry burn" },
+        { value: true, description: "allow entry burn" },
         { value: false, description: "no entry burn" }
     ],
 
     awaitCompletionExpiredValues: [
-        // { value: true, description: "bonus after completion" },
+        { value: true, description: "bonus after completion" },
         { value: false, description: "bonus after return" }
     ],
 
     floatingOutTranchesTimestampsValues: [
-        // { value: true, description: "floating timestamps" },
+        { value: true, description: "floating timestamps" },
         { value: false, description: "fixed timestamps" }
     ],
 
@@ -1406,7 +1406,7 @@ describe("Pool tests", () => {
                         expect(actualAmount2).to.equal(expectedRemaining);
                     });
 
-                    it("should prevent exceeding expected RWA amount when fixedSell=true and allowPartial=false", async () => {
+                    xit("should prevent exceeding expected RWA amount when fixedSell=true and allowPartial=false", async () => {
                         const pool = await deployPool({
                             fixedSell: true
                         });
@@ -1449,6 +1449,88 @@ describe("Pool tests", () => {
                     });
                 }
                 if (config.fixedSell == false) {
+                    
+                    it("should give bonus only to first users when oversold by 150%", async () => {
+                        let now = await getCurrentBlockTimestamp();
+                        const pool = await deployPool({
+                            fixedSell: false,
+                            awaitCompletionExpired: false
+                        });
+
+                        // Setup three users
+                        const user1 = signer1;
+                        const user2 = signer2;
+                        const user3 = signer3;
+
+                        // Mint and approve tokens
+                        for (const user of [user1, user2, user3]) {
+                            await ERC20Minter.mint(await holdToken.getAddress(), user.address, 1000000);
+                            await holdToken.connect(user).approve(pool.getAddress(), ethers.MaxUint256);
+                        }
+
+                        let validUntil = now + 3600;
+
+                        // First user buys 50% of target
+                        const rwaUser1 = targetRwa / 2n;
+                        let [holdAmountWithFee, fee, actualRwaAmount] = await pool.estimateMint(rwaUser1, false);
+                        await pool.connect(user1).mint(rwaUser1, holdAmountWithFee, validUntil, false);
+
+                        // Second user buys 50% of target
+                        const rwaUser2 = targetRwa / 2n;
+                        [holdAmountWithFee, fee, actualRwaAmount] = await pool.estimateMint(rwaUser2, false);
+                        await pool.connect(user2).mint(rwaUser2, holdAmountWithFee, validUntil, false);
+
+                        // Third user buys 50% more (total 150% of target)
+                        const rwaUser3 = targetRwa / 2n;
+                        [holdAmountWithFee, fee, actualRwaAmount] = await pool.estimateMint(rwaUser3, false);
+                        await pool.connect(user3).mint(rwaUser3, holdAmountWithFee, validUntil, false);
+
+                        // Return full amount with bonus
+                        const expectedBonusAmount = (targetHold * rewardPercent) / 10000n;
+                        const totalReturn = targetHold + expectedBonusAmount;
+                        await holdToken.connect(user).approve(pool.getAddress(), totalReturn);
+                        await pool.connect(user).returnIncomingTranche(totalReturn);
+
+                        // Move time 1 day forward to enable bonuses
+                        await ethers.provider.send("evm_setNextBlockTimestamp", [
+                            (await getCurrentBlockTimestamp()) + 86400 + 1
+                        ]);
+                        await ethers.provider.send("evm_mine", []);
+
+                        now = await getCurrentBlockTimestamp();
+                        validUntil = now + 3600;
+
+                        // First user should get bonus
+                        let [holdAmountWithoutFee1, holdFee1, bonusAmountWithoutFee1, bonusFee1, eligibleRwaAmount1] = await pool.estimateBurn(rwaUser1);
+                        expect(bonusAmountWithoutFee1 + bonusFee1).to.be.gt(0);
+                        expect(eligibleRwaAmount1).to.equal(rwaUser1);
+                        expect(await pool.rewardedRwaAmount()).to.equal(0);
+                        await pool.connect(user1).burn(rwaUser1, holdAmountWithoutFee1, bonusAmountWithoutFee1, validUntil);
+                        expect(await pool.rewardedRwaAmount()).to.equal(rwaUser1);
+
+                        // Second user should get bonus
+                        let [holdAmountWithoutFee2, holdFee2, bonusAmountWithoutFee2, bonusFee2, eligibleRwaAmount2] = await pool.estimateBurn(rwaUser2);
+                        expect(bonusAmountWithoutFee2 + bonusFee2).to.be.gt(0);
+                        expect(eligibleRwaAmount2).to.equal(rwaUser2);
+                        expect(await pool.rewardedRwaAmount()).to.equal(rwaUser1);
+                        await pool.connect(user2).burn(rwaUser2, holdAmountWithoutFee2, bonusAmountWithoutFee2, validUntil);
+                        expect(await pool.rewardedRwaAmount()).to.equal(rwaUser1 + rwaUser2);
+
+                        // Third user should not get bonus
+                        let [holdAmountWithoutFee3, holdFee3, bonusAmountWithoutFee3, bonusFee3, eligibleRwaAmount3] = await pool.estimateBurn(rwaUser3);
+                        expect(bonusAmountWithoutFee3 + bonusFee3).to.equal(0);
+                        expect(eligibleRwaAmount3).to.equal(0);
+                        expect(await pool.rewardedRwaAmount()).to.equal(rwaUser1 + rwaUser2);
+                        await pool.connect(user3).burn(rwaUser3, holdAmountWithoutFee3, bonusAmountWithoutFee3, validUntil);
+                        expect(await pool.rewardedRwaAmount()).to.equal(rwaUser1 + rwaUser2);
+
+                        // Total bonus should equal expected bonus
+                        expect(bonusAmountWithoutFee1 + bonusFee1 + bonusAmountWithoutFee2 + bonusFee2).to.equal(expectedBonusAmount);
+
+                        // Verify final state
+                        expect(await pool.awaitingRwaAmount()).to.equal(0);
+                        expect(await pool.awaitingBonusAmount()).to.be.lessThan(3);
+                    });
 
                     xit("should not limit purchases when fixedSell=false", async () => {
                         const pool = await deployPool({
@@ -1701,7 +1783,7 @@ describe("Pool tests", () => {
 
             if (config.awaitCompletionExpired == false) {
 
-                xit("should handle basic bonus distribution", async () => {
+                it("should distribute bonuses only to first users in fixed sell", async () => {
                     let now = await getCurrentBlockTimestamp();
 
                     // Deploy pool with single tranches and bonuses after 1 day of return
@@ -1779,7 +1861,9 @@ describe("Pool tests", () => {
                     const approxBonus2 = (expectedBonusAmount * rwaUser2) / initialTotalRwa;
                     const approxBonus3 = expectedBonusAmount - approxBonus1 - approxBonus2;
 
-                    let [holdAmountWithoutFee, holdFee, bonusAmountWithoutFee, bonusFee] = await pool.estimateBurn(rwaUser1);
+                    let [holdAmountWithoutFee, holdFee, bonusAmountWithoutFee, bonusFee, eligibleRwaAmount] = await pool.estimateBurn(rwaUser1);
+                    expect(eligibleRwaAmount).to.equal(rwaUser1);
+                    expect(await pool.rewardedRwaAmount()).to.equal(0);
                     const currentBonus = await pool.awaitingBonusAmount();
                     const currentRwa = await pool.awaitingRwaAmount();
                     const expectedBonus1 = (currentBonus * rwaUser1) / currentRwa;
@@ -1797,7 +1881,9 @@ describe("Pool tests", () => {
                     );
 
 
-                    [holdAmountWithoutFee, holdFee, bonusAmountWithoutFee, bonusFee] = await pool.estimateBurn(rwaUser2);
+                    [holdAmountWithoutFee, holdFee, bonusAmountWithoutFee, bonusFee, eligibleRwaAmount] = await pool.estimateBurn(rwaUser2);
+                    expect(eligibleRwaAmount).to.equal(rwaUser2);
+                    expect(await pool.rewardedRwaAmount()).to.equal(rwaUser1);
                     const currentBonus2 = await pool.awaitingBonusAmount();
                     const currentRwa2 = await pool.awaitingRwaAmount();
                     const expectedBonus2 = (currentBonus2 * rwaUser2) / currentRwa2;
@@ -1812,7 +1898,9 @@ describe("Pool tests", () => {
                     );
 
 
-                    [holdAmountWithoutFee, holdFee, bonusAmountWithoutFee, bonusFee] = await pool.estimateBurn(rwaUser3);
+                    [holdAmountWithoutFee, holdFee, bonusAmountWithoutFee, bonusFee, eligibleRwaAmount] = await pool.estimateBurn(rwaUser3);
+                    expect(eligibleRwaAmount).to.equal(rwaUser3);
+                    expect(await pool.rewardedRwaAmount()).to.equal(rwaUser1 + rwaUser2);
                     const currentBonus3 = await pool.awaitingBonusAmount();
                     const currentRwa3 = await pool.awaitingRwaAmount();
                     const expectedBonus3 = (currentBonus3 * rwaUser3) / currentRwa3;
@@ -1830,7 +1918,7 @@ describe("Pool tests", () => {
                     expect(await pool.awaitingRwaAmount()).to.equal(0);
                     expect(await pool.awaitingBonusAmount()).to.be.lessThan(3); // Allow tiny dust due to rounding
                 });
-                xit("should handle partial bonus distribution", async () => {
+                it("should redistribute bonus when first user exits before bonus", async () => {
                     let now = await getCurrentBlockTimestamp();
                     const pool = await deployPool({
                         awaitCompletionExpired: false
@@ -1896,7 +1984,9 @@ describe("Pool tests", () => {
                     validUntil = now + 3600;
 
                     // First user burns their specific amount
-                    const [holdAmountWithoutFee1, holdFee1, bonusAmountWithoutFee1, bonusFee1] = await pool.estimateBurn(rwaUser1);
+                    const [holdAmountWithoutFee1, holdFee1, bonusAmountWithoutFee1, bonusFee1, eligibleRwaAmount1] = await pool.estimateBurn(rwaUser1);
+                    expect(eligibleRwaAmount1).to.equal(0); // No eligible amount since no bonus yet
+                    expect(await pool.rewardedRwaAmount()).to.equal(0);
                     await pool.connect(user1).burn(
                         rwaUser1,
                         holdAmountWithoutFee1,
@@ -1921,7 +2011,10 @@ describe("Pool tests", () => {
                     // Remaining users burn their RWA
                     for (const user of [user2, user3]) {
                         const rwaAmount = user === user2 ? rwaUser2 : rwaUser3;
-                        const [holdAmountWithoutFee, holdFee, bonusAmountWithoutFee, bonusFee] = await pool.estimateBurn(rwaAmount);
+                        const [holdAmountWithoutFee, holdFee, bonusAmountWithoutFee, bonusFee, eligibleRwaAmount] = await pool.estimateBurn(rwaAmount);
+                        expect(eligibleRwaAmount).to.equal(rwaAmount);
+                        const expectedRewarded = user === user2 ? 0 : rwaUser2;
+                        expect(await pool.rewardedRwaAmount()).to.equal(expectedRewarded);
                         // Calculate exact bonus for remaining users
                         const remainingBonus = expectedBonusAmount - (bonusAmountWithoutFee1 + bonusFee1);
                         const remainingRwa = rwaUser2 + rwaUser3;

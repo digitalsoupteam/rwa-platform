@@ -176,6 +176,9 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
     /// @notice Index of the last fully completed incoming tranche
     uint256 public lastCompletedIncomingTranche;
 
+    /// @notice Amount of rwa token received bonus
+    uint256 public rewardedRwaAmount;
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() UpgradeableContract() {}
 
@@ -240,6 +243,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         allowEntryBurn = _allowEntryBurn;
         awaitingRwaAmount = 0;
         floatingTimestampOffset = 0;
+        rewardedRwaAmount = 0;
 
         // Initialize reserves using liquidity coefficient
         virtualHoldReserve = _expectedHoldAmount * _liquidityCoefficient;
@@ -598,7 +602,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
     ) external nonReentrant {
         require(!paused, "Pool: paused");
         require(block.timestamp <= validUntil, "Pool: transaction expired");
-        if (!allowEntryBurn) {
+        if (!allowEntryBurn && !isTargetReached) {
             require(
                 block.timestamp >= entryPeriodExpired,
                 "Pool: burning not allowed during entry period"
@@ -609,7 +613,8 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
             uint256 holdAmountWithoutFee,
             uint256 holdFee,
             uint256 bonusAmountWithoutFee,
-            uint256 bonusFee
+            uint256 bonusFee,
+            uint256 eligibleRwaAmount
         ) = estimateBurn(rwaAmount);
 
         // Check minimum amounts separately
@@ -625,6 +630,8 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         if (bonusAmountWithoutFee > 0) {
             awaitingBonusAmount -= (bonusAmountWithoutFee + bonusFee);
             addressBook.eventEmitter().emitPool_AwaitingBonusAmountUpdated(awaitingBonusAmount);
+        
+            rewardedRwaAmount += eligibleRwaAmount;
         }
 
         // Burn RWA tokens
@@ -639,6 +646,8 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         // Transfer fee to treasury
         address treasury = address(addressBook.treasury());
         require(holdToken.transfer(treasury, holdFee + bonusFee), "Pool: fee transfer failed");
+
+   
 
         addressBook.eventEmitter().emitPool_RwaBurned(
             msg.sender,
@@ -672,7 +681,8 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
             uint256 holdAmountWithoutFee,
             uint256 holdFee,
             uint256 bonusAmountWithoutFee,
-            uint256 bonusFee
+            uint256 bonusFee,
+            uint256 eligibleRwaAmount
         )
     {
         require(rwaAmount > 0, "Pool: zero input");
@@ -689,7 +699,20 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         bool hasBonuses = awaitingBonusAmount > 0 && awaitingRwaAmount > 0;
     
         if (hasBonuses && checkBonusesUnlocked()) {
-            totalBonusAmount = (awaitingBonusAmount * rwaAmount) / awaitingRwaAmount;
+            // Calculate how much RWA is still eligible for bonus
+            uint256 availableRwaAmountToBonus = expectedRwaAmount > rewardedRwaAmount
+                ? expectedRwaAmount - rewardedRwaAmount
+                : 0;
+
+            // Cap by remaining RWA in pool
+            if (availableRwaAmountToBonus > awaitingRwaAmount) {
+                availableRwaAmountToBonus = awaitingRwaAmount;
+            }
+
+            if (availableRwaAmountToBonus > 0) {
+                eligibleRwaAmount = rwaAmount > availableRwaAmountToBonus ? availableRwaAmountToBonus : rwaAmount;
+                totalBonusAmount = (awaitingBonusAmount * eligibleRwaAmount) / availableRwaAmountToBonus;
+            }
         }
     
         // Calculate fees

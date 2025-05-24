@@ -485,6 +485,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         actualRwaAmount = rwaAmount;
         if (fixedSell) {
             uint256 remainingRwa = expectedRwaAmount - awaitingRwaAmount;
+            require(remainingRwa > 0, "Pool: fixed RWA amount fully sold");
             if (rwaAmount > remainingRwa) {
                 require(allowPartial, "Pool: exceeds fixed RWA amount");
                 actualRwaAmount = remainingRwa;

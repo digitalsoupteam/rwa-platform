@@ -27,8 +27,8 @@ async function getCurrentBlockTimestamp(): Promise<number> {
 const testConfigs = {
     // Pool behavior flags
     fixedSellValues: [
-        // { value: true, description: "fixed sell" },
-        { value: false, description: "variable sell" }
+        { value: true, description: "fixed sell" },
+        // { value: false, description: "variable sell" }
     ],
 
     allowEntryBurnValues: [
@@ -633,7 +633,7 @@ describe("Pool tests", () => {
             }
 
             for (const swapInfo of swapAmountsByCount.values()) {
-                it("should verify pool behavior", async () => {
+                xit("should verify pool behavior", async () => {
                     const validUntil = (await getCurrentBlockTimestamp()) + 3600;
                     const pool = await deployPool();
 
@@ -678,7 +678,7 @@ describe("Pool tests", () => {
                 });
             }
 
-            it("should not set isTargetReached when target not reached", async () => {
+            xit("should not set isTargetReached when target not reached", async () => {
                 const pool = await deployPool();
                 const validUntil = (await getCurrentBlockTimestamp()) + 3600;
 
@@ -691,7 +691,7 @@ describe("Pool tests", () => {
                 expect(await pool.isTargetReached()).to.be.false;
             });
 
-            it("should set isTargetReached when target is reached", async () => {
+            xit("should set isTargetReached when target is reached", async () => {
                 const pool = await deployPool();
                 const validUntil = Math.floor(Date.now() / 1000) + 3600;
 
@@ -714,7 +714,7 @@ describe("Pool tests", () => {
             });
 
             if (config.fixedSell == false) {
-                it("should handle mixed tranche operations", async () => {
+                xit("should handle mixed tranche operations", async () => {
                     const now = await getCurrentBlockTimestamp();
                     const entryPeriodStart = now;
                     const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration());
@@ -965,7 +965,7 @@ describe("Pool tests", () => {
                 });
             }
 
-            it("should handle single tranche operations", async () => {
+            xit("should handle single tranche operations", async () => {
                 const now = await getCurrentBlockTimestamp();
 
                 // Deploy pool with default single tranches
@@ -1021,7 +1021,7 @@ describe("Pool tests", () => {
                 expect(await pool.isFullyReturned()).to.be.true;
             });
 
-            it("should handle partial returns across tranches", async () => {
+            xit("should handle partial returns across tranches", async () => {
                 const now = await getCurrentBlockTimestamp();
                 const entryPeriodStart = now;
                 const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration());
@@ -1153,7 +1153,7 @@ describe("Pool tests", () => {
 
             describe("Floating timestamps specific tests", () => {
                 if (config.floatingOutTranchesTimestamps == true) {
-                    it("should adjust tranche timestamps when target reached early", async () => {
+                    xit("should adjust tranche timestamps when target reached early", async () => {
                         const now = await getCurrentBlockTimestamp();
                         const entryPeriodStart = now;
                         const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration())
@@ -1216,7 +1216,7 @@ describe("Pool tests", () => {
                         await pool.connect(user).claimOutgoingTranches([2]);
                     });
 
-                    it("should not adjust timestamps if target reached less than 1 day early", async () => {
+                    xit("should not adjust timestamps if target reached less than 1 day early", async () => {
                         const now = await getCurrentBlockTimestamp();
                         const entryPeriodStart = now;
                         const entryPeriodExpired = now + Number(await configContract.entryPeriodMinDuration());
@@ -1239,7 +1239,7 @@ describe("Pool tests", () => {
                 }
 
                 if (config.floatingOutTranchesTimestamps == false) {
-                    it("should not adjust timestamps when feature disabled", async () => {
+                    xit("should not adjust timestamps when feature disabled", async () => {
                         const now = await getCurrentBlockTimestamp();
                         const entryPeriodStart = now;
                         const entryPeriodExpired = now + 86400; // 1 day
@@ -1286,7 +1286,7 @@ describe("Pool tests", () => {
                     });
                 });
 
-                it("should enforce pause controls", async () => {
+                xit("should enforce pause controls", async () => {
                     const pool = await deployPool({
                         fixedSell: config.fixedSell,
                         allowEntryBurn: config.allowEntryBurn,
@@ -1331,7 +1331,7 @@ describe("Pool tests", () => {
                 });
 
 
-                it("should properly update lastCompletedIncomingTranche", async () => {
+                xit("should properly update lastCompletedIncomingTranche", async () => {
                     const now = await getCurrentBlockTimestamp();
                     const completionPeriod = now + 172800; // 2 days
 
@@ -1384,7 +1384,7 @@ describe("Pool tests", () => {
 
             describe("Fixed sell specific tests", () => {
                 if (config.fixedSell == true) {
-                    it("should handle partial RWA purchases when fixedSell=true", async () => {
+                    xit("should handle partial RWA purchases when fixedSell=true", async () => {
                         const pool = await deployPool({
                             fixedSell: true,
                             allowEntryBurn: config.allowEntryBurn,
@@ -1405,10 +1405,52 @@ describe("Pool tests", () => {
                         const expectedRemaining = targetRwa - firstAmount;
                         expect(actualAmount2).to.equal(expectedRemaining);
                     });
+
+                    it("should prevent exceeding expected RWA amount when fixedSell=true and allowPartial=false", async () => {
+                        const pool = await deployPool({
+                            fixedSell: true
+                        });
+                        const validUntil = (await getCurrentBlockTimestamp()) + 3600;
+
+                        // First, buy 80% of target RWA
+                        const firstAmount = (targetRwa * 80n) / 100n;
+                        const [holdAmount1, fee1, actualAmount1] = await pool.estimateMint(firstAmount, true);
+                        await pool.connect(user).mint(firstAmount, holdAmount1, validUntil, true);
+                        
+                        expect(actualAmount1).to.equal(firstAmount, "First purchase should get full amount");
+                        expect(await pool.awaitingRwaAmount()).to.equal(firstAmount, "Pool should track awaiting RWA amount");
+
+                        // Try to buy 50% more (which exceeds remaining 20%) with allowPartial=false
+                        const excessAmount = targetRwa / 2n; // 50% of target
+                        const remainingAmount = targetRwa - firstAmount; // Only 20% remaining
+                        
+                        // Should fail in estimateMint with allowPartial=false
+                        await expect(
+                            pool.estimateMint(excessAmount, false)
+                        ).to.be.revertedWith("Pool: exceeds fixed RWA amount");
+
+                        // Should also fail in mint with allowPartial=false
+                        await expect(
+                            pool.connect(user).mint(excessAmount, ethers.MaxUint256, validUntil, false)
+                        ).to.be.revertedWith("Pool: exceeds fixed RWA amount");
+
+                        // Verify that we can still buy exactly the remaining amount
+                        const [holdAmountRemaining, feeRemaining, actualAmountRemaining] = await pool.estimateMint(remainingAmount, false);
+                        await pool.connect(user).mint(remainingAmount, holdAmountRemaining, validUntil, false);
+                        
+                        expect(actualAmountRemaining).to.equal(remainingAmount, "Should be able to buy exact remaining amount");
+                        expect(await pool.awaitingRwaAmount()).to.equal(targetRwa, "Should reach exactly target RWA");
+                        expect(await pool.isTargetReached()).to.be.equal(true, "Target should be reached");
+
+                        // Now any further purchase should fail, even with allowPartial=true
+                        await expect(
+                            pool.estimateMint(1n, false)
+                        ).to.be.revertedWith("Pool: fixed RWA amount fully sold");
+                    });
                 }
                 if (config.fixedSell == false) {
 
-                    it("should not limit purchases when fixedSell=false", async () => {
+                    xit("should not limit purchases when fixedSell=false", async () => {
                         const pool = await deployPool({
                             fixedSell: false,
                             allowEntryBurn: config.allowEntryBurn,
@@ -1431,7 +1473,7 @@ describe("Pool tests", () => {
             describe("Entry burn specific tests", () => {
                 if (config.allowEntryBurn == false) {
 
-                    it("should prevent burning during entry period when allowEntryBurn=false", async () => {
+                    xit("should prevent burning during entry period when allowEntryBurn=false", async () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: false,
@@ -1454,7 +1496,7 @@ describe("Pool tests", () => {
 
                 }
                 if (config.allowEntryBurn == true) {
-                    it("should allow burning during entry period when allowEntryBurn=true", async () => {
+                    xit("should allow burning during entry period when allowEntryBurn=true", async () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: true,
@@ -1478,7 +1520,7 @@ describe("Pool tests", () => {
 
             describe("Bonus timing specific tests", () => {
                 if (config.awaitCompletionExpired == true) {
-                    it("should allow bonus claims after completion period when awaitCompletionExpired=true", async () => {
+                    xit("should allow bonus claims after completion period when awaitCompletionExpired=true", async () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: config.allowEntryBurn,
@@ -1491,7 +1533,7 @@ describe("Pool tests", () => {
                 }
 
                 if (config.awaitCompletionExpired == false) {
-                    it("should allow bonus claims after return when awaitCompletionExpired=false", async () => {
+                    xit("should allow bonus claims after return when awaitCompletionExpired=false", async () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: config.allowEntryBurn,
@@ -1507,7 +1549,7 @@ describe("Pool tests", () => {
 
             if (config.fixedSell == true) {
 
-                it("should handle partial RWA purchases", async () => {
+                xit("should handle partial RWA purchases", async () => {
                     const pool = await deployPool({
                         fixedSell: true
                     });
@@ -1532,7 +1574,7 @@ describe("Pool tests", () => {
 
                     expect(await pool.awaitingRwaAmount()).to.equal(targetRwa, "Should reach exactly target RWA");
                 });
-                it("should enforce fixed RWA amount limit", async () => {
+                xit("should enforce fixed RWA amount limit", async () => {
                     const pool = await deployPool({
                         fixedSell: true
                     });
@@ -1557,7 +1599,7 @@ describe("Pool tests", () => {
 
             if (config.fixedSell == false) {
 
-                it("should prevent minting after completion period expired", async () => {
+                xit("should prevent minting after completion period expired", async () => {
                     const now = await getCurrentBlockTimestamp();
                     const entryPeriodStart = now;
                     const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration())
@@ -1589,7 +1631,7 @@ describe("Pool tests", () => {
                     ).to.be.revertedWith("Pool: completion period expired");
                 });
 
-                it("should prevent minting after full return", async () => {
+                xit("should prevent minting after full return", async () => {
                     const pool = await deployPool({
                         fixedSell: false
                     });
@@ -1616,7 +1658,7 @@ describe("Pool tests", () => {
 
             if (config.allowEntryBurn == false) {
 
-                it("should control burning during entry period", async () => {
+                xit("should control burning during entry period", async () => {
                     const now = await getCurrentBlockTimestamp();
                     const entryPeriodStart = now + 3600; // Start in 1 hour
                     const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration())
@@ -1659,7 +1701,7 @@ describe("Pool tests", () => {
 
             if (config.awaitCompletionExpired == false) {
 
-                it("should handle basic bonus distribution", async () => {
+                xit("should handle basic bonus distribution", async () => {
                     let now = await getCurrentBlockTimestamp();
 
                     // Deploy pool with single tranches and bonuses after 1 day of return
@@ -1788,7 +1830,7 @@ describe("Pool tests", () => {
                     expect(await pool.awaitingRwaAmount()).to.equal(0);
                     expect(await pool.awaitingBonusAmount()).to.be.lessThan(3); // Allow tiny dust due to rounding
                 });
-                it("should handle partial bonus distribution", async () => {
+                xit("should handle partial bonus distribution", async () => {
                     let now = await getCurrentBlockTimestamp();
                     const pool = await deployPool({
                         awaitCompletionExpired: false

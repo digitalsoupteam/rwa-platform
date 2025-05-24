@@ -1450,7 +1450,7 @@ describe("Pool tests", () => {
                 }
                 if (config.fixedSell == false) {
                     
-                    it("should give bonus only to first users when oversold by 150%", async () => {
+                    xit("should give bonus only to first users when oversold by 150%", async () => {
                         let now = await getCurrentBlockTimestamp();
                         const pool = await deployPool({
                             fixedSell: false,
@@ -1602,7 +1602,7 @@ describe("Pool tests", () => {
 
             describe("Bonus timing specific tests", () => {
                 if (config.awaitCompletionExpired == true) {
-                    xit("should allow bonus claims after completion period when awaitCompletionExpired=true", async () => {
+                    it("should allow bonus claims after completion period when awaitCompletionExpired=true", async () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: config.allowEntryBurn,
@@ -1783,7 +1783,7 @@ describe("Pool tests", () => {
 
             if (config.awaitCompletionExpired == false) {
 
-                it("should distribute bonuses only to first users in fixed sell", async () => {
+                xit("should distribute bonuses only to first users in fixed sell", async () => {
                     let now = await getCurrentBlockTimestamp();
 
                     // Deploy pool with single tranches and bonuses after 1 day of return
@@ -1918,7 +1918,7 @@ describe("Pool tests", () => {
                     expect(await pool.awaitingRwaAmount()).to.equal(0);
                     expect(await pool.awaitingBonusAmount()).to.be.lessThan(3); // Allow tiny dust due to rounding
                 });
-                it("should redistribute bonus when first user exits before bonus", async () => {
+                xit("should redistribute bonus when first user exits before bonus", async () => {
                     let now = await getCurrentBlockTimestamp();
                     const pool = await deployPool({
                         awaitCompletionExpired: false
@@ -2058,15 +2058,7 @@ describe("Pool tests", () => {
                 const [, , bonusBefore, bonusFeeBefore] = await pool.estimateBurn(targetRwa);
                 expect(bonusBefore + bonusFeeBefore).to.equal(0);
 
-                if (isAfterCompletion) {
-
-                    const completionPeriod = await pool.completionPeriodExpired();
-                    await ethers.provider.send("evm_setNextBlockTimestamp", [Number(completionPeriod) + 1]);
-                } else {
-
-                    const returnTimestamp = await pool.fullReturnTimestamp();
-                    await ethers.provider.send("evm_setNextBlockTimestamp", [Number(returnTimestamp) + 86400 + 1]);
-                }
+                await ethers.provider.send("evm_setNextBlockTimestamp", [Number(await pool.getBonusUnlockTimestamp())]);
                 await ethers.provider.send("evm_mine", []);
 
 

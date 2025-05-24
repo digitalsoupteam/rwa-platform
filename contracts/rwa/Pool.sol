@@ -724,14 +724,19 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         bonusAmountWithoutFee = totalBonusAmount - bonusFee;
     }
 
+    /// @notice Returns the timestamp when bonuses will be unlocked
+    /// @return Timestamp when bonuses will be unlocked
+    function getBonusUnlockTimestamp() public view returns (uint256) {
+        if (!awaitCompletionExpired && isFullyReturned) {
+            return fullReturnTimestamp + 1 days;
+        }
+        return completionPeriodExpired + 1 days;
+    }
+
     /// @notice Checks if bonuses are unlocked
     /// @return True if bonuses are unlocked, false otherwise
     function checkBonusesUnlocked() public view returns (bool) {
-        return
-            block.timestamp >= completionPeriodExpired ||
-            (!awaitCompletionExpired &&
-                isFullyReturned &&
-                block.timestamp >= fullReturnTimestamp + 1 days);
+        return block.timestamp >= getBonusUnlockTimestamp();
     }
 
     /// @notice Enables emergency pause on the pool

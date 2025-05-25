@@ -448,11 +448,11 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         }
         if (totalAppliedToBonusInCall > 0) {
             awaitingBonusAmount += totalAppliedToBonusInCall;
-            addressBook.eventEmitter().emitPool_AwaitingBonusAmountUpdated(awaitingBonusAmount);
         }
 
         addressBook.eventEmitter().emitPool_IncomingReturnSummary(
-            totalReturnedAmount,
+            totalAmountAppliedInCall,
+            totalAppliedToBonusInCall,
             lastCompletedIncomingTranche
         );
 
@@ -629,9 +629,12 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         awaitingRwaAmount -= rwaAmount;
         if (bonusAmountWithoutFee > 0) {
             awaitingBonusAmount -= (bonusAmountWithoutFee + bonusFee);
-            addressBook.eventEmitter().emitPool_AwaitingBonusAmountUpdated(awaitingBonusAmount);
-        
             rewardedRwaAmount += eligibleRwaAmount;
+            
+            addressBook.eventEmitter().emitPool_BonusWithdrawn(
+                bonusAmountWithoutFee + bonusFee,
+                eligibleRwaAmount
+            );
         }
 
         // Burn RWA tokens

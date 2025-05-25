@@ -47,9 +47,16 @@ contract EventEmitter is UpgradeableContract {
     );
 
     event Pool_IncomingReturnSummary(
-        address indexed emittedFrom, 
-        uint256 totalReturnedAmount,
+        address indexed emittedFrom,
+        uint256 totalAmountAppliedInCall,
+        uint256 totalAppliedToBonusInCall,
         uint256 lastCompletedIncomingTranche
+    );
+
+    event Pool_BonusWithdrawn(
+        address indexed emittedFrom,
+        uint256 bonusAmountWithdrawn,
+        uint256 eligibleRwaAmount
     );
 
     event Pool_FundsFullyReturned(
@@ -179,14 +186,28 @@ contract EventEmitter is UpgradeableContract {
     }
 
     function emitPool_IncomingReturnSummary(
-        uint256 totalReturnedAmount,
+        uint256 totalAmountAppliedInCall,
+        uint256 totalAppliedToBonusInCall,
         uint256 lastCompletedIncomingTranche
     ) external {
         addressBook.requireProtocolContract(msg.sender);
         emit Pool_IncomingReturnSummary(
-            msg.sender, 
-            totalReturnedAmount,
+            msg.sender,
+            totalAmountAppliedInCall,
+            totalAppliedToBonusInCall,
             lastCompletedIncomingTranche
+        );
+    }
+
+    function emitPool_BonusWithdrawn(
+        uint256 bonusAmountWithdrawn,
+        uint256 eligibleRwaAmount
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Pool_BonusWithdrawn(
+            msg.sender,
+            bonusAmountWithdrawn,
+            eligibleRwaAmount
         );
     }
 

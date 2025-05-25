@@ -346,7 +346,7 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
         Pool(proxy).initialize(
             address(config.holdToken()),
             address(rwa),
-            address(_addressBook),
+            _addressBook,
             rwaId,
             entityId,
             rwa.entityOwnerId(),

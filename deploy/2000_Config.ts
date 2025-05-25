@@ -32,9 +32,9 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const initialExitFeePercentMax = 500 // 5%
 
   // Amount parameters
-  const initialExpectedHoldAmountMin = ethers.parseEther('10000') // 10,000 USDT
+  const initialExpectedHoldAmountMin = ethers.parseEther('1') // 10,000 USDT
   const initialExpectedHoldAmountMax = ethers.parseEther('1500000') // 150,000 USDT
-  const initialExpectedRwaAmountMin = BigInt(100_000) // 100K RWA
+  const initialExpectedRwaAmountMin = BigInt(1) // 100K RWA
   const initialExpectedRwaAmountMax = BigInt(10_000_000) // 10M RWA
 
   // Reward parameters

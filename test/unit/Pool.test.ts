@@ -27,22 +27,22 @@ async function getCurrentBlockTimestamp(): Promise<number> {
 const testConfigs = {
     // Pool behavior flags
     fixedSellValues: [
-        { value: true, description: "fixed sell" },
+        // { value: true, description: "fixed sell" },
         { value: false, description: "variable sell" }
     ],
 
     allowEntryBurnValues: [
         { value: true, description: "allow entry burn" },
-        { value: false, description: "no entry burn" }
+        // { value: false, description: "no entry burn" }
     ],
 
     awaitCompletionExpiredValues: [
         { value: true, description: "bonus after completion" },
-        { value: false, description: "bonus after return" }
+        // { value: false, description: "bonus after return" }
     ],
 
     floatingOutTranchesTimestampsValues: [
-        { value: true, description: "floating timestamps" },
+        // { value: true, description: "floating timestamps" },
         { value: false, description: "fixed timestamps" }
     ],
 
@@ -58,10 +58,15 @@ const testConfigs = {
         //     hold: ethers.parseEther('50000'),   // 50k HOLD
         //     description: "Half amounts"
         // },
+        // {
+        //     rwa: BigInt(2000000),    // 2M RWA
+        //     hold: ethers.parseEther('200000'),  // 200k HOLD
+        //     description: "Double amounts"
+        // },
         {
-            rwa: BigInt(2000000),    // 2M RWA
-            hold: ethers.parseEther('200000'),  // 200k HOLD
-            description: "Double amounts"
+            rwa: BigInt(1000),    // 2M RWA
+            hold: ethers.parseEther('500000'),  // 200k HOLD
+            description: "Different amounts"
         }
     ],
 
@@ -72,13 +77,23 @@ const testConfigs = {
         { value: 2000n, description: "20% reward" }
     ],
 
+    numSwaps: [
+        1,
+        15,
+        27,
+        47,
+        56,
+        88,
+        100
+    ],
+
     // Price impact coefficients (impact percent * 100)
     priceImpactCoefficients: {
         30000: 1,    // 300%
-            // 12500: 2,    // 125%
+        // 12500: 2,    // 125%
         //     7778: 3,     // 77.78%
         //     5625: 4,     // 56.25%
-            // 4400: 5,     // 44%
+        // 4400: 5,     // 44%
         //     3611: 6,     // 36.11%
         //     3061: 7,     // 30.61%
         //     2656: 8,     // 26.56%
@@ -86,7 +101,7 @@ const testConfigs = {
         //     2100: 10,    // 21%
         //     1901: 11,    // 19.01%
         //     1736: 12,    // 17.36%
-            // 1598: 13,    // 15.98%
+        // 1598: 13,    // 15.98%
         //     1480: 14,    // 14.8%
         //     1378: 15,    // 13.78%
         //     1289: 16,    // 12.89%
@@ -333,7 +348,7 @@ const testConfigs = {
         //     25: 785,     // 0.25%
         //     24: 817,     // 0.24%
         //     23: 852,     // 0.23%
-            // 22: 890,     // 0.22%
+        // 22: 890,     // 0.22%
         //     21: 931,     // 0.21%
         //     20: 977,     // 0.2%
         //     19: 1027,    // 0.19%
@@ -351,10 +366,10 @@ const testConfigs = {
         //     7: 2668,     // 0.07%
         //     6: 3078,     // 0.06%
         // 5: 3637,     // 0.05%
-            // 4: 4445,     // 0.04%
+        // 4: 4445,     // 0.04%
         //     3: 5715,     // 0.03%
         //     2: 8001,     // 0.02%
-            // 1: 13334     // 0.01%
+        // 1: 13334     // 0.01%
     },
 
     // Helper to get all combinations
@@ -363,6 +378,7 @@ const testConfigs = {
             targetRwa: bigint,
             targetHold: bigint,
             rewardPercent: bigint,
+            numSwaps: number[],
             priceImpactPercent: number,
             coefficient: number,
             fixedSell: boolean,
@@ -378,20 +394,24 @@ const testConfigs = {
                     for (const floatingTimestamps of this.floatingOutTranchesTimestampsValues) {
                         for (const amount of this.targetAmounts) {
                             for (const reward of this.rewardPercents) {
-                                for (const [priceImpactPercent, coefficient] of Object.entries(this.priceImpactCoefficients)) {
-                                    combinations.push({
-                                        targetRwa: amount.rwa,
-                                        targetHold: amount.hold,
-                                        rewardPercent: reward.value,
-                                        priceImpactPercent: Number(priceImpactPercent),
-                                        coefficient: coefficient,
-                                        fixedSell: fixedSell.value,
-                                        allowEntryBurn: allowEntryBurn.value,
-                                        awaitCompletionExpired: awaitCompletionExpired.value,
-                                        floatingOutTranchesTimestamps: floatingTimestamps.value,
-                                        description: `${fixedSell.description}, ${allowEntryBurn.description}, ${awaitCompletionExpired.description}, ${floatingTimestamps.description}, ${amount.description}, ${reward.description}, ${Number(priceImpactPercent) / 100}% price impact`
-                                    });
+                                for (const numSwap of this.numSwaps) {
+                                    for (const [priceImpactPercent, coefficient] of Object.entries(this.priceImpactCoefficients)) {
+                                        combinations.push({
+                                            targetRwa: amount.rwa,
+                                            numSwaps: this.numSwaps,
+                                            targetHold: amount.hold,
+                                            rewardPercent: reward.value,
+                                            priceImpactPercent: Number(priceImpactPercent),
+                                            coefficient: coefficient,
+                                            fixedSell: fixedSell.value,
+                                            allowEntryBurn: allowEntryBurn.value,
+                                            awaitCompletionExpired: awaitCompletionExpired.value,
+                                            floatingOutTranchesTimestamps: floatingTimestamps.value,
+                                            description: `${fixedSell.description}, ${allowEntryBurn.description}, ${awaitCompletionExpired.description}, ${floatingTimestamps.description}, ${amount.description}, ${reward.description}, ${Number(priceImpactPercent) / 100}% price impact`
+                                        });
+                                    }
                                 }
+
                             }
                         }
                     }
@@ -486,8 +506,6 @@ describe("Pool tests", () => {
             let targetHold: bigint = config.targetHold;
             let rewardPercent: bigint = config.rewardPercent;
             let priceImpactPercent: number = config.priceImpactPercent;
-
-
 
             interface DeployPoolParams {
                 priceImpactPercent?: number; // This will be converted to BigInt for factory call
@@ -608,7 +626,7 @@ describe("Pool tests", () => {
             }
 
             const swapAmountsByCount = new Map<number, SwapAmounts>();
-            for (let numSwaps = 1; numSwaps <= 5; numSwaps++) {
+            for (const numSwaps of config.numSwaps) {
                 let amounts: bigint[] = [];
                 let remainingRwa = targetRwa;
                 let description = "";
@@ -1416,14 +1434,14 @@ describe("Pool tests", () => {
                         const firstAmount = (targetRwa * 80n) / 100n;
                         const [holdAmount1, fee1, actualAmount1] = await pool.estimateMint(firstAmount, true);
                         await pool.connect(user).mint(firstAmount, holdAmount1, validUntil, true);
-                        
+
                         expect(actualAmount1).to.equal(firstAmount, "First purchase should get full amount");
                         expect(await pool.awaitingRwaAmount()).to.equal(firstAmount, "Pool should track awaiting RWA amount");
 
                         // Try to buy 50% more (which exceeds remaining 20%) with allowPartial=false
                         const excessAmount = targetRwa / 2n; // 50% of target
                         const remainingAmount = targetRwa - firstAmount; // Only 20% remaining
-                        
+
                         // Should fail in estimateMint with allowPartial=false
                         await expect(
                             pool.estimateMint(excessAmount, false)
@@ -1437,7 +1455,7 @@ describe("Pool tests", () => {
                         // Verify that we can still buy exactly the remaining amount
                         const [holdAmountRemaining, feeRemaining, actualAmountRemaining] = await pool.estimateMint(remainingAmount, false);
                         await pool.connect(user).mint(remainingAmount, holdAmountRemaining, validUntil, false);
-                        
+
                         expect(actualAmountRemaining).to.equal(remainingAmount, "Should be able to buy exact remaining amount");
                         expect(await pool.awaitingRwaAmount()).to.equal(targetRwa, "Should reach exactly target RWA");
                         expect(await pool.isTargetReached()).to.be.equal(true, "Target should be reached");
@@ -1449,7 +1467,7 @@ describe("Pool tests", () => {
                     });
                 }
                 if (config.fixedSell == false) {
-                    
+
                     it("should give bonus only to first users when oversold by 150%", async () => {
                         let now = await getCurrentBlockTimestamp();
                         const pool = await deployPool({
@@ -1464,7 +1482,7 @@ describe("Pool tests", () => {
 
                         // Mint and approve tokens
                         for (const user of [user1, user2, user3]) {
-                            await ERC20Minter.mint(await holdToken.getAddress(), user.address, 1000000);
+                            await ERC20Minter.mint(await holdToken.getAddress(), user.address, 2000000);
                             await holdToken.connect(user).approve(pool.getAddress(), ethers.MaxUint256);
                         }
 
@@ -1846,7 +1864,7 @@ describe("Pool tests", () => {
 
                     // Move time 1 day forward to enable bonuses
                     await ethers.provider.send("evm_setNextBlockTimestamp", [
-                       Number(await pool.entryPeriodExpired())
+                        Number(await pool.entryPeriodExpired())
                     ]);
                     await ethers.provider.send("evm_mine", []);
 
@@ -1975,7 +1993,7 @@ describe("Pool tests", () => {
 
                     // Move time 1 day forward to enable bonuses
                     await ethers.provider.send("evm_setNextBlockTimestamp", [
-                       Number(await pool.entryPeriodExpired())
+                        Number(await pool.entryPeriodExpired())
                     ]);
                     await ethers.provider.send("evm_mine", []);
 

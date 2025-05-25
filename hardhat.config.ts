@@ -5,6 +5,7 @@ import '@nomicfoundation/hardhat-chai-matchers'
 import '@openzeppelin/hardhat-upgrades'
 import '@typechain/hardhat'
 import 'hardhat-deploy'
+import "hardhat-gas-reporter"
 import * as dotenv from 'dotenv'
 
 dotenv.config()
@@ -65,6 +66,9 @@ const config: HardhatUserConfig = {
     outDir: 'typechain-types',
     target: 'ethers-v6',
   },
+  gasReporter: {
+    enabled: true
+  }
 }
 
 export default config

@@ -1,5 +1,5 @@
 {
-  "address": "0xA8B2dcab7BF187d15bfa3A6980852D48585a10d0",
+  "address": "0xBd8946C76fBfA5F2FBaedE770d07bDA1F99fB332",
   "abi": [
     {
       "anonymous": false,
@@ -137,11 +137,11 @@
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "awaitingBonusAmount",
+          "name": "awaitingRwaAmount",
           "type": "uint256"
         }
       ],
-      "name": "Pool_AwaitingBonusAmountUpdated",
+      "name": "Pool_AwaitingRwaAmountUpdated",
       "type": "event"
     },
     {
@@ -156,11 +156,17 @@
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "awaitingRwaAmount",
+          "name": "currentAwaitingBonusAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "currentRewardedRwaAmount",
           "type": "uint256"
         }
       ],
-      "name": "Pool_AwaitingRwaAmountUpdated",
+      "name": "Pool_BonusWithdrawn",
       "type": "event"
     },
     {
@@ -357,13 +363,19 @@
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "totalReturnedAmount",
+          "name": "currentTotalReturnedAmount",
           "type": "uint256"
         },
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "lastCompletedIncomingTranche",
+          "name": "currentAwaitingBonusAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "currentLastCompletedIncomingTranche",
           "type": "uint256"
         }
       ],
@@ -425,13 +437,13 @@
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "totalClaimedAmount",
+          "name": "currentTotalClaimedAmount",
           "type": "uint256"
         },
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "outgoingTranchesBalance",
+          "name": "currentOutgoingTranchesBalance",
           "type": "uint256"
         }
       ],
@@ -563,6 +575,24 @@
           "internalType": "uint256",
           "name": "bonusFeePaid",
           "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "percentBefore",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "userPercent",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "targetReached",
+          "type": "bool"
         }
       ],
       "name": "Pool_RwaBurned",
@@ -600,6 +630,24 @@
           "internalType": "uint256",
           "name": "feePaid",
           "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "percentBefore",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "userPercent",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "targetReached",
+          "type": "bool"
         }
       ],
       "name": "Pool_RwaMinted",
@@ -653,6 +701,25 @@
         }
       ],
       "name": "RWA_Deployed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "emittedFrom",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "isPaused",
+          "type": "bool"
+        }
+      ],
+      "name": "RWA_PausedStateChanged",
       "type": "event"
     },
     {
@@ -722,11 +789,11 @@
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "awaitingBonusAmount",
+          "name": "awaitingRwaAmount",
           "type": "uint256"
         }
       ],
-      "name": "emitPool_AwaitingBonusAmountUpdated",
+      "name": "emitPool_AwaitingRwaAmountUpdated",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -735,11 +802,16 @@
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "awaitingRwaAmount",
+          "name": "bonusAmountWithdrawn",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "eligibleRwaAmount",
           "type": "uint256"
         }
       ],
-      "name": "emitPool_AwaitingRwaAmountUpdated",
+      "name": "emitPool_BonusWithdrawn",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -894,7 +966,12 @@
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "totalReturnedAmount",
+          "name": "totalAmountAppliedInCall",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "totalAppliedToBonusInCall",
           "type": "uint256"
         },
         {
@@ -1049,6 +1126,21 @@
           "internalType": "uint256",
           "name": "bonusFeePaid",
           "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "percentBefore",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "userPercent",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "targetReached",
+          "type": "bool"
         }
       ],
       "name": "emitPool_RwaBurned",
@@ -1077,6 +1169,21 @@
           "internalType": "uint256",
           "name": "feePaid",
           "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "percentBefore",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "userPercent",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "targetReached",
+          "type": "bool"
         }
       ],
       "name": "emitPool_RwaMinted",
@@ -1116,6 +1223,19 @@
         }
       ],
       "name": "emitRWA_Deployed",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "isPaused",
+          "type": "bool"
+        }
+      ],
+      "name": "emitRWA_PausedStateChanged",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -1267,50 +1387,50 @@
       "type": "constructor"
     }
   ],
-  "transactionHash": "0x220fc14947f4be8779223353f377a4d440fc652ef2b424bcac87e890be33b4a2",
+  "transactionHash": "0x2fcf9a725371c854bf5b749c01f2b688d0ab19f828895d14d0b1a4677e1d3283",
   "receipt": {
     "to": null,
     "from": "0x208aBf72Cd5F40414768A5FD40F005aca71FC698",
-    "contractAddress": "0xA8B2dcab7BF187d15bfa3A6980852D48585a10d0",
+    "contractAddress": "0xBd8946C76fBfA5F2FBaedE770d07bDA1F99fB332",
     "transactionIndex": 0,
     "gasUsed": "354887",
-    "logsBloom": "0x00000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000002000000000081000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000080000000000008000000000000000000000000000000000000000000001000000000000000000000000000000020000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-    "blockHash": "0x6568b0ce6a469fa9639cb7dc2472dfb9e0f8f83a157795d3d3140a841cd0d13f",
-    "transactionHash": "0x220fc14947f4be8779223353f377a4d440fc652ef2b424bcac87e890be33b4a2",
+    "logsBloom": "0x00000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000040000000000000800800000000000000000000000080000000000000000000000000000000000000000000000000000000200000000000000000000000000000000020000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000004000000000000000000000000000",
+    "blockHash": "0x6a39d334a8ea032d07d570a10ffeca0bd2c7c867fe9cfca13bf8e078c6e028cb",
+    "transactionHash": "0x2fcf9a725371c854bf5b749c01f2b688d0ab19f828895d14d0b1a4677e1d3283",
     "logs": [
       {
         "transactionIndex": 0,
-        "blockNumber": 52051130,
-        "transactionHash": "0x220fc14947f4be8779223353f377a4d440fc652ef2b424bcac87e890be33b4a2",
-        "address": "0xA8B2dcab7BF187d15bfa3A6980852D48585a10d0",
+        "blockNumber": 52596055,
+        "transactionHash": "0x2fcf9a725371c854bf5b749c01f2b688d0ab19f828895d14d0b1a4677e1d3283",
+        "address": "0xBd8946C76fBfA5F2FBaedE770d07bDA1F99fB332",
         "topics": [
           "0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b",
-          "0x000000000000000000000000491a6b3989beb44e5fc19cae7f8db658a132ac83"
+          "0x000000000000000000000000729ca3fd19237b5a2c3a21ba6ee11133d3aa39d9"
         ],
         "data": "0x",
         "logIndex": 0,
-        "blockHash": "0x6568b0ce6a469fa9639cb7dc2472dfb9e0f8f83a157795d3d3140a841cd0d13f"
+        "blockHash": "0x6a39d334a8ea032d07d570a10ffeca0bd2c7c867fe9cfca13bf8e078c6e028cb"
       },
       {
         "transactionIndex": 0,
-        "blockNumber": 52051130,
-        "transactionHash": "0x220fc14947f4be8779223353f377a4d440fc652ef2b424bcac87e890be33b4a2",
-        "address": "0xA8B2dcab7BF187d15bfa3A6980852D48585a10d0",
+        "blockNumber": 52596055,
+        "transactionHash": "0x2fcf9a725371c854bf5b749c01f2b688d0ab19f828895d14d0b1a4677e1d3283",
+        "address": "0xBd8946C76fBfA5F2FBaedE770d07bDA1F99fB332",
         "topics": [
           "0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2"
         ],
         "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
         "logIndex": 1,
-        "blockHash": "0x6568b0ce6a469fa9639cb7dc2472dfb9e0f8f83a157795d3d3140a841cd0d13f"
+        "blockHash": "0x6a39d334a8ea032d07d570a10ffeca0bd2c7c867fe9cfca13bf8e078c6e028cb"
       }
     ],
-    "blockNumber": 52051130,
+    "blockNumber": 52596055,
     "cumulativeGasUsed": "354887",
     "status": 1,
     "byzantium": true
   },
   "args": [
-    "0x491a6B3989bEB44E5fc19cAe7F8dB658a132aC83",
+    "0x729Ca3Fd19237b5A2C3A21ba6ee11133D3aA39D9",
     "0xc4d66de8000000000000000000000000b987a0b4070f9b805f292fd0e3937574e29126e4"
   ],
   "numDeployments": 1,
@@ -1324,7 +1444,7 @@
       "0xB987A0b4070f9b805f292fd0E3937574e29126E4"
     ]
   },
-  "implementation": "0x491a6B3989bEB44E5fc19cAe7F8dB658a132aC83",
+  "implementation": "0x729Ca3Fd19237b5A2C3A21ba6ee11133D3aA39D9",
   "devdoc": {
     "details": "This contract implements an upgradeable proxy. It is upgradeable because calls are delegated to an implementation address that can be changed. This address is stored in storage in the location specified by https://eips.ethereum.org/EIPS/eip-1967[EIP1967], so that it doesn't conflict with the storage layout of the implementation behind the proxy.",
     "kind": "dev",

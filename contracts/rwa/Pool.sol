@@ -359,8 +359,10 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         require(totalAmountToClaimInBatch > 0, "Pool: zero total amount to claim");
 
         // Update outgoing tranches balance
-        require(outgoingTranchesBalance >= totalAmountToClaimInBatch, "Pool: insufficient balance");
-        outgoingTranchesBalance -= totalAmountToClaimInBatch;
+        uint256 _outgoingTranchesBalance = outgoingTranchesBalance;
+        require(_outgoingTranchesBalance >= totalAmountToClaimInBatch, "Pool: insufficient balance");
+        _outgoingTranchesBalance -= totalAmountToClaimInBatch;
+        outgoingTranchesBalance = _outgoingTranchesBalance;
 
         // Update total claimed amount
         totalClaimedAmount += totalAmountToClaimInBatch;
@@ -370,7 +372,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
 
         _eventEmitter.emitPool_OutgoingClaimSummary(
             totalClaimedAmount,
-            outgoingTranchesBalance
+            _outgoingTranchesBalance
         );
     }
 
@@ -476,8 +478,8 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         }
 
         _eventEmitter.emitPool_IncomingReturnSummary(
-            totalAmountAppliedInCall,
-            totalAppliedToBonusInCall,
+            _totalReturnedAmount,
+            awaitingBonusAmount,
             lastCompletedIncomingTranche
         );
 
@@ -575,11 +577,22 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
             "Pool: hold transfer failed"
         );
 
-        address treasury = address(_addressBook.treasury());
-        require(_holdToken.transfer(treasury, fee), "Pool: fee transfer failed");
+        if (fee > 0) {
+            require(
+                _holdToken.transfer(address(_addressBook.treasury()), fee),
+                "Pool: fee transfer failed"
+            );
+        }
+
+        uint256 _awaitingRwaAmount = awaitingRwaAmount;
+        uint256 _expectedRwaAmount = expectedRwaAmount;
+
+        // Calculate percentages before updating state
+        uint256 percentBefore = (_awaitingRwaAmount * 10000) / _expectedRwaAmount;
+        uint256 userPercent = (actualRwaAmount * 10000) / _expectedRwaAmount;
 
         // Update awaiting RWA amount and check target
-        awaitingRwaAmount += actualRwaAmount;
+        _awaitingRwaAmount += actualRwaAmount;
 
         // Update real reserve and virtual RWA
         uint256 _realHoldReserve = realHoldReserve;
@@ -587,7 +600,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         virtualRwaReserve -= actualRwaAmount;
 
         // Check if target is reached
-        if (!_isTargetReached && awaitingRwaAmount >= expectedRwaAmount) {
+        if (!_isTargetReached && _awaitingRwaAmount >= _expectedRwaAmount) {
             isTargetReached = true;
 
             uint256 _expectedHoldAmount = expectedHoldAmount;
@@ -617,6 +630,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         }
 
         realHoldReserve = _realHoldReserve;
+        awaitingRwaAmount = _awaitingRwaAmount;
 
         // Mint RWA tokens
         rwaToken.mint(msg.sender, tokenId, actualRwaAmount);
@@ -625,9 +639,12 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
             msg.sender,
             actualRwaAmount,
             (holdAmountWithFee - fee),
-            fee
+            fee,
+            percentBefore,
+            userPercent,
+            _isTargetReached // use intitial value
         );
-        _eventEmitter.emitPool_AwaitingRwaAmountUpdated(awaitingRwaAmount);
+        _eventEmitter.emitPool_AwaitingRwaAmountUpdated(_awaitingRwaAmount);
         // k changes because virtualRwaReserve changes
         _eventEmitter.emitPool_ReservesUpdated(
             _realHoldReserve,
@@ -670,19 +687,27 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         AddressBook _addressBook = addressBook;
         EventEmitter _eventEmitter = _addressBook.eventEmitter();
 
+        uint256 _awaitingRwaAmount = awaitingRwaAmount;
+        uint256 _expectedRwaAmount = expectedRwaAmount;
+
+        // Calculate percentages before updating state
+        uint256 percentBefore = (_awaitingRwaAmount * 10000) / _expectedRwaAmount;
+        uint256 userPercent = (rwaAmount * 10000) / _expectedRwaAmount;
+
         // Update reserves
         realHoldReserve -= (holdAmountWithoutFee + holdFee);
         virtualRwaReserve += rwaAmount;
 
         // Update awaiting amounts
-        awaitingRwaAmount -= rwaAmount;
+        _awaitingRwaAmount -= rwaAmount;
+        awaitingRwaAmount = _awaitingRwaAmount;
         if (bonusAmountWithoutFee > 0) {
             awaitingBonusAmount -= (bonusAmountWithoutFee + bonusFee);
             rewardedRwaAmount += eligibleRwaAmount;
-            
+
             _eventEmitter.emitPool_BonusWithdrawn(
-                bonusAmountWithoutFee + bonusFee,
-                eligibleRwaAmount
+                awaitingBonusAmount,
+                rewardedRwaAmount
             );
         }
 
@@ -695,19 +720,22 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
             "Pool: hold transfer failed"
         );
 
-        // Transfer fee to treasury
-        address treasury = address(_addressBook.treasury());
-        require(_holdToken.transfer(treasury, holdFee + bonusFee), "Pool: fee transfer failed");
-
+        uint256 fee = holdFee + bonusFee;
+        if(fee > 0) {
+            require(_holdToken.transfer(address(_addressBook.treasury()), fee), "Pool: fee transfer failed");   
+        }
         _eventEmitter.emitPool_RwaBurned(
             msg.sender,
             rwaAmount,
             holdAmountWithoutFee,
             bonusAmountWithoutFee,
             holdFee,
-            bonusFee
+            bonusFee,
+            percentBefore,
+            userPercent,
+            isTargetReached
         );
-        _eventEmitter.emitPool_AwaitingRwaAmountUpdated(awaitingRwaAmount);
+        _eventEmitter.emitPool_AwaitingRwaAmountUpdated(_awaitingRwaAmount);
         // k changes because virtualRwaReserve changes
         _eventEmitter.emitPool_ReservesUpdated(
             realHoldReserve,
@@ -754,7 +782,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
 
         uint256 totalBonusAmount = 0;
         bool hasBonuses = _awaitingBonusAmount > 0 && _awaitingRwaAmount > 0;
-    
+
         if (hasBonuses && checkBonusesUnlocked()) {
             // Calculate how much RWA is still eligible for bonus
             uint256 _expectedRwaAmount = expectedRwaAmount;
@@ -769,11 +797,15 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
             }
 
             if (availableRwaAmountToBonus > 0) {
-                eligibleRwaAmount = rwaAmount > availableRwaAmountToBonus ? availableRwaAmountToBonus : rwaAmount;
-                totalBonusAmount = (_awaitingBonusAmount * eligibleRwaAmount) / availableRwaAmountToBonus;
+                eligibleRwaAmount = rwaAmount > availableRwaAmountToBonus
+                    ? availableRwaAmountToBonus
+                    : rwaAmount;
+                totalBonusAmount =
+                    (_awaitingBonusAmount * eligibleRwaAmount) /
+                    availableRwaAmountToBonus;
             }
         }
-    
+
         // Calculate fees
         holdFee = (totalHoldAmount * exitFeePercent) / 10000;
         bonusFee = (totalBonusAmount * exitFeePercent) / 10000;

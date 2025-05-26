@@ -32,9 +32,9 @@ contract EventEmitter is UpgradeableContract {
     );
 
     event Pool_OutgoingClaimSummary(
-        address indexed emittedFrom, 
-        uint256 totalClaimedAmount,
-        uint256 outgoingTranchesBalance
+        address indexed emittedFrom,
+        uint256 currentTotalClaimedAmount,
+        uint256 currentOutgoingTranchesBalance
     );
 
     event Pool_IncomingTrancheUpdate(
@@ -48,15 +48,15 @@ contract EventEmitter is UpgradeableContract {
 
     event Pool_IncomingReturnSummary(
         address indexed emittedFrom,
-        uint256 totalAmountAppliedInCall,
-        uint256 totalAppliedToBonusInCall,
-        uint256 lastCompletedIncomingTranche
+        uint256 currentTotalReturnedAmount,
+        uint256 currentAwaitingBonusAmount,
+        uint256 currentLastCompletedIncomingTranche
     );
 
     event Pool_BonusWithdrawn(
         address indexed emittedFrom,
-        uint256 bonusAmountWithdrawn,
-        uint256 eligibleRwaAmount
+        uint256 currentAwaitingBonusAmount,
+        uint256 currentRewardedRwaAmount
     );
 
     event Pool_FundsFullyReturned(
@@ -65,11 +65,14 @@ contract EventEmitter is UpgradeableContract {
     );
 
     event Pool_RwaMinted(
-        address indexed emittedFrom, 
+        address indexed emittedFrom,
         address indexed minter,
         uint256 rwaAmountMinted,
         uint256 holdAmountPaid,
-        uint256 feePaid
+        uint256 feePaid,
+        uint256 percentBefore,
+        uint256 userPercent,
+        bool targetReached
     );
 
     event Pool_TargetReached(
@@ -79,23 +82,21 @@ contract EventEmitter is UpgradeableContract {
     );
 
     event Pool_RwaBurned(
-        address indexed emittedFrom, 
+        address indexed emittedFrom,
         address indexed burner,
         uint256 rwaAmountBurned,
         uint256 holdAmountReceived,
         uint256 bonusAmountReceived,
         uint256 holdFeePaid,
-        uint256 bonusFeePaid
+        uint256 bonusFeePaid,
+        uint256 percentBefore,
+        uint256 userPercent,
+        bool targetReached
     );
 
     event Pool_AwaitingRwaAmountUpdated(
         address indexed emittedFrom, 
         uint256 awaitingRwaAmount
-    );
-
-    event Pool_AwaitingBonusAmountUpdated(
-        address indexed emittedFrom, 
-        uint256 awaitingBonusAmount
     );
 
     event Pool_ReservesUpdated(
@@ -222,15 +223,21 @@ contract EventEmitter is UpgradeableContract {
         address minter,
         uint256 rwaAmountMinted,
         uint256 holdAmountPaid,
-        uint256 feePaid
+        uint256 feePaid,
+        uint256 percentBefore,
+        uint256 userPercent,
+        bool targetReached
     ) external {
         addressBook.requireProtocolContract(msg.sender);
         emit Pool_RwaMinted(
-            msg.sender, 
+            msg.sender,
             minter,
             rwaAmountMinted,
             holdAmountPaid,
-            feePaid
+            feePaid,
+            percentBefore,
+            userPercent,
+            targetReached
         );
     }
 
@@ -252,17 +259,23 @@ contract EventEmitter is UpgradeableContract {
         uint256 holdAmountReceived,
         uint256 bonusAmountReceived,
         uint256 holdFeePaid,
-        uint256 bonusFeePaid
+        uint256 bonusFeePaid,
+        uint256 percentBefore,
+        uint256 userPercent,
+        bool targetReached
     ) external {
         addressBook.requireProtocolContract(msg.sender);
         emit Pool_RwaBurned(
-            msg.sender, 
+            msg.sender,
             burner,
             rwaAmountBurned,
             holdAmountReceived,
             bonusAmountReceived,
             holdFeePaid,
-            bonusFeePaid
+            bonusFeePaid,
+            percentBefore,
+            userPercent,
+            targetReached
         );
     }
 
@@ -271,13 +284,6 @@ contract EventEmitter is UpgradeableContract {
     ) external {
         addressBook.requireProtocolContract(msg.sender);
         emit Pool_AwaitingRwaAmountUpdated(msg.sender, awaitingRwaAmount); 
-    }
-
-    function emitPool_AwaitingBonusAmountUpdated(
-        uint256 awaitingBonusAmount
-    ) external {
-        addressBook.requireProtocolContract(msg.sender);
-        emit Pool_AwaitingBonusAmountUpdated(msg.sender, awaitingBonusAmount); 
     }
 
     function emitPool_ReservesUpdated(

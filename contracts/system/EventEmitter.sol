@@ -392,7 +392,8 @@ contract EventEmitter is UpgradeableContract {
         address indexed from,
         address indexed to,
         uint256 tokenId,
-        uint256 amount
+        uint256 amount,
+        address pool
     );
 
     event RWA_Deployed(
@@ -405,10 +406,11 @@ contract EventEmitter is UpgradeableContract {
         address from,
         address to,
         uint256 tokenId,
-        uint256 amount
+        uint256 amount,
+        address pool
     ) external {
         addressBook.requireProtocolContract(msg.sender); // Ensure caller is a registered RWA contract
-        emit RWA_Transfer(msg.sender, from, to, tokenId, amount);
+        emit RWA_Transfer(msg.sender, from, to, tokenId, amount, pool);
     }
 
 

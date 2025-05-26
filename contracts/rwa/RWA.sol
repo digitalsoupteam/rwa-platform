@@ -88,7 +88,7 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
         
         // Emit our custom event for each token transfer
         for (uint256 i = 0; i < ids.length; i++) {
-            addressBook.eventEmitter().emitRWA_Transfer(from, to, ids[i], values[i]);
+            addressBook.eventEmitter().emitRWA_Transfer(from, to, ids[i], values[i], pools[ids[i]]);
         }
     }
 

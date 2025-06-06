@@ -41,6 +41,10 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
     /// @dev Set during initialization and then immutable.
     string public entityId;
 
+    /// @notice Parent entity ID in the database (RWA entity ID)
+    /// @dev Set during initialization and then immutable.
+    string public parentId;
+
     /// @notice Entity owner ID in the database
     /// @dev Set during initialization and then immutable.
     string public entityOwnerId;
@@ -183,6 +187,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
     constructor() UpgradeableContract() {}
 
     function initialize(
+        address _deployer,
         address _holdToken,
         address _rwaToken,
         AddressBook _addressBook,
@@ -212,6 +217,9 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         uint256[] memory _incomingTrancheExpired
     ) external initializer {
         addressBook = _addressBook;
+        
+        // Get parent ID from RWA contract
+        parentId = RWA(_rwaToken).entityId();
 
         __UpgradeableContract_init();
         __ReentrancyGuard_init_unchained();
@@ -278,6 +286,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         EventEmitter _eventEmitter = _addressBook.eventEmitter();
 
         _eventEmitter.emitPool_Deployed(
+            _deployer,
             _awaitCompletionExpired,
             _floatingOutTranchesTimestamps,
             address(_holdToken),
@@ -353,7 +362,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
             // Mark tranche as claimed
             outgoingTrancheStates[index] = amount;
             claimedAmountsForBatch[i] = amount;
-            _eventEmitter.emitPool_OutgoingTrancheClaimed(msg.sender, index, amount);
+            _eventEmitter.emitPool_OutgoingTrancheClaimed(msg.sender, index, amount, address(holdToken));
         }
 
         require(totalAmountToClaimInBatch > 0, "Pool: zero total amount to claim");
@@ -435,10 +444,12 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
 
                 _eventEmitter.emitPool_IncomingTrancheUpdate(
                     msg.sender,
+                    owner,
                     loopTrancheIndex,
                     portionAmountApplied,
                     isTrancheNowComplete,
-                    wasReturnedOnTime
+                    wasReturnedOnTime,
+                    address(holdToken)
                 );
 
                 // If tranche is completed, and it's the one we are sequentially processing, advance lastCompletedIncomingTranche
@@ -496,7 +507,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
             isFullyReturned = true;
             uint256 _fullReturnTimestamp = block.timestamp;
             fullReturnTimestamp = _fullReturnTimestamp;
-            _eventEmitter.emitPool_FundsFullyReturned(_fullReturnTimestamp);
+            _eventEmitter.emitPool_FundsFullyReturned(msg.sender, owner, _fullReturnTimestamp);
         }
     }
 
@@ -625,7 +636,8 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
 
             _eventEmitter.emitPool_TargetReached(
                 _outgoingTranchesBalance,
-                _floatingTimestampOffset
+                _floatingTimestampOffset,
+                owner
             );
         }
 
@@ -642,7 +654,10 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
             fee,
             percentBefore,
             userPercent,
-            _isTargetReached // use intitial value
+            _isTargetReached, // use initial value
+            parentId,
+            entityId,
+            address(holdToken)
         );
         _eventEmitter.emitPool_AwaitingRwaAmountUpdated(_awaitingRwaAmount);
         // k changes because virtualRwaReserve changes
@@ -733,7 +748,10 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
             bonusFee,
             percentBefore,
             userPercent,
-            isTargetReached
+            isTargetReached,
+            parentId,
+            entityId,
+            address(holdToken)
         );
         _eventEmitter.emitPool_AwaitingRwaAmountUpdated(_awaitingRwaAmount);
         // k changes because virtualRwaReserve changes

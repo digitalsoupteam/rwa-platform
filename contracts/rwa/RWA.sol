@@ -37,6 +37,7 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
     /// @param initialAddressBook Address of the AddressBook contract
     function initialize(
         address initialAddressBook,
+        address deployer,
         address initialOwner,
         string memory initialEntityId,
         string memory initialEntityOwnerId,
@@ -55,6 +56,7 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
         entityOwnerType = initialEntityOwnerType;
 
         addressBook.eventEmitter().emitRWA_Deployed(
+            deployer,
             initialOwner,
             initialEntityId
         );

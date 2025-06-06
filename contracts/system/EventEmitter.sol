@@ -25,10 +25,11 @@ contract EventEmitter is UpgradeableContract {
     // --- Pool Events Start ---
 
     event Pool_OutgoingTrancheClaimed(
-        address indexed emittedFrom, 
+        address indexed emittedFrom,
         address indexed claimer,
         uint256 trancheIndex,
-        uint256 amountClaimed
+        uint256 amountClaimed,
+        address holdToken
     );
 
     event Pool_OutgoingClaimSummary(
@@ -38,12 +39,14 @@ contract EventEmitter is UpgradeableContract {
     );
 
     event Pool_IncomingTrancheUpdate(
-        address indexed emittedFrom, 
-        address indexed returner,
+        address indexed emittedFrom,
+        address indexed caller,
+        address owner,
         uint256 trancheIndex,
         uint256 amountAppliedToTranche,
         bool isNowComplete,
-        bool wasOnTime
+        bool wasOnTime,
+        address holdToken
     );
 
     event Pool_IncomingReturnSummary(
@@ -60,7 +63,9 @@ contract EventEmitter is UpgradeableContract {
     );
 
     event Pool_FundsFullyReturned(
-        address indexed emittedFrom, 
+        address indexed emittedFrom,
+        address indexed caller,
+        address owner,
         uint256 timestamp
     );
 
@@ -72,13 +77,17 @@ contract EventEmitter is UpgradeableContract {
         uint256 feePaid,
         uint256 percentBefore,
         uint256 userPercent,
-        bool targetReached
+        bool targetReached,
+        string businessId,
+        string poolId,
+        address holdToken
     );
 
     event Pool_TargetReached(
-        address indexed emittedFrom, 
+        address indexed emittedFrom,
         uint256 outgoingTranchesBalance,
-        uint256 floatingTimestampOffset
+        uint256 floatingTimestampOffset,
+        address owner
     );
 
     event Pool_RwaBurned(
@@ -91,7 +100,10 @@ contract EventEmitter is UpgradeableContract {
         uint256 bonusFeePaid,
         uint256 percentBefore,
         uint256 userPercent,
-        bool targetReached
+        bool targetReached,
+        string businessId,
+        string poolId,
+        address holdToken
     );
 
     event Pool_AwaitingRwaAmountUpdated(
@@ -112,7 +124,8 @@ contract EventEmitter is UpgradeableContract {
     );
 
     event Pool_Deployed(
-        address indexed emittedFrom, 
+        address indexed emittedFrom,
+        address indexed deployer,
         bool awaitCompletionExpired,
         bool floatingOutTranchesTimestamps,
         address holdToken,
@@ -145,14 +158,16 @@ contract EventEmitter is UpgradeableContract {
     function emitPool_OutgoingTrancheClaimed(
         address claimer,
         uint256 trancheIndex,
-        uint256 amountClaimed
+        uint256 amountClaimed,
+        address holdToken
     ) external {
         addressBook.requireProtocolContract(msg.sender);
         emit Pool_OutgoingTrancheClaimed(
-            msg.sender, 
+            msg.sender,
             claimer,
             trancheIndex,
-            amountClaimed
+            amountClaimed,
+            holdToken
         );
     }
 
@@ -169,20 +184,24 @@ contract EventEmitter is UpgradeableContract {
     }
 
     function emitPool_IncomingTrancheUpdate(
-        address returner,
+        address caller,
+        address owner,
         uint256 trancheIndex,
         uint256 amountAppliedToTranche,
         bool isNowComplete,
-        bool wasOnTime
+        bool wasOnTime,
+        address holdToken
     ) external {
         addressBook.requireProtocolContract(msg.sender);
         emit Pool_IncomingTrancheUpdate(
-            msg.sender, 
-            returner,
+            msg.sender,
+            caller,
+            owner,
             trancheIndex,
             amountAppliedToTranche,
             isNowComplete,
-            wasOnTime
+            wasOnTime,
+            holdToken
         );
     }
 
@@ -213,10 +232,12 @@ contract EventEmitter is UpgradeableContract {
     }
 
     function emitPool_FundsFullyReturned(
+        address caller,
+        address owner,
         uint256 timestamp
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit Pool_FundsFullyReturned(msg.sender, timestamp); 
+        emit Pool_FundsFullyReturned(msg.sender, caller, owner, timestamp);
     }
 
     function emitPool_RwaMinted(
@@ -226,7 +247,10 @@ contract EventEmitter is UpgradeableContract {
         uint256 feePaid,
         uint256 percentBefore,
         uint256 userPercent,
-        bool targetReached
+        bool targetReached,
+        string memory businessId,
+        string memory poolId,
+        address holdToken
     ) external {
         addressBook.requireProtocolContract(msg.sender);
         emit Pool_RwaMinted(
@@ -237,19 +261,24 @@ contract EventEmitter is UpgradeableContract {
             feePaid,
             percentBefore,
             userPercent,
-            targetReached
+            targetReached,
+            businessId,
+            poolId,
+            holdToken
         );
     }
 
     function emitPool_TargetReached(
         uint256 outgoingTranchesBalance,
-        uint256 floatingTimestampOffset
+        uint256 floatingTimestampOffset,
+        address owner
     ) external {
         addressBook.requireProtocolContract(msg.sender);
         emit Pool_TargetReached(
-            msg.sender, 
+            msg.sender,
             outgoingTranchesBalance,
-            floatingTimestampOffset
+            floatingTimestampOffset,
+            owner
         );
     }
 
@@ -262,7 +291,10 @@ contract EventEmitter is UpgradeableContract {
         uint256 bonusFeePaid,
         uint256 percentBefore,
         uint256 userPercent,
-        bool targetReached
+        bool targetReached,
+        string memory businessId,
+        string memory poolId,
+        address holdToken
     ) external {
         addressBook.requireProtocolContract(msg.sender);
         emit Pool_RwaBurned(
@@ -275,7 +307,10 @@ contract EventEmitter is UpgradeableContract {
             bonusFeePaid,
             percentBefore,
             userPercent,
-            targetReached
+            targetReached,
+            businessId,
+            poolId,
+            holdToken
         );
     }
 
@@ -309,6 +344,7 @@ contract EventEmitter is UpgradeableContract {
 
     // Renamed from Pool_StaticConfigured to Pool_Deployed as per user's previous feedback and file state
     function emitPool_Deployed(
+        address deployer,
         bool awaitCompletionExpired,
         bool floatingOutTranchesTimestamps,
         address holdToken,
@@ -337,7 +373,8 @@ contract EventEmitter is UpgradeableContract {
     ) external {
         addressBook.requireProtocolContract(msg.sender);
         emit Pool_Deployed(
-            msg.sender, 
+            msg.sender,
+            deployer,
             awaitCompletionExpired,
             floatingOutTranchesTimestamps,
             holdToken,
@@ -397,7 +434,8 @@ contract EventEmitter is UpgradeableContract {
     );
 
     event RWA_Deployed(
-        address indexed emittedFrom, 
+        address indexed emittedFrom,
+        address indexed deployer,
         address owner,
         string entityId
     );
@@ -422,10 +460,11 @@ contract EventEmitter is UpgradeableContract {
     }
 
     function emitRWA_Deployed(
+        address deployer,
         address owner,
         string memory entityId
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit RWA_Deployed(msg.sender, owner, entityId);
+        emit RWA_Deployed(msg.sender, deployer, owner, entityId);
     }
 }

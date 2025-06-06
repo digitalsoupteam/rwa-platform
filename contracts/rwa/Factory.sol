@@ -98,7 +98,7 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
         address proxy = address(new ERC1967Proxy(_addressBook.rwaImplementation(), ""));
         RWA rwa = RWA(proxy);
         _addressBook.addRWA(rwa);
-        rwa.initialize(address(_addressBook), owner, entityId, entityOwnerId, entityOwnerType);
+        rwa.initialize(address(_addressBook), msg.sender, owner, entityId, entityOwnerId, entityOwnerType);
 
         return proxy;
     }
@@ -344,6 +344,7 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
         uint256 expectedBonusAmount = (expectedHoldAmount * rewardPercent) / 10000;
 
         Pool(proxy).initialize(
+            msg.sender, // deployer
             address(config.holdToken()),
             address(rwa),
             _addressBook,

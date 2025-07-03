@@ -1,169 +1,185 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
+import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 import { AddressBook } from "../system/AddressBook.sol";
+import { Config } from "../system/Config.sol";
+import { EventEmitter } from "../system/EventEmitter.sol";
 
 /// @title DAO Timelock Contract
-/// @notice Implements delayed execution of governance decisions
-contract Timelock is UUPSUpgradeable {
+/// @notice Enforces delay on governance actions for security
+/// @dev Implements timelock mechanism for governance proposals
+contract Timelock is UpgradeableContract, ReentrancyGuardUpgradeable {
     /// @notice Address book contract reference
     AddressBook public addressBook;
 
-    /// @notice Minimum delay for operations
-    uint256 public minDelay;
+    /// @notice Queued transactions
+    mapping(bytes32 => uint256) public queuedTransactions;
 
-    /// @notice Operation state
-    /// @param executed Whether operation was executed
-    /// @param canceled Whether operation was canceled
-    /// @param timestamp When operation can be executed
-    struct Operation {
-        bool executed;
-        bool canceled;
-        uint256 timestamp;
-    }
+    /// @notice Grace period for execution after ETA (7 days)
+    uint256 public constant GRACE_PERIOD = 7 days;
 
-    /// @notice Mapping from operation hash to its state
-    mapping(bytes32 => Operation) public operations;
-
-    /// @notice Constructor that disables initializers
-    constructor() {
-        _disableInitializers();
-    }
+    constructor() UpgradeableContract() {}
 
     /// @notice Initializes the contract
     /// @param initialAddressBook Address of AddressBook contract
-    /// @param initialMinDelay Initial minimum delay
-    function initialize(
-        address initialAddressBook,
-        uint256 initialMinDelay
-    ) external initializer {
-        __UUPSUpgradeable_init();
+    function initialize(address initialAddressBook) external initializer {
+        require(initialAddressBook != address(0), "Invalid address book");
+        
         addressBook = AddressBook(initialAddressBook);
-        minDelay = initialMinDelay;
+
+        __UpgradeableContract_init();
+        __ReentrancyGuard_init();
     }
 
-    /// @notice Schedules an operation
-    /// @param target Target address for call
-    /// @param value ETH value for call
-    /// @param data Calldata for call
-    /// @param delay Delay before execution (must be >= minDelay)
-    function schedule(
+    /// @notice Queues a transaction for future execution
+    /// @param target Target contract address
+    /// @param data Encoded function call data
+    /// @param eta Earliest time for execution
+    /// @return txHash Hash of the queued transaction
+    function queueTransaction(
         address target,
-        uint256 value,
-        bytes calldata data,
-        uint256 delay
+        bytes memory data,
+        uint256 eta
+    ) external returns (bytes32 txHash) {
+        addressBook.requireGovernance(msg.sender);
+        
+        Config config = addressBook.config();
+        require(
+            eta >= block.timestamp + config.timelockDelay(),
+            "ETA too early"
+        );
+
+        txHash = keccak256(abi.encode(target, data, eta));
+        require(queuedTransactions[txHash] == 0, "Transaction already queued");
+        
+        queuedTransactions[txHash] = eta;
+
+        EventEmitter eventEmitter = addressBook.eventEmitter();
+        eventEmitter.emitDAO_TransactionQueued(txHash, target, data, eta);
+
+        return txHash;
+    }
+
+    /// @notice Executes a queued transaction
+    /// @param target Target contract address
+    /// @param data Encoded function call data
+    /// @param eta Execution time
+    function executeTransaction(
+        address target,
+        bytes memory data,
+        uint256 eta
+    ) external nonReentrant {
+        addressBook.requireGovernance(msg.sender);
+        
+        bytes32 txHash = keccak256(abi.encode(target, data, eta));
+        uint256 queuedEta = queuedTransactions[txHash];
+        
+        require(queuedEta != 0, "Transaction not queued");
+        require(block.timestamp >= queuedEta, "Transaction not ready");
+        require(block.timestamp <= queuedEta + GRACE_PERIOD, "Transaction expired");
+
+        delete queuedTransactions[txHash];
+
+        (bool success, bytes memory returnData) = target.call(data);
+        require(success, _getRevertMsg(returnData));
+
+        EventEmitter eventEmitter = addressBook.eventEmitter();
+        eventEmitter.emitDAO_TransactionExecuted(txHash, target, data, eta);
+    }
+
+    /// @notice Cancels a queued transaction
+    /// @param target Target contract address
+    /// @param data Encoded function call data
+    /// @param eta Execution time
+    function cancelTransaction(
+        address target,
+        bytes memory data,
+        uint256 eta
     ) external {
         addressBook.requireGovernance(msg.sender);
-        require(delay >= minDelay, "Delay too short");
+        
+        bytes32 txHash = keccak256(abi.encode(target, data, eta));
+        require(queuedTransactions[txHash] != 0, "Transaction not queued");
 
-        bytes32 operationId = getOperationId(target, value, data, delay);
-        require(operations[operationId].timestamp == 0, "Operation exists");
+        delete queuedTransactions[txHash];
 
-        uint256 timestamp = block.timestamp + delay;
-        operations[operationId] = Operation({
-            executed: false,
-            canceled: false,
-            timestamp: timestamp
-        });
-
+        EventEmitter eventEmitter = addressBook.eventEmitter();
+        eventEmitter.emitDAO_TransactionCancelled(txHash, target, data, eta);
     }
 
-    /// @notice Executes a scheduled operation
-    /// @param target Target address for call
-    /// @param value ETH value for call
-    /// @param data Calldata for call
-    /// @param delay Original delay used in scheduling
-    function execute(
+    /// @notice Checks if a transaction is queued
+    /// @param target Target contract address
+    /// @param data Encoded function call data
+    /// @param eta Execution time
+    /// @return True if transaction is queued
+    function isTransactionQueued(
         address target,
-        uint256 value,
-        bytes calldata data,
-        uint256 delay
-    ) external payable {
-        bytes32 operationId = getOperationId(target, value, data, delay);
-        Operation storage op = operations[operationId];
-
-        require(op.timestamp > 0, "Operation doesn't exist");
-        require(!op.executed, "Operation already executed");
-        require(!op.canceled, "Operation canceled");
-        require(block.timestamp >= op.timestamp, "Operation not ready");
-
-        op.executed = true;
-
-        (bool success, ) = target.call{value: value}(data);
-        require(success, "Operation execution failed");
-
+        bytes memory data,
+        uint256 eta
+    ) external view returns (bool) {
+        bytes32 txHash = keccak256(abi.encode(target, data, eta));
+        return queuedTransactions[txHash] != 0;
     }
 
-    /// @notice Cancels a scheduled operation
-    /// @param target Target address for call
-    /// @param value ETH value for call
-    /// @param data Calldata for call
-    /// @param delay Original delay used in scheduling
-    function cancel(
+    /// @notice Gets the ETA for a queued transaction
+    /// @param target Target contract address
+    /// @param data Encoded function call data
+    /// @param eta Execution time
+    /// @return The ETA timestamp
+    function getTransactionETA(
         address target,
-        uint256 value,
-        bytes calldata data,
-        uint256 delay
-    ) external {
-        addressBook.requireGovernance(msg.sender);
-
-        bytes32 operationId = getOperationId(target, value, data, delay);
-        Operation storage op = operations[operationId];
-
-        require(op.timestamp > 0, "Operation doesn't exist");
-        require(!op.executed, "Operation already executed");
-        require(!op.canceled, "Operation already canceled");
-
-        op.canceled = true;
+        bytes memory data,
+        uint256 eta
+    ) external view returns (uint256) {
+        bytes32 txHash = keccak256(abi.encode(target, data, eta));
+        return queuedTransactions[txHash];
     }
 
-    /// @notice Updates minimum delay
-    /// @param newMinDelay New minimum delay
-    function updateMinDelay(uint256 newMinDelay) external {
-        addressBook.requireGovernance(msg.sender);
-        minDelay = newMinDelay;
-    }
-
-    /// @notice Generates operation ID hash
-    /// @param target Target address
-    /// @param value ETH value
-    /// @param data Calldata
-    /// @param delay Operation delay
-    /// @return Operation ID
-    function getOperationId(
+    /// @notice Checks if a transaction is ready for execution
+    /// @param target Target contract address
+    /// @param data Encoded function call data
+    /// @param eta Execution time
+    /// @return True if ready for execution
+    function isTransactionReady(
         address target,
-        uint256 value,
-        bytes calldata data,
-        uint256 delay
-    ) public pure returns (bytes32) {
-        return keccak256(abi.encode(target, value, data, delay));
+        bytes memory data,
+        uint256 eta
+    ) external view returns (bool) {
+        bytes32 txHash = keccak256(abi.encode(target, data, eta));
+        uint256 queuedEta = queuedTransactions[txHash];
+        
+        return queuedEta != 0 && 
+               block.timestamp >= queuedEta && 
+               block.timestamp <= queuedEta + GRACE_PERIOD;
     }
 
-    /// @notice Check if operation is ready
-    /// @param operationId Operation hash
-    /// @return Whether operation can be executed
-    function isOperationReady(bytes32 operationId) external view returns (bool) {
-        Operation storage op = operations[operationId];
-        return !op.executed && 
-               !op.canceled && 
-               op.timestamp > 0 && 
-               block.timestamp >= op.timestamp;
+    /// @notice Extracts revert message from failed call
+    /// @param returnData The return data from failed call
+    /// @return Revert message string
+    function _getRevertMsg(bytes memory returnData) internal pure returns (string memory) {
+        if (returnData.length < 68) return "Transaction reverted silently";
+        
+        assembly {
+            returnData := add(returnData, 0x04)
+        }
+        return abi.decode(returnData, (string));
     }
 
-    /// @notice Check if operation exists
-    /// @param operationId Operation hash
-    /// @return Whether operation exists
-    function isOperationPending(bytes32 operationId) external view returns (bool) {
-        return operations[operationId].timestamp > 0;
+    function uniqueContractId() public pure override returns (bytes32) {
+        return keccak256("Timelock");
     }
 
-    /// @notice Authorizes upgrade
-    /// @param newImplementation Address of new implementation
-    function _authorizeUpgrade(address newImplementation) internal override {
+    function implementationVersion() public pure override returns (uint256) {
+        return 1;
+    }
+
+    function _verifyAuthorizeUpgradeRole() internal view override {
         addressBook.requireGovernance(msg.sender);
     }
 
+    /// @notice Allows receiving ETH
     receive() external payable {}
 }

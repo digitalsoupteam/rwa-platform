@@ -1,120 +1,140 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 import { AddressBook } from "../system/AddressBook.sol";
+import { EventEmitter } from "../system/EventEmitter.sol";
+import { PlatformToken } from "../platform/PlatformToken.sol";
 
 /// @title DAO Staking Contract
-/// @notice Manages token staking for governance voting power
-contract DaoStaking is UUPSUpgradeable {
-    using SafeERC20 for IERC20;
+/// @notice Manages Platform Token staking for governance voting power
+/// @dev Allows users to stake Platform tokens to gain voting power in DAO governance
+contract DaoStaking is UpgradeableContract, ReentrancyGuardUpgradeable {
+    using SafeERC20 for PlatformToken;
 
     /// @notice Address book contract reference
     AddressBook public addressBook;
 
-    /// @notice Maximum voting period length in seconds
-    uint256 public maxVotingPeriod;
+    /// @notice Platform token used for staking
+    PlatformToken public platformToken;
 
-    /// @notice Total amount of staked tokens
+    /// @notice Total amount of tokens staked in the contract
     uint256 public totalStaked;
 
-    /// @notice User staking information
-    struct StakeInfo {
-        uint256 amount;
-        uint256 lockedUntil;
-    }
+    /// @notice Minimum staking period to prevent flash loan attacks (7 days)
+    uint256 public constant MIN_STAKING_PERIOD = 7 days;
 
-    /// @notice Mapping from user address to their stake info
-    mapping(address => StakeInfo) public stakes;
+    /// @notice Mapping of user addresses to their staked token amounts
+    mapping(address => uint256) public stakedAmount;
 
-    /// @notice Constructor that disables initializers
-    constructor() {
-        _disableInitializers();
-    }
+    /// @notice Mapping of user addresses to their staking timestamps
+    mapping(address => uint256) public stakingTimestamp;
 
-    /// @notice Initializes the contract
-    /// @param initialAddressBook Address of AddressBook contract
-    /// @param initialMaxVotingPeriod Initial maximum voting period
-    function initialize(
-        address initialAddressBook,
-        uint256 initialMaxVotingPeriod
-    ) external initializer {
-        __UUPSUpgradeable_init();
+    constructor() UpgradeableContract() {}
+
+    /// @notice Initializes the DaoStaking contract
+    /// @param initialAddressBook Address of the AddressBook contract
+    function initialize(address initialAddressBook) external initializer {
+        require(initialAddressBook != address(0), "Invalid address book");
+        
         addressBook = AddressBook(initialAddressBook);
-        
-        maxVotingPeriod = initialMaxVotingPeriod;
+        platformToken = addressBook.platformToken();
+
+        __UpgradeableContract_init();
+        __ReentrancyGuard_init();
     }
 
-    /// @notice Stakes tokens for voting power
-    /// @param amount Amount to stake
-    function stake(uint256 amount) external {
-        require(amount > 0, "Cannot stake 0");
+    /// @notice Stakes Platform tokens to gain voting power
+    /// @param amount Amount of Platform tokens to stake
+    function stake(uint256 amount) external nonReentrant {
+        require(amount > 0, "Zero amount");
+        require(platformToken.balanceOf(msg.sender) >= amount, "Insufficient balance");
+
+        platformToken.safeTransferFrom(msg.sender, address(this), amount);
         
-        StakeInfo storage userStake = stakes[msg.sender];
-        userStake.amount += amount;
-        
-        // If no active lock, set lock to current max voting period
-        if (userStake.lockedUntil < block.timestamp) {
-            userStake.lockedUntil = block.timestamp + maxVotingPeriod;
-        }
-        
+        stakedAmount[msg.sender] += amount;
         totalStaked += amount;
+        stakingTimestamp[msg.sender] = block.timestamp;
 
-        IERC20(addressBook.daoToken()).safeTransferFrom(msg.sender, address(this), amount);
+        EventEmitter eventEmitter = addressBook.eventEmitter();
+        eventEmitter.emitDAO_TokensStaked(
+            msg.sender,
+            amount,
+            stakedAmount[msg.sender]
+        );
     }
 
-    /// @notice Unstakes tokens after lock period
-    /// @param amount Amount to unstake
-    function unstake(uint256 amount) external {
-        StakeInfo storage userStake = stakes[msg.sender];
-        require(amount > 0, "Cannot unstake 0");
-        require(amount <= userStake.amount, "Insufficient stake");
-        require(block.timestamp >= userStake.lockedUntil, "Still locked");
-        
-        userStake.amount -= amount;
+    /// @notice Unstakes Platform tokens after minimum staking period
+    /// @param amount Amount of Platform tokens to unstake
+    function unstake(uint256 amount) external nonReentrant {
+        require(amount > 0, "Zero amount");
+        require(stakedAmount[msg.sender] >= amount, "Insufficient staked amount");
+        require(
+            block.timestamp >= stakingTimestamp[msg.sender] + MIN_STAKING_PERIOD,
+            "Minimum staking period not met"
+        );
+
+        stakedAmount[msg.sender] -= amount;
         totalStaked -= amount;
 
-        // Reset lock if fully unstaked
-        if (userStake.amount == 0) {
-            userStake.lockedUntil = 0;
+        // Reset staking timestamp if user has no more staked tokens
+        if (stakedAmount[msg.sender] == 0) {
+            stakingTimestamp[msg.sender] = 0;
         }
 
-        IERC20(addressBook.daoToken()).safeTransfer(msg.sender, amount);
+        platformToken.safeTransfer(msg.sender, amount);
+
+        EventEmitter eventEmitter = addressBook.eventEmitter();
+        eventEmitter.emitDAO_TokensUnstaked(
+            msg.sender,
+            amount,
+            stakedAmount[msg.sender]
+        );
     }
 
-    /// @notice Extends lock period
-    /// @dev Called by Governance contract when user votes
-    /// @param user Address of voter
-    function extendLock(address user) external {
-        addressBook.requireGovernance(msg.sender);
-        require(stakes[user].amount > 0, "No stake");
-        
-        uint256 newLockEnd = block.timestamp + maxVotingPeriod;
-        require(newLockEnd > stakes[user].lockedUntil, "Lock not extended");
-        
-        stakes[user].lockedUntil = newLockEnd;
+    /// @notice Gets the voting power for a specific user
+    /// @param user Address of the user to check
+    /// @return Voting power amount (equal to staked token amount)
+    function getVotingPower(address user) external view returns (uint256) {
+        return stakedAmount[user];
     }
 
-    /// @notice Returns user's current voting power
-    /// @param user Address to check
-    /// @return Voting power (staked amount)
-    function getVotes(address user) external view returns (uint256) {
-        return stakes[user].amount;
+    /// @notice Gets the total voting power in the system
+    /// @return Total voting power amount
+    function getTotalVotingPower() external view returns (uint256) {
+        return totalStaked;
     }
 
-    /// @notice Updates maximum voting period
-    /// @param newMaxVotingPeriod New period length
-    function setMaxVotingPeriod(uint256 newMaxVotingPeriod) external {
-        addressBook.requireTimelock(msg.sender);
-        maxVotingPeriod = newMaxVotingPeriod;
+    /// @notice Checks if a user can unstake their tokens
+    /// @param user Address of the user to check
+    /// @return True if user can unstake, false otherwise
+    function canUnstake(address user) external view returns (bool) {
+        return block.timestamp >= stakingTimestamp[user] + MIN_STAKING_PERIOD;
     }
 
-    /// @notice Authorizes upgrade
-    /// @param newImplementation Address of new implementation
-    function _authorizeUpgrade(address newImplementation) internal override {
+    /// @notice Gets the remaining time until a user can unstake
+    /// @param user Address of the user to check
+    /// @return Remaining time in seconds (0 if can already unstake)
+    function getUnstakeTime(address user) external view returns (uint256) {
+        uint256 unlockTime = stakingTimestamp[user] + MIN_STAKING_PERIOD;
+        if (block.timestamp >= unlockTime) {
+            return 0;
+        }
+        return unlockTime - block.timestamp;
+    }
+
+    function uniqueContractId() public pure override returns (bytes32) {
+        return keccak256("DaoStaking");
+    }
+
+    function implementationVersion() public pure override returns (uint256) {
+        return 1;
+    }
+
+    function _verifyAuthorizeUpgradeRole() internal view override {
         addressBook.requireGovernance(msg.sender);
     }
 }

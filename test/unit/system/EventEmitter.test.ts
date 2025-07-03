@@ -11,7 +11,7 @@ import {
   AddressBook__factory,
   Config,
   Config__factory,
-} from '../../typechain-types'
+} from '../../../typechain-types'
 
 describe('EventEmitter Contract Unit Tests', () => {
   let eventEmitter: EventEmitter
@@ -73,28 +73,32 @@ describe('EventEmitter Contract Unit Tests', () => {
       const claimer = ethers.Wallet.createRandom().address
       const trancheIndex = 1n
       const amountClaimed = ethers.parseEther('100')
+      const holdToken = ethers.Wallet.createRandom().address
 
       await expect(
         eventEmitter.connect(impersonatedConfig).emitPool_OutgoingTrancheClaimed(
           claimer,
           trancheIndex,
-          amountClaimed
+          amountClaimed,
+          holdToken
         )
       )
         .to.emit(eventEmitter, 'Pool_OutgoingTrancheClaimed')
-        .withArgs(impersonatedConfig.address, claimer, trancheIndex, amountClaimed)
+        .withArgs(impersonatedConfig.address, claimer, trancheIndex, amountClaimed, holdToken)
     })
 
     it('should revert Pool_OutgoingTrancheClaimed when called by non-protocol contract', async () => {
       const claimer = ethers.Wallet.createRandom().address
       const trancheIndex = 1n
       const amountClaimed = ethers.parseEther('100')
+      const holdToken = ethers.Wallet.createRandom().address
 
       await expect(
         eventEmitter.connect(user).emitPool_OutgoingTrancheClaimed(
           claimer,
           trancheIndex,
-          amountClaimed
+          amountClaimed,
+          holdToken
         )
       ).to.be.revertedWith('Not a protocol contract!')
     })
@@ -104,17 +108,41 @@ describe('EventEmitter Contract Unit Tests', () => {
       const rwaAmountMinted = ethers.parseEther('100')
       const holdAmountPaid = ethers.parseEther('50')
       const feePaid = ethers.parseEther('1')
+      const percentBefore = 5000n // 50%
+      const userPercent = 1000n // 10%
+      const targetReached = true
+      const businessId = "test-business"
+      const poolId = "test-pool"
+      const holdToken = ethers.Wallet.createRandom().address
 
       await expect(
         eventEmitter.connect(impersonatedConfig).emitPool_RwaMinted(
           minter,
           rwaAmountMinted,
           holdAmountPaid,
-          feePaid
+          feePaid,
+          percentBefore,
+          userPercent,
+          targetReached,
+          businessId,
+          poolId,
+          holdToken
         )
       )
         .to.emit(eventEmitter, 'Pool_RwaMinted')
-        .withArgs(impersonatedConfig.address, minter, rwaAmountMinted, holdAmountPaid, feePaid)
+        .withArgs(
+          impersonatedConfig.address,
+          minter,
+          rwaAmountMinted,
+          holdAmountPaid,
+          feePaid,
+          percentBefore,
+          userPercent,
+          targetReached,
+          businessId,
+          poolId,
+          holdToken
+        )
     })
 
     it('should emit Pool_RwaBurned when called by protocol contract', async () => {
@@ -124,6 +152,12 @@ describe('EventEmitter Contract Unit Tests', () => {
       const bonusAmountReceived = ethers.parseEther('10')
       const holdFeePaid = ethers.parseEther('1')
       const bonusFeePaid = ethers.parseEther('0.2')
+      const percentBefore = 5000n // 50%
+      const userPercent = 1000n // 10%
+      const targetReached = true
+      const businessId = "test-business"
+      const poolId = "test-pool"
+      const holdToken = ethers.Wallet.createRandom().address
 
       await expect(
         eventEmitter.connect(impersonatedConfig).emitPool_RwaBurned(
@@ -132,7 +166,13 @@ describe('EventEmitter Contract Unit Tests', () => {
           holdAmountReceived,
           bonusAmountReceived,
           holdFeePaid,
-          bonusFeePaid
+          bonusFeePaid,
+          percentBefore,
+          userPercent,
+          targetReached,
+          businessId,
+          poolId,
+          holdToken
         )
       )
         .to.emit(eventEmitter, 'Pool_RwaBurned')
@@ -143,7 +183,13 @@ describe('EventEmitter Contract Unit Tests', () => {
           holdAmountReceived,
           bonusAmountReceived,
           holdFeePaid,
-          bonusFeePaid
+          bonusFeePaid,
+          percentBefore,
+          userPercent,
+          targetReached,
+          businessId,
+          poolId,
+          holdToken
         )
     })
   })
@@ -154,23 +200,25 @@ describe('EventEmitter Contract Unit Tests', () => {
       const to = ethers.Wallet.createRandom().address
       const tokenId = 1n
       const amount = ethers.parseEther('100')
+      const pool = ethers.Wallet.createRandom().address
 
       await expect(
-        eventEmitter.connect(impersonatedConfig).emitRWA_Transfer(from, to, tokenId, amount)
+        eventEmitter.connect(impersonatedConfig).emitRWA_Transfer(from, to, tokenId, amount, pool)
       )
         .to.emit(eventEmitter, 'RWA_Transfer')
-        .withArgs(impersonatedConfig.address, from, to, tokenId, amount)
+        .withArgs(impersonatedConfig.address, from, to, tokenId, amount, pool)
     })
 
     it('should emit RWA_Deployed when called by protocol contract', async () => {
+      const deployer = ethers.Wallet.createRandom().address
       const owner = ethers.Wallet.createRandom().address
       const entityId = "test-entity"
 
       await expect(
-        eventEmitter.connect(impersonatedConfig).emitRWA_Deployed(owner, entityId)
+        eventEmitter.connect(impersonatedConfig).emitRWA_Deployed(deployer, owner, entityId)
       )
         .to.emit(eventEmitter, 'RWA_Deployed')
-        .withArgs(impersonatedConfig.address, owner, entityId)
+        .withArgs(impersonatedConfig.address, deployer, owner, entityId)
     })
 
     it('should revert RWA_Transfer when called by non-protocol contract', async () => {
@@ -178,9 +226,10 @@ describe('EventEmitter Contract Unit Tests', () => {
       const to = ethers.Wallet.createRandom().address
       const tokenId = 1n
       const amount = ethers.parseEther('100')
+      const pool = ethers.Wallet.createRandom().address
 
       await expect(
-        eventEmitter.connect(user).emitRWA_Transfer(from, to, tokenId, amount)
+        eventEmitter.connect(user).emitRWA_Transfer(from, to, tokenId, amount, pool)
       ).to.be.revertedWith('Not a protocol contract!')
     })
   })

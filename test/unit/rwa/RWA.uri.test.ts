@@ -15,9 +15,9 @@ import {
   Pool__factory,
   IERC20,
   IERC20__factory,
-} from '../../typechain-types'
-import ERC20Minter from '../utils/ERC20Minter'
-import { USDT } from '../../constants/addresses'
+} from '../../../typechain-types'
+import ERC20Minter from '../../utils/ERC20Minter'
+import { USDT } from '../../../constants/addresses'
 
 describe('RWA Token URI Tests', () => {
   let owner: SignerWithAddress
@@ -54,9 +54,14 @@ describe('RWA Token URI Tests', () => {
     // Deploy RWA via factory
     const network = await ethers.provider.getNetwork()
     const expired = Math.floor(Date.now() / 1000) + 3600
+    const createRWAFee = await config.createRWAFeeMin()
+    const entityId = "test-entity-id"
+    const entityOwnerId = "test-owner-id"
+    const entityOwnerType = "individual"
+    
     const rwaDataHash = ethers.solidityPackedKeccak256(
-      ['uint256', 'address', 'address', 'string', 'string'],
-      [network.chainId, await factory.getAddress(), productOwner.address, 'deployRWA', ""]
+      ['uint256', 'address', 'address', 'string', 'uint256', 'string', 'string', 'string', 'address'],
+      [network.chainId, await factory.getAddress(), productOwner.address, 'deployRWA', createRWAFee, entityId, entityOwnerId, entityOwnerType, productOwner.address]
     )
     const rwaMessageHash = ethers.solidityPackedKeccak256(
       ['bytes32', 'uint256'],
@@ -70,41 +75,73 @@ describe('RWA Token URI Tests', () => {
     ]
     const rwaSigners = [signer1.address, signer2.address, signer3.address]
     
-    await factory.connect(productOwner).deployRWA("", rwaSigners, rwaSignatures, expired)
+    await factory.connect(productOwner).deployRWA(
+      createRWAFee,
+      entityId,
+      entityOwnerId,
+      entityOwnerType,
+      productOwner.address,
+      rwaSigners,
+      rwaSignatures,
+      expired
+    )
     rwa = RWA__factory.connect(await addressBook.getRWAByIndex(0), ethers.provider)
 
     // Deploy Pool via factory
-    const targetAmount = await config.minTargetAmount()
-    const profitPercent = await config.minProfitPercent()
-    const investmentDuration = await config.minInvestmentDuration()
-    const realiseDuration = await config.minRealiseDuration()
+    const createPoolFeeRatio = await config.createPoolFeeRatioMin()
+    const poolEntityId = "test-pool-entity-id"
+    const expectedHoldAmount = await config.expectedHoldAmountMin()
+    const expectedRwaAmount = await config.expectedRwaAmountMin()
+    const priceImpactPercent = 100 // 1%
+    const rewardPercent = await config.rewardPercentMin()
+    const entryPeriodStart = Math.floor(Date.now() / 1000) + 3600 // 1 hour from now
+    const entryPeriodExpired = entryPeriodStart + Number(await config.entryPeriodMinDuration())
+    const completionPeriodExpired = entryPeriodExpired + Number(await config.completionPeriodMinDuration())
+    const entryFeePercent = await config.entryFeePercentMin()
+    const exitFeePercent = await config.exitFeePercentMin()
+    const fixedSell = false
+    const allowEntryBurn = false
+    const awaitCompletionExpired = false
+    const floatingOutTranchesTimestamps = false
+    
+    // Create simple tranches
+    const outgoingTranches = [expectedHoldAmount]
+    const outgoingTranchTimestamps = [entryPeriodExpired + 86400] // 1 day after entry period
+    const incomingTranches = [expectedHoldAmount + (expectedHoldAmount * rewardPercent / 10000n)]
+    const incomingTrancheExpired = [completionPeriodExpired - 86400] // 1 day before completion
 
     const poolDataHash = ethers.solidityPackedKeccak256(
       [
-        'uint256',
-        'address',
-        'address',
-        'string',
-        'string',
-        'address',
-        'uint256',
-        'uint256',
-        'uint256',
-        'uint256',
-        'bool'
+        'uint256', 'address', 'address', 'string', 'uint256', 'string', 'address',
+        'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256',
+        'uint256', 'uint256', 'bool', 'bool', 'bool', 'bool',
+        'uint256[]', 'uint256[]', 'uint256[]', 'uint256[]'
       ],
       [
         network.chainId,
         await factory.getAddress(),
         productOwner.address,
         'deployPool',
-        "",
+        createPoolFeeRatio,
+        poolEntityId,
         await rwa.getAddress(),
-        targetAmount,
-        profitPercent,
-        investmentDuration,
-        realiseDuration,
-        false
+        expectedHoldAmount,
+        expectedRwaAmount,
+        priceImpactPercent,
+        rewardPercent,
+        entryPeriodStart,
+        entryPeriodExpired,
+        completionPeriodExpired,
+        entryFeePercent,
+        exitFeePercent,
+        fixedSell,
+        allowEntryBurn,
+        awaitCompletionExpired,
+        floatingOutTranchesTimestamps,
+        outgoingTranches,
+        outgoingTranchTimestamps,
+        incomingTranches,
+        incomingTrancheExpired
       ]
     )
     const poolMessageHash = ethers.solidityPackedKeccak256(
@@ -120,16 +157,29 @@ describe('RWA Token URI Tests', () => {
     const poolSigners = [signer1.address, signer2.address, signer3.address]
 
     await factory.connect(productOwner).deployPool(
-      "",
+      createPoolFeeRatio,
+      poolEntityId,
       rwa,
-      targetAmount,
-      profitPercent,
-      investmentDuration,
-      realiseDuration,
-      false,
+      expectedHoldAmount,
+      expectedRwaAmount,
+      priceImpactPercent,
+      rewardPercent,
+      entryPeriodStart,
+      entryPeriodExpired,
+      completionPeriodExpired,
+      entryFeePercent,
+      exitFeePercent,
+      fixedSell,
+      allowEntryBurn,
+      awaitCompletionExpired,
+      floatingOutTranchesTimestamps,
+      outgoingTranches,
+      outgoingTranchTimestamps,
+      incomingTranches,
+      incomingTrancheExpired,
       poolSigners,
       poolSignatures,
-      expired,
+      expired
     )
     pool = Pool__factory.connect(await addressBook.getPoolByIndex(0), ethers.provider)
 

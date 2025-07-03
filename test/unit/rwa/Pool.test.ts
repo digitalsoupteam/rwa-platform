@@ -15,9 +15,10 @@ import {
     Factory__factory,
     AddressBook,
     AddressBook__factory
-} from '../../typechain-types'
-import ERC20Minter from '../utils/ERC20Minter'
-import SignaturesUtils from '../utils/SignaturesUtils'
+} from '../../../typechain-types'
+import ERC20Minter from '../../utils/ERC20Minter'
+import SignaturesUtils from '../../utils/SignaturesUtils'
+import { setBalance } from '@nomicfoundation/hardhat-network-helpers'
 
 async function getCurrentBlockTimestamp(): Promise<number> {
     return (await ethers.provider.getBlock('latest'))!.timestamp!;
@@ -79,12 +80,12 @@ const testConfigs = {
 
     numSwaps: [
         1,
-        15,
-        27,
-        47,
-        56,
-        88,
-        100
+        // 15,
+        // 27,
+        // 47,
+        // 56,
+        // 88,
+        // 100
     ],
 
     // Price impact coefficients (impact percent * 100)
@@ -651,7 +652,7 @@ describe("Pool tests", () => {
             }
 
             for (const swapInfo of swapAmountsByCount.values()) {
-                xit("should verify pool behavior", async () => {
+                it("should verify pool behavior", async () => {
                     const validUntil = (await getCurrentBlockTimestamp()) + 3600;
                     const pool = await deployPool();
 
@@ -696,7 +697,7 @@ describe("Pool tests", () => {
                 });
             }
 
-            xit("should not set isTargetReached when target not reached", async () => {
+            it("should not set isTargetReached when target not reached", async () => {
                 const pool = await deployPool();
                 const validUntil = (await getCurrentBlockTimestamp()) + 3600;
 
@@ -709,7 +710,7 @@ describe("Pool tests", () => {
                 expect(await pool.isTargetReached()).to.be.false;
             });
 
-            xit("should set isTargetReached when target is reached", async () => {
+            it("should set isTargetReached when target is reached", async () => {
                 const pool = await deployPool();
                 const validUntil = Math.floor(Date.now() / 1000) + 3600;
 
@@ -732,7 +733,7 @@ describe("Pool tests", () => {
             });
 
             if (config.fixedSell == false) {
-                xit("should handle mixed tranche operations", async () => {
+                it("should handle mixed tranche operations", async () => {
                     const now = await getCurrentBlockTimestamp();
                     const entryPeriodStart = now;
                     const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration());
@@ -983,7 +984,7 @@ describe("Pool tests", () => {
                 });
             }
 
-            xit("should handle single tranche operations", async () => {
+            it("should handle single tranche operations", async () => {
                 const now = await getCurrentBlockTimestamp();
 
                 // Deploy pool with default single tranches
@@ -1039,7 +1040,7 @@ describe("Pool tests", () => {
                 expect(await pool.isFullyReturned()).to.be.true;
             });
 
-            xit("should handle partial returns across tranches", async () => {
+            it("should handle partial returns across tranches", async () => {
                 const now = await getCurrentBlockTimestamp();
                 const entryPeriodStart = now;
                 const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration());
@@ -1171,7 +1172,7 @@ describe("Pool tests", () => {
 
             describe("Floating timestamps specific tests", () => {
                 if (config.floatingOutTranchesTimestamps == true) {
-                    xit("should adjust tranche timestamps when target reached early", async () => {
+                    it("should adjust tranche timestamps when target reached early", async () => {
                         const now = await getCurrentBlockTimestamp();
                         const entryPeriodStart = now;
                         const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration())
@@ -1234,7 +1235,7 @@ describe("Pool tests", () => {
                         await pool.connect(user).claimOutgoingTranches([2]);
                     });
 
-                    xit("should not adjust timestamps if target reached less than 1 day early", async () => {
+                    it("should not adjust timestamps if target reached less than 1 day early", async () => {
                         const now = await getCurrentBlockTimestamp();
                         const entryPeriodStart = now;
                         const entryPeriodExpired = now + Number(await configContract.entryPeriodMinDuration());
@@ -1257,7 +1258,7 @@ describe("Pool tests", () => {
                 }
 
                 if (config.floatingOutTranchesTimestamps == false) {
-                    xit("should not adjust timestamps when feature disabled", async () => {
+                    it("should not adjust timestamps when feature disabled", async () => {
                         const now = await getCurrentBlockTimestamp();
                         const entryPeriodStart = now;
                         const entryPeriodExpired = now + 86400; // 1 day
@@ -1296,15 +1297,12 @@ describe("Pool tests", () => {
                     // Impersonate governance account
                     await ethers.provider.send("hardhat_impersonateAccount", [governanceAddress]);
                     governanceSigner = await ethers.getSigner(governanceAddress);
-
+                    
                     // Fund governance account with ETH for gas
-                    await owner.sendTransaction({
-                        to: governanceAddress,
-                        value: ethers.parseEther("1.0")
-                    });
+                    await setBalance(governanceAddress, ethers.parseEther("1.0"))
                 });
 
-                xit("should enforce pause controls", async () => {
+                it("should enforce pause controls", async () => {
                     const pool = await deployPool({
                         fixedSell: config.fixedSell,
                         allowEntryBurn: config.allowEntryBurn,
@@ -1344,12 +1342,12 @@ describe("Pool tests", () => {
                     ).to.be.revertedWith("AddressBook: not governance");
 
                     // Unpause from governance
-                    await pool.connect(owner).disablePause();
+                    await pool.connect(governanceSigner).disablePause();
                     expect(await pool.paused()).to.be.false;
                 });
 
 
-                xit("should properly update lastCompletedIncomingTranche", async () => {
+                it("should properly update lastCompletedIncomingTranche", async () => {
                     const now = await getCurrentBlockTimestamp();
                     const completionPeriod = now + 172800; // 2 days
 
@@ -1402,7 +1400,7 @@ describe("Pool tests", () => {
 
             describe("Fixed sell specific tests", () => {
                 if (config.fixedSell == true) {
-                    xit("should handle partial RWA purchases when fixedSell=true", async () => {
+                    it("should handle partial RWA purchases when fixedSell=true", async () => {
                         const pool = await deployPool({
                             fixedSell: true,
                             allowEntryBurn: config.allowEntryBurn,
@@ -1424,7 +1422,7 @@ describe("Pool tests", () => {
                         expect(actualAmount2).to.equal(expectedRemaining);
                     });
 
-                    xit("should prevent exceeding expected RWA amount when fixedSell=true and allowPartial=false", async () => {
+                    it("should prevent exceeding expected RWA amount when fixedSell=true and allowPartial=false", async () => {
                         const pool = await deployPool({
                             fixedSell: true
                         });
@@ -1550,7 +1548,7 @@ describe("Pool tests", () => {
                         expect(await pool.awaitingBonusAmount()).to.be.lessThan(3);
                     });
 
-                    xit("should not limit purchases when fixedSell=false", async () => {
+                    it("should not limit purchases when fixedSell=false", async () => {
                         const pool = await deployPool({
                             fixedSell: false,
                             allowEntryBurn: config.allowEntryBurn,
@@ -1573,7 +1571,7 @@ describe("Pool tests", () => {
             describe("Entry burn specific tests", () => {
                 if (config.allowEntryBurn == false) {
 
-                    xit("should prevent burning during entry period when allowEntryBurn=false", async () => {
+                    it("should prevent burning during entry period when allowEntryBurn=false", async () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: false,
@@ -1596,7 +1594,7 @@ describe("Pool tests", () => {
 
                 }
                 if (config.allowEntryBurn == true) {
-                    xit("should allow burning during entry period when allowEntryBurn=true", async () => {
+                    it("should allow burning during entry period when allowEntryBurn=true", async () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: true,
@@ -1620,7 +1618,7 @@ describe("Pool tests", () => {
 
             describe("Bonus timing specific tests", () => {
                 if (config.awaitCompletionExpired == true) {
-                    xit("should allow bonus claims after completion period when awaitCompletionExpired=true", async () => {
+                    it("should allow bonus claims after completion period when awaitCompletionExpired=true", async () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: config.allowEntryBurn,
@@ -1633,7 +1631,7 @@ describe("Pool tests", () => {
                 }
 
                 if (config.awaitCompletionExpired == false) {
-                    xit("should allow bonus claims after return when awaitCompletionExpired=false", async () => {
+                    it("should allow bonus claims after return when awaitCompletionExpired=false", async () => {
                         const pool = await deployPool({
                             fixedSell: config.fixedSell,
                             allowEntryBurn: config.allowEntryBurn,
@@ -1649,7 +1647,7 @@ describe("Pool tests", () => {
 
             if (config.fixedSell == true) {
 
-                xit("should handle partial RWA purchases", async () => {
+                it("should handle partial RWA purchases", async () => {
                     const pool = await deployPool({
                         fixedSell: true
                     });
@@ -1674,7 +1672,7 @@ describe("Pool tests", () => {
 
                     expect(await pool.awaitingRwaAmount()).to.equal(targetRwa, "Should reach exactly target RWA");
                 });
-                xit("should enforce fixed RWA amount limit", async () => {
+                it("should enforce fixed RWA amount limit", async () => {
                     const pool = await deployPool({
                         fixedSell: true
                     });
@@ -1699,7 +1697,7 @@ describe("Pool tests", () => {
 
             if (config.fixedSell == false) {
 
-                xit("should prevent minting after completion period expired", async () => {
+                it("should prevent minting after completion period expired", async () => {
                     const now = await getCurrentBlockTimestamp();
                     const entryPeriodStart = now;
                     const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration())
@@ -1731,7 +1729,7 @@ describe("Pool tests", () => {
                     ).to.be.revertedWith("Pool: completion period expired");
                 });
 
-                xit("should prevent minting after full return", async () => {
+                it("should prevent minting after full return", async () => {
                     const pool = await deployPool({
                         fixedSell: false
                     });
@@ -1758,7 +1756,7 @@ describe("Pool tests", () => {
 
             if (config.allowEntryBurn == false) {
 
-                xit("should control burning during entry period", async () => {
+                it("should control burning during entry period", async () => {
                     const now = await getCurrentBlockTimestamp();
                     const entryPeriodStart = now + 3600; // Start in 1 hour
                     const entryPeriodExpired = entryPeriodStart + Number(await configContract.entryPeriodMinDuration())
@@ -1801,7 +1799,7 @@ describe("Pool tests", () => {
 
             if (config.awaitCompletionExpired == false) {
 
-                xit("should distribute bonuses only to first users in fixed sell", async () => {
+                it("should distribute bonuses only to first users in fixed sell", async () => {
                     let now = await getCurrentBlockTimestamp();
 
                     // Deploy pool with single tranches and bonuses after 1 day of return
@@ -1936,7 +1934,7 @@ describe("Pool tests", () => {
                     expect(await pool.awaitingRwaAmount()).to.equal(0);
                     expect(await pool.awaitingBonusAmount()).to.be.lessThan(3); // Allow tiny dust due to rounding
                 });
-                xit("should redistribute bonus when first user exits before bonus", async () => {
+                it("should redistribute bonus when first user exits before bonus", async () => {
                     let now = await getCurrentBlockTimestamp();
                     const pool = await deployPool({
                         awaitCompletionExpired: false

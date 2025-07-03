@@ -19,9 +19,9 @@ import {
   Treasury__factory,
   EventEmitter,
   EventEmitter__factory,
-} from '../../typechain-types'
-import ERC20Minter from '../utils/ERC20Minter'
-import SignaturesUtils from '../utils/SignaturesUtils'
+} from '../../../typechain-types'
+import ERC20Minter from '../../utils/ERC20Minter'
+import SignaturesUtils from '../../utils/SignaturesUtils'
 
 describe('Factory Contract Tests', () => {
   let owner: SignerWithAddress
@@ -173,7 +173,7 @@ describe('Factory Contract Tests', () => {
         const completionPeriodExpired = entryPeriodExpired + BigInt(await config.completionPeriodMinDuration())
         const fixedSell = true
         const allowEntryBurn = false
-        const bonusAfterCompletion = true
+        const awaitCompletionExpired = true
         const floatingOutTranchesTimestamps = false
         const entryFeePercent = await config.entryFeePercentMin()
         const exitFeePercent = await config.exitFeePercentMin()
@@ -215,7 +215,7 @@ describe('Factory Contract Tests', () => {
           exitFeePercent,
           fixedSell,
           allowEntryBurn,
-          bonusAfterCompletion,
+          awaitCompletionExpired,
           floatingOutTranchesTimestamps,
           outgoingTranches,
           outgoingTranchTimestamps,
@@ -239,7 +239,7 @@ describe('Factory Contract Tests', () => {
             exitFeePercent,
             fixedSell,
             allowEntryBurn,
-            bonusAfterCompletion,
+            awaitCompletionExpired,
             floatingOutTranchesTimestamps,
             outgoingTranches,
             outgoingTranchTimestamps,
@@ -268,7 +268,7 @@ describe('Factory Contract Tests', () => {
         expect(await pool.completionPeriodExpired()).to.equal(completionPeriodExpired)
         expect(await pool.fixedSell()).to.equal(fixedSell)
         expect(await pool.allowEntryBurn()).to.equal(allowEntryBurn)
-        expect(await pool.bonusAfterCompletion()).to.equal(bonusAfterCompletion)
+        expect(await pool.awaitCompletionExpired()).to.equal(awaitCompletionExpired)
         expect(await pool.floatingOutTranchesTimestamps()).to.equal(floatingOutTranchesTimestamps)
         expect(await pool.entryFeePercent()).to.equal(entryFeePercent)
         expect(await pool.exitFeePercent()).to.equal(exitFeePercent)

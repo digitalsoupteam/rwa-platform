@@ -111,7 +111,7 @@ describe('Pool Upgrade Tests', () => {
         const completionPeriodExpired = entryPeriodExpired + BigInt(await config.completionPeriodMinDuration())
         const fixedSell = true
         const allowEntryBurn = false
-        const bonusAfterCompletion = true
+        const awaitCompletionExpired = true
         const floatingOutTranchesTimestamps = false
         const entryFeePercent = await config.entryFeePercentMin()
         const exitFeePercent = await config.exitFeePercentMin()
@@ -149,7 +149,7 @@ describe('Pool Upgrade Tests', () => {
             exitFeePercent,
             fixedSell,
             allowEntryBurn,
-            bonusAfterCompletion,
+            awaitCompletionExpired,
             floatingOutTranchesTimestamps,
             outgoingTranches,
             outgoingTranchTimestamps,
@@ -172,7 +172,7 @@ describe('Pool Upgrade Tests', () => {
             exitFeePercent,
             fixedSell,
             allowEntryBurn,
-            bonusAfterCompletion,
+            awaitCompletionExpired,
             floatingOutTranchesTimestamps,
             outgoingTranches,
             outgoingTranchTimestamps,

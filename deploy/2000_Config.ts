@@ -64,7 +64,12 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const initialIncomingTranchesMaxPercent = 10000 // 50%
   const initialIncomingTranchesMinInterval = 24 * 60 * 60 // 1 day
 
-  
+  // DAO Governance parameters
+  const initialVotingPeriod = 7 * 24 * 60 * 60 // 7 days in seconds
+  const initialVotingDelay = 60 // 1 minute delay in seconds
+  const initialQuorumPercentage = 400 // 4% quorum
+  const initialProposalThreshold = ethers.parseEther('1000000') // 1M tokens to create proposal
+  const initialTimelockDelay = 2 * 24 * 60 * 60 // 2 days in seconds
 
   // Price impact coefficients mapping
   const priceImpactCoefficients = {
@@ -399,6 +404,11 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             initialIncomingTranchesMinPercent,
             initialIncomingTranchesMaxPercent,
             initialIncomingTranchesMinInterval,
+            initialVotingPeriod,
+            initialVotingDelay,
+            initialQuorumPercentage,
+            initialProposalThreshold,
+            initialTimelockDelay,
             priceImpactPercentages,
             coefficients
           ],

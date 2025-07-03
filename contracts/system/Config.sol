@@ -84,6 +84,22 @@ contract Config is UpgradeableContract {
     uint256 public incomingTranchesMaxPercent;
     uint256 public incomingTranchesMinInterval;
 
+    // --- DAO Governance Configuration ---
+    /// @notice Voting period duration in seconds
+    uint256 public votingPeriod;
+    
+    /// @notice Minimum voting delay before proposal can be executed (in seconds)
+    uint256 public votingDelay;
+    
+    /// @notice Quorum percentage required for proposal to pass (in basis points)
+    uint256 public quorumPercentage;
+    
+    /// @notice Proposal threshold - minimum tokens needed to create proposal
+    uint256 public proposalThreshold;
+    
+    /// @notice Timelock delay for executing proposals (in seconds)
+    uint256 public timelockDelay;
+
     // --- Liquidity Coefficient Configuration ---
     /// @notice Mapping of price impact percentage (multiplied by 100) to liquidity coefficient
     /// @dev Example: 1 => 13334 means 0.01% => 13334
@@ -127,6 +143,11 @@ contract Config is UpgradeableContract {
         uint256 initialIncomingTranchesMinPercent,
         uint256 initialIncomingTranchesMaxPercent,
         uint256 initialIncomingTranchesMinInterval,
+        uint256 initialVotingPeriod,
+        uint256 initialVotingDelay,
+        uint256 initialQuorumPercentage,
+        uint256 initialProposalThreshold,
+        uint256 initialTimelockDelay,
         uint256[] memory initialPriceImpactPercentages,
         uint256[] memory initialCoefficients
     ) external initializer {
@@ -206,6 +227,13 @@ contract Config is UpgradeableContract {
         incomingTranchesMinPercent = initialIncomingTranchesMinPercent;
         incomingTranchesMaxPercent = initialIncomingTranchesMaxPercent;
         incomingTranchesMinInterval = initialIncomingTranchesMinInterval;
+
+        // Set DAO governance parameters
+        votingPeriod = initialVotingPeriod;
+        votingDelay = initialVotingDelay;
+        quorumPercentage = initialQuorumPercentage;
+        proposalThreshold = initialProposalThreshold;
+        timelockDelay = initialTimelockDelay;
 
         // Set initial liquidity coefficients
         require(initialPriceImpactPercentages.length == initialCoefficients.length, "Arrays length mismatch");
@@ -414,6 +442,45 @@ contract Config is UpgradeableContract {
             require(coefficients[i] > 0, "Invalid coefficient");
             liquidityCoefficients[percentages[i]] = coefficients[i];
         }
+    }
+
+    /// @notice Updates DAO governance voting period
+    /// @param newVotingPeriod New voting period in seconds
+    function updateVotingPeriod(uint256 newVotingPeriod) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newVotingPeriod > 0, "Invalid voting period");
+        votingPeriod = newVotingPeriod;
+    }
+
+    /// @notice Updates DAO governance voting delay
+    /// @param newVotingDelay New voting delay in seconds
+    function updateVotingDelay(uint256 newVotingDelay) external {
+        addressBook.requireGovernance(msg.sender);
+        votingDelay = newVotingDelay;
+    }
+
+    /// @notice Updates DAO governance quorum percentage
+    /// @param newQuorumPercentage New quorum percentage in basis points
+    function updateQuorumPercentage(uint256 newQuorumPercentage) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newQuorumPercentage > 0 && newQuorumPercentage <= 10000, "Invalid quorum percentage");
+        quorumPercentage = newQuorumPercentage;
+    }
+
+    /// @notice Updates DAO governance proposal threshold
+    /// @param newProposalThreshold New proposal threshold amount
+    function updateProposalThreshold(uint256 newProposalThreshold) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newProposalThreshold > 0, "Invalid proposal threshold");
+        proposalThreshold = newProposalThreshold;
+    }
+
+    /// @notice Updates DAO timelock delay
+    /// @param newTimelockDelay New timelock delay in seconds
+    function updateTimelockDelay(uint256 newTimelockDelay) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newTimelockDelay > 0, "Invalid timelock delay");
+        timelockDelay = newTimelockDelay;
     }
 
     /// @notice Gets liquidity coefficient for a given price impact percentage

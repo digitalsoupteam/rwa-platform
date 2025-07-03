@@ -7,7 +7,6 @@ import { Config } from "./Config.sol";
 import { EventEmitter } from "./EventEmitter.sol";
 import { DaoStaking } from "../dao/DaoStaking.sol";
 import { Governance } from "../dao/Governance.sol";
-import { DaoToken } from "../dao/DaoToken.sol";
 import { Timelock } from "../dao/Timelock.sol";
 import { Treasury } from "../dao/Treasury.sol";
 import { Payment } from "../platform/Payment.sol";
@@ -33,9 +32,6 @@ contract AddressBook is UpgradeableContract {
 
     /// @notice The eventEmitter contract address
     EventEmitter public eventEmitter;
-
-    /// @notice The DAO token contract address
-    DaoToken public daoToken;
 
     /// @notice The DAO staking contract address
     DaoStaking public daoStaking;
@@ -162,18 +158,6 @@ contract AddressBook is UpgradeableContract {
         }
         config = newConfig;
         isProtocolContract[address(newConfig)] = true;
-    }
-
-    /// @notice Sets the DAO token contract address
-    /// @dev Can only be called by governance
-    /// @param newDaoToken The address of the new DAO token contract
-    function setDaoToken(DaoToken newDaoToken) external {
-        requireGovernance(msg.sender);
-        if (address(daoToken) != address(0)) {
-            isProtocolContract[address(daoToken)] = false;
-        }
-        daoToken = newDaoToken;
-        isProtocolContract[address(newDaoToken)] = true;
     }
 
     /// @notice Sets the DAO staking contract address

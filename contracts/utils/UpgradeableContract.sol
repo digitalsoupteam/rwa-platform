@@ -3,7 +3,6 @@ pragma solidity 0.8.28;
 
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
-import { AddressBook } from "../system/AddressBook.sol";
 
 interface IUniqueVersionedContract {
     function uniqueContractId() external view returns (bytes32);

@@ -405,6 +405,202 @@ contract EventEmitter is UpgradeableContract {
 
     // --- Pool Events End ---
 
+    // --- DAO Events Start ---
+
+    event DAO_ProposalCreated(
+        address indexed emittedFrom,
+        uint256 indexed proposalId,
+        address indexed proposer,
+        address target,
+        bytes data,
+        string description,
+        uint256 startTime,
+        uint256 endTime
+    );
+
+    event DAO_VoteCast(
+        address indexed emittedFrom,
+        uint256 indexed proposalId,
+        address indexed voter,
+        bool support,
+        uint256 weight,
+        string reason
+    );
+
+    event DAO_ProposalExecuted(
+        address indexed emittedFrom,
+        uint256 indexed proposalId,
+        address indexed executor
+    );
+
+    event DAO_ProposalCancelled(
+        address indexed emittedFrom,
+        uint256 indexed proposalId,
+        address indexed canceller
+    );
+
+    event DAO_TokensStaked(
+        address indexed emittedFrom,
+        address indexed staker,
+        uint256 amount,
+        uint256 newVotingPower
+    );
+
+    event DAO_TokensUnstaked(
+        address indexed emittedFrom,
+        address indexed staker,
+        uint256 amount,
+        uint256 newVotingPower
+    );
+
+    event DAO_TransactionQueued(
+        address indexed emittedFrom,
+        bytes32 indexed txHash,
+        address target,
+        bytes data,
+        uint256 eta
+    );
+
+    event DAO_TransactionExecuted(
+        address indexed emittedFrom,
+        bytes32 indexed txHash,
+        address target,
+        bytes data,
+        uint256 eta
+    );
+
+    event DAO_TransactionCancelled(
+        address indexed emittedFrom,
+        bytes32 indexed txHash,
+        address target,
+        bytes data,
+        uint256 eta
+    );
+
+    event DAO_TreasuryWithdrawal(
+        address indexed emittedFrom,
+        address indexed to,
+        address indexed token,
+        uint256 amount
+    );
+
+    // --- DAO Emitter Functions Start ---
+
+    function emitDAO_ProposalCreated(
+        uint256 proposalId,
+        address proposer,
+        address target,
+        bytes memory data,
+        string memory description,
+        uint256 startTime,
+        uint256 endTime
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit DAO_ProposalCreated(
+            msg.sender,
+            proposalId,
+            proposer,
+            target,
+            data,
+            description,
+            startTime,
+            endTime
+        );
+    }
+
+    function emitDAO_VoteCast(
+        uint256 proposalId,
+        address voter,
+        bool support,
+        uint256 weight,
+        string memory reason
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit DAO_VoteCast(
+            msg.sender,
+            proposalId,
+            voter,
+            support,
+            weight,
+            reason
+        );
+    }
+
+    function emitDAO_ProposalExecuted(
+        uint256 proposalId,
+        address executor
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit DAO_ProposalExecuted(msg.sender, proposalId, executor);
+    }
+
+    function emitDAO_ProposalCancelled(
+        uint256 proposalId,
+        address canceller
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit DAO_ProposalCancelled(msg.sender, proposalId, canceller);
+    }
+
+    function emitDAO_TokensStaked(
+        address staker,
+        uint256 amount,
+        uint256 newVotingPower
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit DAO_TokensStaked(msg.sender, staker, amount, newVotingPower);
+    }
+
+    function emitDAO_TokensUnstaked(
+        address staker,
+        uint256 amount,
+        uint256 newVotingPower
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit DAO_TokensUnstaked(msg.sender, staker, amount, newVotingPower);
+    }
+
+    function emitDAO_TransactionQueued(
+        bytes32 txHash,
+        address target,
+        bytes memory data,
+        uint256 eta
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit DAO_TransactionQueued(msg.sender, txHash, target, data, eta);
+    }
+
+    function emitDAO_TransactionExecuted(
+        bytes32 txHash,
+        address target,
+        bytes memory data,
+        uint256 eta
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit DAO_TransactionExecuted(msg.sender, txHash, target, data, eta);
+    }
+
+    function emitDAO_TransactionCancelled(
+        bytes32 txHash,
+        address target,
+        bytes memory data,
+        uint256 eta
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit DAO_TransactionCancelled(msg.sender, txHash, target, data, eta);
+    }
+
+    function emitDAO_TreasuryWithdrawal(
+        address to,
+        address token,
+        uint256 amount
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit DAO_TreasuryWithdrawal(msg.sender, to, token, amount);
+    }
+
+    // --- DAO Events End ---
+
 
     function uniqueContractId() public pure override returns (bytes32) {
         return keccak256("EventEmitter");

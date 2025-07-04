@@ -601,6 +601,46 @@ contract EventEmitter is UpgradeableContract {
 
     // --- DAO Events End ---
 
+    // --- ReferralTreasury Events Start ---
+
+    event ReferralTreasury_Withdrawn(
+        address indexed emittedFrom,
+        address indexed user,
+        address indexed token,
+        uint256 amount
+    );
+
+    event ReferralTreasury_EmergencyWithdrawn(
+        address indexed emittedFrom,
+        address indexed to,
+        address indexed token,
+        uint256 amount,
+        address caller
+    );
+
+    // --- ReferralTreasury Emitter Functions Start ---
+
+    function emitReferralTreasury_Withdrawn(
+        address user,
+        address token,
+        uint256 amount
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit ReferralTreasury_Withdrawn(msg.sender, user, token, amount);
+    }
+
+    function emitReferralTreasury_EmergencyWithdrawn(
+        address to,
+        address token,
+        uint256 amount,
+        address caller
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit ReferralTreasury_EmergencyWithdrawn(msg.sender, to, token, amount, caller);
+    }
+
+    // --- ReferralTreasury Events End ---
+
 
     function uniqueContractId() public pure override returns (bytes32) {
         return keccak256("EventEmitter");

@@ -9,10 +9,6 @@ import { DaoStaking } from "../dao/DaoStaking.sol";
 import { Governance } from "../dao/Governance.sol";
 import { Timelock } from "../dao/Timelock.sol";
 import { Treasury } from "../dao/Treasury.sol";
-import { Payment } from "../platform/Payment.sol";
-import { Airdrop } from "../platform/Airdrop.sol";
-import { PlatformStaking } from "../platform/PlatformStaking.sol";
-import { PlatformStakingAirdrop } from "../platform/PlatformStakingAirdrop.sol";
 import { PlatformToken } from "../platform/PlatformToken.sol";
 import { ReferralTreasury } from "../platform/ReferralTreasury.sol";
 import { Factory } from "../rwa/Factory.sol";
@@ -41,18 +37,6 @@ contract AddressBook is UpgradeableContract {
 
     /// @notice The treasury contract address
     Treasury public treasury;
-
-    /// @notice The payment contract address
-    Payment public payment;
-
-    /// @notice The airdrop contract address
-    Airdrop public airdrop;
-
-    /// @notice The platform staking contract address
-    PlatformStaking public platformStaking;
-
-    /// @notice The platform staking airdrop contract address
-    PlatformStakingAirdrop public platformStakingAirdrop;
 
     /// @notice The platform token contract address
     PlatformToken public platformToken;
@@ -196,55 +180,6 @@ contract AddressBook is UpgradeableContract {
         isProtocolContract[address(newTreasury)] = true;
     }
 
-    
-    /// @notice Sets the payment contract address
-    /// @dev Can only be called by governance
-    /// @param newPayment The address of the new payment contract
-    function setPayment(Payment newPayment) external {
-        requireGovernance(msg.sender);
-        if (address(payment) != address(0)) {
-            isProtocolContract[address(payment)] = false;
-        }
-        payment = newPayment;
-        isProtocolContract[address(newPayment)] = true;
-    }
-
-    /// @notice Sets the airdrop contract address
-    /// @dev Can only be called by governance
-    /// @param newAirdrop The address of the new airdrop contract
-    function setAirdrop(Airdrop newAirdrop) external {
-        requireGovernance(msg.sender);
-        if (address(airdrop) != address(0)) {
-            isProtocolContract[address(airdrop)] = false;
-        }
-        airdrop = newAirdrop;
-        isProtocolContract[address(newAirdrop)] = true;
-    }
-
-    /// @notice Sets the platform staking contract address
-    /// @dev Can only be called by governance
-    /// @param newPlatformStaking The address of the new platform staking contract
-    function setPlatformStaking(PlatformStaking newPlatformStaking) external {
-        requireGovernance(msg.sender);
-        if (address(platformStaking) != address(0)) {
-            isProtocolContract[address(platformStaking)] = false;
-        }
-        platformStaking = newPlatformStaking;
-        isProtocolContract[address(newPlatformStaking)] = true;
-    }
-
-    /// @notice Sets the platform staking airdrop contract address
-    /// @dev Can only be called by governance
-    /// @param newPlatformStakingAirdrop The address of the new platform staking airdrop contract
-    function setPlatformStakingAirdrop(PlatformStakingAirdrop newPlatformStakingAirdrop) external {
-        requireGovernance(msg.sender);
-        if (address(platformStakingAirdrop) != address(0)) {
-            isProtocolContract[address(platformStakingAirdrop)] = false;
-        }
-        platformStakingAirdrop = newPlatformStakingAirdrop;
-        isProtocolContract[address(newPlatformStakingAirdrop)] = true;
-    }
-
     /// @notice Sets the platform token contract address
     /// @dev Can only be called by governance
     /// @param newPlatformToken The address of the new platform token contract
@@ -280,18 +215,6 @@ contract AddressBook is UpgradeableContract {
         factory = newFactory;
         isProtocolContract[address(newFactory)] = true;
     }
-
-    // /// @notice Sets the router contract address
-    // /// @dev Can only be called by governance
-    // /// @param newRouter The address of the new router contract
-    // function setRouter(Router newRouter) external {
-    //     requireGovernance(msg.sender);
-    //     if (address(router) != address(0)) {
-    //         isProtocolContract[address(router)] = false;
-    //     }
-    //     router = newRouter;
-    //     isProtocolContract[address(newRouter)] = true;
-    // }
 
     /// @notice Adds a new signer
     /// @dev Can only be called by governance

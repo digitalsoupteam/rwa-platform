@@ -72,8 +72,6 @@ contract Timelock is UpgradeableContract, ReentrancyGuardUpgradeable {
         bytes memory data,
         uint256 eta
     ) external nonReentrant {
-        addressBook.requireGovernance(msg.sender);
-        
         bytes32 txHash = keccak256(abi.encode(target, data, eta));
         uint256 queuedEta = queuedTransactions[txHash];
         
@@ -177,7 +175,7 @@ contract Timelock is UpgradeableContract, ReentrancyGuardUpgradeable {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireTimelock(msg.sender);
     }
 
     /// @notice Allows receiving ETH

@@ -185,6 +185,24 @@ describe('Timelock Contract Unit Tests', () => {
       await timelock.connect(governance).queueTransaction(TEST_TARGET, TEST_DATA, eta)
     })
 
+    it('should allow anyone to execute transaction after ETA', async () => {
+      await time.increaseTo(eta)
+
+      await expect(
+        timelock.connect(user1).executeTransaction(TEST_TARGET, TEST_DATA, eta)
+      ).to.emit(eventEmitter, 'DAO_TransactionExecuted')
+        .withArgs(
+          await timelock.getAddress(), // emittedFrom
+          txHash, // txHash
+          TEST_TARGET, // target
+          TEST_DATA, // data
+          eta // eta
+        )
+
+      expect(await timelock.queuedTransactions(txHash)).to.equal(0)
+      expect(await timelock.isTransactionQueued(TEST_TARGET, TEST_DATA, eta)).to.be.false
+    })
+
     it('should allow governance to execute transaction after ETA', async () => {
       await time.increaseTo(eta)
 
@@ -201,14 +219,6 @@ describe('Timelock Contract Unit Tests', () => {
 
       expect(await timelock.queuedTransactions(txHash)).to.equal(0)
       expect(await timelock.isTransactionQueued(TEST_TARGET, TEST_DATA, eta)).to.be.false
-    })
-
-    it('should revert when non-governance tries to execute transaction', async () => {
-      await time.increaseTo(eta)
-
-      await expect(
-        timelock.connect(user1).executeTransaction(TEST_TARGET, TEST_DATA, eta)
-      ).to.be.revertedWith('AddressBook: not governance')
     })
 
     it('should revert when transaction is not queued', async () => {
@@ -236,7 +246,7 @@ describe('Timelock Contract Unit Tests', () => {
       ).to.be.revertedWith('Transaction expired')
     })
 
-    it('should execute transaction with real contract call', async () => {
+    it('should execute transaction with real contract call by any user', async () => {
       // Use platform token transfer as a real transaction
       const transferAmount = ethers.parseEther('100')
       const transferData = platformToken.interface.encodeFunctionData('transfer', [
@@ -264,7 +274,8 @@ describe('Timelock Contract Unit Tests', () => {
 
       const initialBalance = await platformToken.balanceOf(user1.address)
 
-      await timelock.connect(governance).executeTransaction(
+      // Execute by user2 (not governance)
+      await timelock.connect(user2).executeTransaction(
         await platformToken.getAddress(),
         transferData,
         realEta
@@ -393,7 +404,7 @@ describe('Timelock Contract Unit Tests', () => {
           await newImplementation.getAddress(),
           '0x01'
         )
-      ).to.be.revertedWith('AddressBook: not governance')
+      ).to.be.revertedWith('Only timelock!')
     })
 
     it('should allow governance to authorize upgrades', async () => {
@@ -468,17 +479,17 @@ describe('Timelock Contract Unit Tests', () => {
       expect(await timelock.isTransactionQueued(TEST_TARGET, data1, eta2)).to.be.false
     })
 
-    it('should handle transaction execution at exact grace period boundary', async () => {
+    it('should handle transaction execution at exact grace period boundary by any user', async () => {
       const currentTime = await time.latest()
       const eta = currentTime + TIMELOCK_DELAY + 100
 
       await timelock.connect(governance).queueTransaction(TEST_TARGET, TEST_DATA, eta)
 
-      // Execute at the last second of grace period
+      // Execute at the last second of grace period by any user
       await time.increaseTo(eta + GRACE_PERIOD)
       
       await expect(
-        timelock.connect(governance).executeTransaction(TEST_TARGET, TEST_DATA, eta)
+        timelock.connect(user1).executeTransaction(TEST_TARGET, TEST_DATA, eta)
       ).to.not.be.reverted
     })
   })

@@ -261,9 +261,6 @@ describe('DaoStaking Contract Unit Tests', () => {
       expect(await daoStaking.getVotingPower(testOwner.address)).to.equal(0)
     })
 
-    it('should return correct total voting power', async () => {
-      expect(await daoStaking.getTotalVotingPower()).to.equal(STAKE_AMOUNT + STAKE_AMOUNT / 2n)
-    })
 
     it('should return correct canUnstake status', async () => {
       expect(await daoStaking.canUnstake(user1.address)).to.be.false
@@ -301,6 +298,12 @@ describe('DaoStaking Contract Unit Tests', () => {
 
     it('should return correct implementation version', async () => {
       expect(await daoStaking.implementationVersion()).to.equal(1n)
+    })
+
+    it('should return total token supply for voting power calculation', async () => {
+      // getTotalVotingPower should return total token supply, not just staked amount
+      const totalSupply = await platformToken.totalSupply()
+      expect(await daoStaking.getTotalVotingPower()).to.equal(totalSupply)
     })
   })
 
@@ -415,7 +418,6 @@ describe('DaoStaking Contract Unit Tests', () => {
       await daoStaking.connect(user2).stake(STAKE_AMOUNT)
       
       expect(await daoStaking.totalStaked()).to.equal(STAKE_AMOUNT * 2n)
-      expect(await daoStaking.getTotalVotingPower()).to.equal(STAKE_AMOUNT * 2n)
     })
   })
 

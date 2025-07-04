@@ -67,7 +67,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // DAO Governance parameters
   const initialVotingPeriod = 7 * 24 * 60 * 60 // 7 days in seconds
   const initialVotingDelay = 60 // 1 minute delay in seconds
-  const initialQuorumPercentage = 400 // 4% quorum
+  const initialQuorumPercentage = 4000 // 40% quorum
   const initialProposalThreshold = ethers.parseEther('1000000') // 1M tokens to create proposal
   const initialTimelockDelay = 2 * 24 * 60 * 60 // 2 days in seconds
 

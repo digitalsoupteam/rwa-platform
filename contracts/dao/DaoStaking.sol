@@ -102,10 +102,11 @@ contract DaoStaking is UpgradeableContract, ReentrancyGuardUpgradeable {
         return stakedAmount[user];
     }
 
-    /// @notice Gets the total voting power in the system
-    /// @return Total voting power amount
+    /// @notice Gets the total token supply for quorum calculations
+    /// @dev This should be used for quorum calculations instead of just staked amount
+    /// @return Total token supply
     function getTotalVotingPower() external view returns (uint256) {
-        return totalStaked;
+        return platformToken.totalSupply();
     }
 
     /// @notice Checks if a user can unstake their tokens

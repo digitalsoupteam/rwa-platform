@@ -117,7 +117,7 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
     /// @param amount The amount of tokens to mint
     function mint(address account, uint256 tokenId, uint256 amount) external {
         require(!paused, "RWA: paused");
-        // require(msg.sender == pools[tokenId], "Only pool can mint");
+        require(msg.sender == pools[tokenId], "Only pool can mint");
         require(account != address(0), "Invalid recipient");
         require(amount > 0, "Amount must be greater than 0");
 
@@ -131,7 +131,7 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
     /// @param amount The amount of tokens to burn
     function burn(address account, uint256 tokenId, uint256 amount) external {
         require(!paused, "RWA: paused");
-        // require(msg.sender == pools[tokenId], "Only pool can burn");
+        require(msg.sender == pools[tokenId], "Only pool can burn");
         require(account != address(0), "Invalid account");
         require(amount > 0, "Amount must be greater than 0");
         require(balanceOf(account, tokenId) >= amount, "Insufficient balance");
@@ -168,7 +168,7 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
     /// @notice Disables emergency pause on the contract
     /// @dev Can only be called by governance. Contract operations will be unblocked.
     function disablePause() external {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireTimelock(msg.sender);
         require(paused, "RWA: not paused");
         paused = false;
         addressBook.eventEmitter().emitRWA_PausedStateChanged(false);

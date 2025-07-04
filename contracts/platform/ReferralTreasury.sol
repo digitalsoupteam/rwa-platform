@@ -94,6 +94,6 @@ contract ReferralTreasury is UUPSUpgradeable {
     /// @notice Authorizes upgrade
     /// @param newImplementation Address of new implementation
     function _authorizeUpgrade(address newImplementation) internal override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireTimelock(msg.sender);
     }
 }

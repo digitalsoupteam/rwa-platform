@@ -426,5 +426,5 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 }
 
 deploy.tags = ['Config']
-deploy.dependencies = ['Payment']
+deploy.dependencies = ['Treaury']
 export default deploy

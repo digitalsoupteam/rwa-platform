@@ -64,6 +64,6 @@ contract PlatformToken is UpgradeableContract, ERC20Upgradeable {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireTimelock(msg.sender);
     }
 }

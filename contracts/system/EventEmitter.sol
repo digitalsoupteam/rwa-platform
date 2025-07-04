@@ -641,6 +641,30 @@ contract EventEmitter is UpgradeableContract {
 
     // --- ReferralTreasury Events End ---
 
+    // --- Factory Events Start ---
+
+    event Factory_FeeCollected(
+        address indexed emittedFrom,
+        address indexed sender,
+        uint256 amount,
+        string feeType,
+        address token
+    );
+
+    // --- Factory Emitter Functions Start ---
+
+    function emitFactory_FeeCollected(
+        address sender,
+        uint256 amount,
+        string memory feeType,
+        address token
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Factory_FeeCollected(msg.sender, sender, amount, feeType, token);
+    }
+
+    // --- Factory Events End ---
+
 
     function uniqueContractId() public pure override returns (bytes32) {
         return keccak256("EventEmitter");

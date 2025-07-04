@@ -14,6 +14,7 @@ import { RWA } from "./RWA.sol";
 import { Config } from "../system/Config.sol";
 import { Pool } from "./Pool.sol";
 import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
+import { EventEmitter } from "../system/EventEmitter.sol";
 
 contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
     AddressBook public addressBook;
@@ -66,10 +67,19 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
             "RWA fee out of allowed range"
         );
 
+        uint256 feeAmount = createRWAFee * 10 ** IERC20Metadata(address(config.holdToken())).decimals();
         config.holdToken().transferFrom(
             msg.sender,
             address(_addressBook.treasury()),
-            createRWAFee * 10 ** IERC20Metadata(address(config.holdToken())).decimals()
+            feeAmount
+        );
+
+        // Emit fee collection event
+        _addressBook.eventEmitter().emitFactory_FeeCollected(
+            msg.sender,
+            feeAmount,
+            "createRWA",
+            address(config.holdToken())
         );
 
         bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(
@@ -287,10 +297,19 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
         );
 
         IERC20 holdToken = config.holdToken();
+        uint256 poolFeeAmount = (expectedHoldAmount * createPoolFeeRatio) / 10000;
         holdToken.transferFrom(
             msg.sender,
             address(_addressBook.treasury()),
-            (expectedHoldAmount * createPoolFeeRatio) / 10000
+            poolFeeAmount
+        );
+
+        // Emit fee collection event
+        _addressBook.eventEmitter().emitFactory_FeeCollected(
+            msg.sender,
+            poolFeeAmount,
+            "createPool",
+            address(holdToken)
         );
 
         bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(

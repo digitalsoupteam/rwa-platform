@@ -75,10 +75,9 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
         );
 
         // Emit fee collection event
-        _addressBook.eventEmitter().emitFactory_FeeCollected(
+        _addressBook.eventEmitter().emitFactory_CreateRWAFeeCollected(
             msg.sender,
             feeAmount,
-            "createRWA",
             address(config.holdToken())
         );
 
@@ -305,10 +304,9 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
         );
 
         // Emit fee collection event
-        _addressBook.eventEmitter().emitFactory_FeeCollected(
+        _addressBook.eventEmitter().emitFactory_CreatePoolFeeCollected(
             msg.sender,
             poolFeeAmount,
-            "createPool",
             address(holdToken)
         );
 

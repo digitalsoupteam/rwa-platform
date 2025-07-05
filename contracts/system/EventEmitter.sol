@@ -643,24 +643,38 @@ contract EventEmitter is UpgradeableContract {
 
     // --- Factory Events Start ---
 
-    event Factory_FeeCollected(
+    event Factory_CreateRWAFeeCollected(
         address indexed emittedFrom,
         address indexed sender,
         uint256 amount,
-        string feeType,
+        address token
+    );
+
+    event Factory_CreatePoolFeeCollected(
+        address indexed emittedFrom,
+        address indexed sender,
+        uint256 amount,
         address token
     );
 
     // --- Factory Emitter Functions Start ---
 
-    function emitFactory_FeeCollected(
+    function emitFactory_CreateRWAFeeCollected(
         address sender,
         uint256 amount,
-        string memory feeType,
         address token
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit Factory_FeeCollected(msg.sender, sender, amount, feeType, token);
+        emit Factory_CreateRWAFeeCollected(msg.sender, sender, amount, token);
+    }
+
+    function emitFactory_CreatePoolFeeCollected(
+        address sender,
+        uint256 amount,
+        address token
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit Factory_CreatePoolFeeCollected(msg.sender, sender, amount, token);
     }
 
     // --- Factory Events End ---

@@ -60,7 +60,7 @@ contract DaoStaking is UpgradeableContract, ReentrancyGuardUpgradeable {
         stakingTimestamp[msg.sender] = block.timestamp;
 
         EventEmitter eventEmitter = addressBook.eventEmitter();
-        eventEmitter.emitDAO_TokensStaked(
+        eventEmitter.emitDaoStaking_TokensStaked(
             msg.sender,
             amount,
             stakedAmount[msg.sender]
@@ -88,7 +88,7 @@ contract DaoStaking is UpgradeableContract, ReentrancyGuardUpgradeable {
         platformToken.safeTransfer(msg.sender, amount);
 
         EventEmitter eventEmitter = addressBook.eventEmitter();
-        eventEmitter.emitDAO_TokensUnstaked(
+        eventEmitter.emitDaoStaking_TokensUnstaked(
             msg.sender,
             amount,
             stakedAmount[msg.sender]

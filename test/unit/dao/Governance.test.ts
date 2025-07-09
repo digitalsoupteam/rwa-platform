@@ -135,7 +135,7 @@ describe('Governance Contract Unit Tests', () => {
 
       await expect(
         governance.connect(user1).propose(testTarget, testData, testDescription)
-      ).to.emit(eventEmitter, 'DAO_ProposalCreated')
+      ).to.emit(eventEmitter, 'Governance_ProposalCreated')
         .withArgs(
           await governance.getAddress(), // emittedFrom
           1, // proposalId
@@ -203,7 +203,7 @@ describe('Governance Contract Unit Tests', () => {
 
       await expect(
         governance.connect(user1).vote(proposalId, true, 'Supporting this proposal')
-      ).to.emit(eventEmitter, 'DAO_VoteCast')
+      ).to.emit(eventEmitter, 'Governance_VoteCast')
         .withArgs(
           await governance.getAddress(), // emittedFrom
           proposalId,
@@ -292,7 +292,7 @@ describe('Governance Contract Unit Tests', () => {
       // Vote with enough power to reach quorum
       await expect(
         governance.connect(user1).vote(proposalId, true, 'Execute this')
-      ).to.emit(eventEmitter, 'DAO_ProposalExecuted')
+      ).to.emit(eventEmitter, 'Governance_ProposalExecuted')
         .withArgs(
           await governance.getAddress(), // emittedFrom
           proposalId,
@@ -310,7 +310,7 @@ describe('Governance Contract Unit Tests', () => {
 
       await expect(
         governance.connect(user1).vote(proposalId, false, 'Cancel this')
-      ).to.emit(eventEmitter, 'DAO_ProposalCancelled')
+      ).to.emit(eventEmitter, 'Governance_ProposalCancelled')
         .withArgs(
           await governance.getAddress(), // emittedFrom
           proposalId,
@@ -348,7 +348,7 @@ describe('Governance Contract Unit Tests', () => {
     it('should allow proposer to cancel their proposal', async () => {
       await expect(
         governance.connect(user1).cancel(proposalId)
-      ).to.emit(eventEmitter, 'DAO_ProposalCancelled')
+      ).to.emit(eventEmitter, 'Governance_ProposalCancelled')
         .withArgs(
           await governance.getAddress(), // emittedFrom
           proposalId,
@@ -362,7 +362,7 @@ describe('Governance Contract Unit Tests', () => {
     it('should allow governance contract to cancel proposals', async () => {
       await expect(
         governance.connect(governanceSigner).cancel(proposalId)
-      ).to.emit(eventEmitter, 'DAO_ProposalCancelled')
+      ).to.emit(eventEmitter, 'Governance_ProposalCancelled')
         .withArgs(
           await governance.getAddress(), // emittedFrom
           proposalId,

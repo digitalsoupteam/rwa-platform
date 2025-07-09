@@ -58,7 +58,7 @@ contract Timelock is UpgradeableContract, ReentrancyGuardUpgradeable {
         queuedTransactions[txHash] = eta;
 
         EventEmitter eventEmitter = addressBook.eventEmitter();
-        eventEmitter.emitDAO_TransactionQueued(txHash, target, data, eta);
+        eventEmitter.emitTimelock_TransactionQueued(txHash, target, data, eta);
 
         return txHash;
     }
@@ -85,7 +85,7 @@ contract Timelock is UpgradeableContract, ReentrancyGuardUpgradeable {
         require(success, _getRevertMsg(returnData));
 
         EventEmitter eventEmitter = addressBook.eventEmitter();
-        eventEmitter.emitDAO_TransactionExecuted(txHash, target, data, eta);
+        eventEmitter.emitTimelock_TransactionExecuted(txHash, target, data, eta);
     }
 
     /// @notice Cancels a queued transaction
@@ -105,7 +105,7 @@ contract Timelock is UpgradeableContract, ReentrancyGuardUpgradeable {
         delete queuedTransactions[txHash];
 
         EventEmitter eventEmitter = addressBook.eventEmitter();
-        eventEmitter.emitDAO_TransactionCancelled(txHash, target, data, eta);
+        eventEmitter.emitTimelock_TransactionCancelled(txHash, target, data, eta);
     }
 
     /// @notice Checks if a transaction is queued

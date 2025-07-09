@@ -45,7 +45,7 @@ contract Treasury is UpgradeableContract {
         IERC20(token).safeTransfer(to, amount);
 
         EventEmitter eventEmitter = addressBook.eventEmitter();
-        eventEmitter.emitDAO_TreasuryWithdrawal(to, token, amount);
+        eventEmitter.emitTreasury_Withdrawal(to, token, amount);
     }
 
     /// @notice Withdraws ETH
@@ -60,7 +60,7 @@ contract Treasury is UpgradeableContract {
         require(success, "ETH transfer failed");
 
         EventEmitter eventEmitter = addressBook.eventEmitter();
-        eventEmitter.emitDAO_TreasuryWithdrawal(to, address(0), amount);
+        eventEmitter.emitTreasury_Withdrawal(to, address(0), amount);
     }
 
     /// @notice Returns balance of specified ERC20 token

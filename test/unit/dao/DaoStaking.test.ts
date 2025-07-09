@@ -97,7 +97,7 @@ describe('DaoStaking Contract Unit Tests', () => {
       const initialStakingBalance = await platformToken.balanceOf(await daoStaking.getAddress())
       
       await expect(daoStaking.connect(user1).stake(STAKE_AMOUNT))
-        .to.emit(eventEmitter, 'DAO_TokensStaked')
+        .to.emit(eventEmitter, 'DaoStaking_TokensStaked')
         .withArgs(
           await daoStaking.getAddress(),
           user1.address,
@@ -190,7 +190,7 @@ describe('DaoStaking Contract Unit Tests', () => {
       const unstakeAmount = STAKE_AMOUNT / 2n
 
       await expect(daoStaking.connect(user1).unstake(unstakeAmount))
-        .to.emit(eventEmitter, 'DAO_TokensUnstaked')
+        .to.emit(eventEmitter, 'DaoStaking_TokensUnstaked')
         .withArgs(
           await daoStaking.getAddress(),
           user1.address,
@@ -356,9 +356,9 @@ describe('DaoStaking Contract Unit Tests', () => {
       await platformToken.connect(user1).approve(await daoStaking.getAddress(), STAKE_AMOUNT)
     })
 
-    it('should emit DAO_TokensStaked event on stake', async () => {
+    it('should emit DaoStaking_TokensStaked event on stake', async () => {
       await expect(daoStaking.connect(user1).stake(STAKE_AMOUNT))
-        .to.emit(eventEmitter, 'DAO_TokensStaked')
+        .to.emit(eventEmitter, 'DaoStaking_TokensStaked')
         .withArgs(
           await daoStaking.getAddress(),
           user1.address,
@@ -367,13 +367,13 @@ describe('DaoStaking Contract Unit Tests', () => {
         )
     })
 
-    it('should emit DAO_TokensUnstaked event on unstake', async () => {
+    it('should emit DaoStaking_TokensUnstaked event on unstake', async () => {
       await daoStaking.connect(user1).stake(STAKE_AMOUNT)
       await time.increase(MIN_STAKING_PERIOD + 1)
 
       const unstakeAmount = STAKE_AMOUNT / 2n
       await expect(daoStaking.connect(user1).unstake(unstakeAmount))
-        .to.emit(eventEmitter, 'DAO_TokensUnstaked')
+        .to.emit(eventEmitter, 'DaoStaking_TokensUnstaked')
         .withArgs(
           await daoStaking.getAddress(),
           user1.address,
@@ -388,7 +388,7 @@ describe('DaoStaking Contract Unit Tests', () => {
       await platformToken.connect(user1).approve(await daoStaking.getAddress(), 1)
       
       await expect(daoStaking.connect(user1).stake(1))
-        .to.emit(eventEmitter, 'DAO_TokensStaked')
+        .to.emit(eventEmitter, 'DaoStaking_TokensStaked')
         .withArgs(await daoStaking.getAddress(), user1.address, 1, 1)
 
       expect(await daoStaking.stakedAmount(user1.address)).to.equal(1)

@@ -77,7 +77,7 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
         });
 
         EventEmitter eventEmitter = addressBook.eventEmitter();
-        eventEmitter.emitDAO_ProposalCreated(
+        eventEmitter.emitGovernance_ProposalCreated(
             proposalId,
             msg.sender,
             target,
@@ -115,7 +115,7 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
         }
 
         EventEmitter eventEmitter = addressBook.eventEmitter();
-        eventEmitter.emitDAO_VoteCast(proposalId, msg.sender, support, votes, reason);
+        eventEmitter.emitGovernance_VoteCast(proposalId, msg.sender, support, votes, reason);
 
         // Check for auto-execution or cancellation
         _checkAutoAction(proposalId);
@@ -155,7 +155,7 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
     function _cancelProposal(uint256 proposalId, address canceller) private {
         proposals[proposalId].cancelled = true;
         EventEmitter eventEmitter = addressBook.eventEmitter();
-        eventEmitter.emitDAO_ProposalCancelled(proposalId, canceller);
+        eventEmitter.emitGovernance_ProposalCancelled(proposalId, canceller);
     }
 
     /// @notice Check and execute auto-actions after vote
@@ -180,7 +180,7 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
 
             proposal.executed = true;
             EventEmitter eventEmitter = addressBook.eventEmitter();
-            eventEmitter.emitDAO_ProposalExecuted(proposalId, address(this));
+            eventEmitter.emitGovernance_ProposalExecuted(proposalId, address(this));
             return;
         }
 

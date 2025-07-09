@@ -407,7 +407,7 @@ contract EventEmitter is UpgradeableContract {
 
     // --- DAO Events Start ---
 
-    event DAO_ProposalCreated(
+    event Governance_ProposalCreated(
         address indexed emittedFrom,
         uint256 indexed proposalId,
         address indexed proposer,
@@ -418,7 +418,7 @@ contract EventEmitter is UpgradeableContract {
         uint256 endTime
     );
 
-    event DAO_VoteCast(
+    event Governance_VoteCast(
         address indexed emittedFrom,
         uint256 indexed proposalId,
         address indexed voter,
@@ -427,33 +427,33 @@ contract EventEmitter is UpgradeableContract {
         string reason
     );
 
-    event DAO_ProposalExecuted(
+    event Governance_ProposalExecuted(
         address indexed emittedFrom,
         uint256 indexed proposalId,
         address indexed executor
     );
 
-    event DAO_ProposalCancelled(
+    event Governance_ProposalCancelled(
         address indexed emittedFrom,
         uint256 indexed proposalId,
         address indexed canceller
     );
 
-    event DAO_TokensStaked(
+    event DaoStaking_TokensStaked(
         address indexed emittedFrom,
         address indexed staker,
         uint256 amount,
         uint256 newVotingPower
     );
 
-    event DAO_TokensUnstaked(
+    event DaoStaking_TokensUnstaked(
         address indexed emittedFrom,
         address indexed staker,
         uint256 amount,
         uint256 newVotingPower
     );
 
-    event DAO_TransactionQueued(
+    event Timelock_TransactionQueued(
         address indexed emittedFrom,
         bytes32 indexed txHash,
         address target,
@@ -461,7 +461,7 @@ contract EventEmitter is UpgradeableContract {
         uint256 eta
     );
 
-    event DAO_TransactionExecuted(
+    event Timelock_TransactionExecuted(
         address indexed emittedFrom,
         bytes32 indexed txHash,
         address target,
@@ -469,7 +469,7 @@ contract EventEmitter is UpgradeableContract {
         uint256 eta
     );
 
-    event DAO_TransactionCancelled(
+    event Timelock_TransactionCancelled(
         address indexed emittedFrom,
         bytes32 indexed txHash,
         address target,
@@ -477,7 +477,7 @@ contract EventEmitter is UpgradeableContract {
         uint256 eta
     );
 
-    event DAO_TreasuryWithdrawal(
+    event Treasury_Withdrawal(
         address indexed emittedFrom,
         address indexed to,
         address indexed token,
@@ -486,7 +486,7 @@ contract EventEmitter is UpgradeableContract {
 
     // --- DAO Emitter Functions Start ---
 
-    function emitDAO_ProposalCreated(
+    function emitGovernance_ProposalCreated(
         uint256 proposalId,
         address proposer,
         address target,
@@ -496,7 +496,7 @@ contract EventEmitter is UpgradeableContract {
         uint256 endTime
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit DAO_ProposalCreated(
+        emit Governance_ProposalCreated(
             msg.sender,
             proposalId,
             proposer,
@@ -508,7 +508,7 @@ contract EventEmitter is UpgradeableContract {
         );
     }
 
-    function emitDAO_VoteCast(
+    function emitGovernance_VoteCast(
         uint256 proposalId,
         address voter,
         bool support,
@@ -516,7 +516,7 @@ contract EventEmitter is UpgradeableContract {
         string memory reason
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit DAO_VoteCast(
+        emit Governance_VoteCast(
             msg.sender,
             proposalId,
             voter,
@@ -526,77 +526,77 @@ contract EventEmitter is UpgradeableContract {
         );
     }
 
-    function emitDAO_ProposalExecuted(
+    function emitGovernance_ProposalExecuted(
         uint256 proposalId,
         address executor
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit DAO_ProposalExecuted(msg.sender, proposalId, executor);
+        emit Governance_ProposalExecuted(msg.sender, proposalId, executor);
     }
 
-    function emitDAO_ProposalCancelled(
+    function emitGovernance_ProposalCancelled(
         uint256 proposalId,
         address canceller
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit DAO_ProposalCancelled(msg.sender, proposalId, canceller);
+        emit Governance_ProposalCancelled(msg.sender, proposalId, canceller);
     }
 
-    function emitDAO_TokensStaked(
+    function emitDaoStaking_TokensStaked(
         address staker,
         uint256 amount,
         uint256 newVotingPower
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit DAO_TokensStaked(msg.sender, staker, amount, newVotingPower);
+        emit DaoStaking_TokensStaked(msg.sender, staker, amount, newVotingPower);
     }
 
-    function emitDAO_TokensUnstaked(
+    function emitDaoStaking_TokensUnstaked(
         address staker,
         uint256 amount,
         uint256 newVotingPower
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit DAO_TokensUnstaked(msg.sender, staker, amount, newVotingPower);
+        emit DaoStaking_TokensUnstaked(msg.sender, staker, amount, newVotingPower);
     }
 
-    function emitDAO_TransactionQueued(
+    function emitTimelock_TransactionQueued(
         bytes32 txHash,
         address target,
         bytes memory data,
         uint256 eta
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit DAO_TransactionQueued(msg.sender, txHash, target, data, eta);
+        emit Timelock_TransactionQueued(msg.sender, txHash, target, data, eta);
     }
 
-    function emitDAO_TransactionExecuted(
+    function emitTimelock_TransactionExecuted(
         bytes32 txHash,
         address target,
         bytes memory data,
         uint256 eta
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit DAO_TransactionExecuted(msg.sender, txHash, target, data, eta);
+        emit Timelock_TransactionExecuted(msg.sender, txHash, target, data, eta);
     }
 
-    function emitDAO_TransactionCancelled(
+    function emitTimelock_TransactionCancelled(
         bytes32 txHash,
         address target,
         bytes memory data,
         uint256 eta
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit DAO_TransactionCancelled(msg.sender, txHash, target, data, eta);
+        emit Timelock_TransactionCancelled(msg.sender, txHash, target, data, eta);
     }
 
-    function emitDAO_TreasuryWithdrawal(
+    function emitTreasury_Withdrawal(
         address to,
         address token,
         uint256 amount
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit DAO_TreasuryWithdrawal(msg.sender, to, token, amount);
+        emit Treasury_Withdrawal(msg.sender, to, token, amount);
     }
 
     // --- DAO Events End ---

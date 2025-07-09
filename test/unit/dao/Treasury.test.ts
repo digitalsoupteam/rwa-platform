@@ -123,7 +123,7 @@ describe('Treasury Contract Unit Tests', () => {
           user1.address,
           WITHDRAWAL_AMOUNT
         )
-      ).to.emit(eventEmitter, 'DAO_TreasuryWithdrawal')
+      ).to.emit(eventEmitter, 'Treasury_TreasuryWithdrawal')
         .withArgs(
           await treasury.getAddress(), // emittedFrom
           user1.address, // to
@@ -191,7 +191,7 @@ describe('Treasury Contract Unit Tests', () => {
           user1.address,
           0
         )
-      ).to.emit(eventEmitter, 'DAO_TreasuryWithdrawal')
+      ).to.emit(eventEmitter, 'Treasury_TreasuryWithdrawal')
         .withArgs(
           await treasury.getAddress(),
           user1.address,
@@ -211,7 +211,7 @@ describe('Treasury Contract Unit Tests', () => {
 
       await expect(
         treasury.connect(timelockSigner).withdrawETH(user1.address, withdrawAmount)
-      ).to.emit(eventEmitter, 'DAO_TreasuryWithdrawal')
+      ).to.emit(eventEmitter, 'Treasury_TreasuryWithdrawal')
         .withArgs(
           await treasury.getAddress(), // emittedFrom
           user1.address, // to
@@ -253,7 +253,7 @@ describe('Treasury Contract Unit Tests', () => {
 
       await expect(
         treasury.connect(timelockSigner).withdrawETH(user1.address, 0)
-      ).to.emit(eventEmitter, 'DAO_TreasuryWithdrawal')
+      ).to.emit(eventEmitter, 'Treasury_TreasuryWithdrawal')
         .withArgs(
           await treasury.getAddress(),
           user1.address,
@@ -447,7 +447,7 @@ describe('Treasury Contract Unit Tests', () => {
           user1.address,
           WITHDRAWAL_AMOUNT
         )
-      ).to.emit(eventEmitter, 'DAO_TreasuryWithdrawal')
+      ).to.emit(eventEmitter, 'Treasury_TreasuryWithdrawal')
         .withArgs(
           await treasury.getAddress(),
           user1.address,
@@ -461,7 +461,7 @@ describe('Treasury Contract Unit Tests', () => {
       
       await expect(
         treasury.connect(timelockSigner).withdrawETH(user1.address, ethAmount)
-      ).to.emit(eventEmitter, 'DAO_TreasuryWithdrawal')
+      ).to.emit(eventEmitter, 'Treasury_TreasuryWithdrawal')
         .withArgs(
           await treasury.getAddress(),
           user1.address,

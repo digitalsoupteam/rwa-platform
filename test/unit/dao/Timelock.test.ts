@@ -103,7 +103,7 @@ describe('Timelock Contract Unit Tests', () => {
 
       await expect(
         timelock.connect(governance).queueTransaction(TEST_TARGET, TEST_DATA, eta)
-      ).to.emit(eventEmitter, 'DAO_TransactionQueued')
+      ).to.emit(eventEmitter, 'Timelock_TransactionQueued')
         .withArgs(
           await timelock.getAddress(), // emittedFrom
           expectedTxHash, // txHash
@@ -190,7 +190,7 @@ describe('Timelock Contract Unit Tests', () => {
 
       await expect(
         timelock.connect(user1).executeTransaction(TEST_TARGET, TEST_DATA, eta)
-      ).to.emit(eventEmitter, 'DAO_TransactionExecuted')
+      ).to.emit(eventEmitter, 'Timelock_TransactionExecuted')
         .withArgs(
           await timelock.getAddress(), // emittedFrom
           txHash, // txHash
@@ -208,7 +208,7 @@ describe('Timelock Contract Unit Tests', () => {
 
       await expect(
         timelock.connect(governance).executeTransaction(TEST_TARGET, TEST_DATA, eta)
-      ).to.emit(eventEmitter, 'DAO_TransactionExecuted')
+      ).to.emit(eventEmitter, 'Timelock_TransactionExecuted')
         .withArgs(
           await timelock.getAddress(), // emittedFrom
           txHash, // txHash
@@ -308,7 +308,7 @@ describe('Timelock Contract Unit Tests', () => {
     it('should allow governance to cancel queued transaction', async () => {
       await expect(
         timelock.connect(governance).cancelTransaction(TEST_TARGET, TEST_DATA, eta)
-      ).to.emit(eventEmitter, 'DAO_TransactionCancelled')
+      ).to.emit(eventEmitter, 'Timelock_TransactionCancelled')
         .withArgs(
           await timelock.getAddress(), // emittedFrom
           txHash, // txHash

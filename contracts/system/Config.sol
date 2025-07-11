@@ -254,7 +254,7 @@ contract Config is UpgradeableContract {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireTimelock(msg.sender);
+        addressBook.requireGovernance(msg.sender);
     }
 
     /// @notice Updates base metadata URI

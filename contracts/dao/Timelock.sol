@@ -175,7 +175,7 @@ contract Timelock is UpgradeableContract, ReentrancyGuardUpgradeable {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireTimelock(msg.sender);
+        addressBook.requireGovernance(msg.sender);
     }
 
     /// @notice Allows receiving ETH

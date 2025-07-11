@@ -689,7 +689,7 @@ contract EventEmitter is UpgradeableContract {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireTimelock(msg.sender);
+        addressBook.requireGovernance(msg.sender);
     }
 
 

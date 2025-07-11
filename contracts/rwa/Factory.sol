@@ -31,7 +31,7 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireTimelock(msg.sender);
+        addressBook.requireGovernance(msg.sender);
     }
 
     constructor() UpgradeableContract() {}

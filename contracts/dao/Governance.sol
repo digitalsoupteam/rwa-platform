@@ -199,7 +199,7 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireTimelock(msg.sender);
+        addressBook.requireGovernance(msg.sender);
     }
 
     function _getRevertMsg(bytes memory returnData) private pure returns (string memory) {

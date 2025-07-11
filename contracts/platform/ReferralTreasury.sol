@@ -132,6 +132,6 @@ contract ReferralTreasury is UpgradeableContract, ReentrancyGuardUpgradeable {
 
     /// @notice Verifies authorization for upgrade
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireTimelock(msg.sender);
+        addressBook.requireGovernance(msg.sender);
     }
 }

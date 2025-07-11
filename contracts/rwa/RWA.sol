@@ -71,7 +71,7 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireTimelock(msg.sender);
+        addressBook.requireGovernance(msg.sender);
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(UpgradeableContract, ERC1155Upgradeable) returns (bool) {

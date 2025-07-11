@@ -96,7 +96,7 @@ contract AddressBook is UpgradeableContract {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        requireTimelock(msg.sender);
+        requireGovernance(msg.sender);
     }
 
     /// @notice Checks if an address has governance rights

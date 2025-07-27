@@ -30,8 +30,8 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
     RWA public rwaToken;
 
     /// @notice Address book contract
-    /// @dev Set during initialization and then immutable.
-    AddressBook public addressBook;
+    /// @dev Set during construction and then immutable.
+    AddressBook public immutable addressBook;
 
     /// @notice RWA token ID used in this pool
     /// @dev Set during initialization and then immutable.
@@ -184,13 +184,15 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
     uint256 public rewardedRwaAmount;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() UpgradeableContract() {}
+    constructor(address _addressBook) UpgradeableContract() {
+        require(_addressBook != address(0), "Invalid addressBook");
+        addressBook = AddressBook(_addressBook);
+    }
 
     function initialize(
         address _deployer,
         address _holdToken,
         address _rwaToken,
-        AddressBook _addressBook,
         uint256 _tokenId,
         string memory _entityId,
         string memory _entityOwnerId,
@@ -215,8 +217,9 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         uint256[] memory _outgoingTranchTimestamps,
         uint256[] memory _incomingTranches,
         uint256[] memory _incomingTrancheExpired
-    ) external initializer {
-        addressBook = _addressBook;
+    ) external initializer {        
+        // Only factory can initialize
+        addressBook.requireFactory(msg.sender);
         
         // Get parent ID from RWA contract
         parentId = RWA(_rwaToken).entityId();
@@ -283,7 +286,7 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         totalReturnedAmount = 0;
         awaitingBonusAmount = 0;
 
-        EventEmitter _eventEmitter = _addressBook.eventEmitter();
+        EventEmitter _eventEmitter = addressBook.eventEmitter();
 
         _eventEmitter.emitPool_Deployed(
             _deployer,
@@ -899,6 +902,6 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireUpgradeRole(msg.sender);
     }
 }

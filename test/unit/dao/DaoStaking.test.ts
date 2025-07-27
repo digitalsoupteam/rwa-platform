@@ -13,6 +13,10 @@ import {
   PlatformToken__factory,
   EventEmitter,
   EventEmitter__factory,
+  Governance,
+  Governance__factory,
+  Config,
+  Config__factory,
 } from '../../../typechain-types'
 
 describe('DaoStaking Contract Unit Tests', () => {
@@ -20,6 +24,8 @@ describe('DaoStaking Contract Unit Tests', () => {
   let addressBook: AddressBook
   let platformToken: PlatformToken
   let eventEmitter: EventEmitter
+  let governanceContract: Governance
+  let config: Config
   let testOwner: HardhatEthersSigner
   let user1: HardhatEthersSigner
   let user2: HardhatEthersSigner
@@ -27,7 +33,8 @@ describe('DaoStaking Contract Unit Tests', () => {
   let initSnapshot: string
 
   const STAKE_AMOUNT = ethers.parseEther('1000')
-  const MIN_STAKING_PERIOD = 7 * 24 * 60 * 60 // 7 days
+  const VOTING_PERIOD = 7 * 24 * 60 * 60 // 7 days
+  const PROPOSAL_THRESHOLD = ethers.parseEther('1000000') // 1M tokens
 
   before(async () => {
     const signers = await ethers.getSigners()
@@ -58,6 +65,16 @@ describe('DaoStaking Contract Unit Tests', () => {
       ethers.provider,
     )
 
+    governanceContract = Governance__factory.connect(
+      (await deployments.get('Governance')).address,
+      ethers.provider,
+    )
+
+    config = Config__factory.connect(
+      (await deployments.get('Config')).address,
+      ethers.provider,
+    )
+
     // Impersonate governance account
     const governanceAddress = await addressBook.governance()
     await impersonateAccount(governanceAddress)
@@ -80,8 +97,7 @@ describe('DaoStaking Contract Unit Tests', () => {
     it('should initialize with correct parameters', async () => {
       expect(await daoStaking.addressBook()).to.equal(await addressBook.getAddress())
       expect(await daoStaking.platformToken()).to.equal(await platformToken.getAddress())
-      expect(await daoStaking.totalStaked()).to.equal(0)
-      expect(await daoStaking.MIN_STAKING_PERIOD()).to.equal(MIN_STAKING_PERIOD)
+      expect(await daoStaking.totalUserDeposits()).to.equal(0)
     })
   })
 
@@ -106,21 +122,11 @@ describe('DaoStaking Contract Unit Tests', () => {
         )
 
       expect(await daoStaking.stakedAmount(user1.address)).to.equal(STAKE_AMOUNT)
-      expect(await daoStaking.totalStaked()).to.equal(STAKE_AMOUNT)
+      expect(await daoStaking.totalUserDeposits()).to.equal(STAKE_AMOUNT)
       expect(await platformToken.balanceOf(user1.address)).to.equal(initialBalance - STAKE_AMOUNT)
       expect(await platformToken.balanceOf(await daoStaking.getAddress())).to.equal(
         initialStakingBalance + STAKE_AMOUNT
       )
-    })
-
-    it('should update staking timestamp correctly', async () => {
-      const beforeStake = await time.latest()
-      await daoStaking.connect(user1).stake(STAKE_AMOUNT)
-      const afterStake = await time.latest()
-
-      const stakingTimestamp = await daoStaking.stakingTimestamp(user1.address)
-      expect(stakingTimestamp).to.be.at.least(beforeStake)
-      expect(stakingTimestamp).to.be.at.most(afterStake)
     })
 
     it('should allow multiple stakes from same user', async () => {
@@ -128,20 +134,10 @@ describe('DaoStaking Contract Unit Tests', () => {
       const secondStake = STAKE_AMOUNT / 2n
       
       await daoStaking.connect(user1).stake(firstStake)
-      
-      // Get timestamp after first stake
-      const firstStakeTimestamp = await daoStaking.stakingTimestamp(user1.address)
-      
-      // Wait a bit and stake again
-      await time.increase(100)
       await daoStaking.connect(user1).stake(secondStake)
 
       expect(await daoStaking.stakedAmount(user1.address)).to.equal(STAKE_AMOUNT)
-      expect(await daoStaking.totalStaked()).to.equal(STAKE_AMOUNT)
-      
-      // Timestamp should be updated to the latest stake
-      const finalStakeTimestamp = await daoStaking.stakingTimestamp(user1.address)
-      expect(finalStakeTimestamp).to.be.gt(firstStakeTimestamp)
+      expect(await daoStaking.totalUserDeposits()).to.equal(STAKE_AMOUNT)
     })
 
     it('should allow multiple users to stake', async () => {
@@ -150,7 +146,7 @@ describe('DaoStaking Contract Unit Tests', () => {
 
       expect(await daoStaking.stakedAmount(user1.address)).to.equal(STAKE_AMOUNT)
       expect(await daoStaking.stakedAmount(user2.address)).to.equal(STAKE_AMOUNT / 2n)
-      expect(await daoStaking.totalStaked()).to.equal(STAKE_AMOUNT + STAKE_AMOUNT / 2n)
+      expect(await daoStaking.totalUserDeposits()).to.equal(STAKE_AMOUNT + STAKE_AMOUNT / 2n)
     })
 
     it('should revert when staking zero amount', async () => {
@@ -176,18 +172,87 @@ describe('DaoStaking Contract Unit Tests', () => {
     })
   })
 
-  describe('Unstaking', () => {
+  describe('Voting Lock Mechanism', () => {
+    beforeEach(async () => {
+      // Setup users with enough tokens for proposals
+      await platformToken.connect(testOwner).transfer(user1.address, PROPOSAL_THRESHOLD)
+      await platformToken.connect(user1).approve(await daoStaking.getAddress(), PROPOSAL_THRESHOLD)
+      await daoStaking.connect(user1).stake(PROPOSAL_THRESHOLD)
+    })
+
+    it('should allow governance to lock user tokens', async () => {
+      const currentTime = await time.latest()
+      const unlockTime = currentTime + VOTING_PERIOD
+
+      await expect(
+        daoStaking.connect(governance).lock(user1.address, unlockTime)
+      ).to.emit(eventEmitter, 'DaoStaking_TokensLocked')
+        .withArgs(
+          await daoStaking.getAddress(),
+          user1.address,
+          unlockTime
+        )
+
+      expect(await daoStaking.votingLockTimestamp(user1.address)).to.equal(unlockTime)
+    })
+
+    it('should revert when non-governance tries to lock tokens', async () => {
+      const currentTime = await time.latest()
+      const unlockTime = currentTime + VOTING_PERIOD
+
+      await expect(
+        daoStaking.connect(user1).lock(user1.address, unlockTime)
+      ).to.be.revertedWith('AddressBook: not governance')
+    })
+
+    it('should revert when trying to lock user with no staked tokens', async () => {
+      const currentTime = await time.latest()
+      const unlockTime = currentTime + VOTING_PERIOD
+
+      await expect(
+        daoStaking.connect(governance).lock(user2.address, unlockTime)
+      ).to.be.revertedWith('No staked tokens')
+    })
+
+    it('should revert when unlock timestamp is in the past', async () => {
+      const currentTime = await time.latest()
+      const pastTime = currentTime - 100
+
+      await expect(
+        daoStaking.connect(governance).lock(user1.address, pastTime)
+      ).to.be.revertedWith('Invalid unlock timestamp')
+    })
+
+    it('should only update lock if new lock is longer', async () => {
+      const currentTime = await time.latest()
+      const firstUnlockTime = currentTime + VOTING_PERIOD
+      const shorterUnlockTime = currentTime + VOTING_PERIOD / 2
+      const longerUnlockTime = currentTime + VOTING_PERIOD * 2
+
+      // Set initial lock
+      await daoStaking.connect(governance).lock(user1.address, firstUnlockTime)
+      expect(await daoStaking.votingLockTimestamp(user1.address)).to.equal(firstUnlockTime)
+
+      // Try to set shorter lock - should not update
+      await daoStaking.connect(governance).lock(user1.address, shorterUnlockTime)
+      expect(await daoStaking.votingLockTimestamp(user1.address)).to.equal(firstUnlockTime)
+
+      // Set longer lock - should update
+      await daoStaking.connect(governance).lock(user1.address, longerUnlockTime)
+      expect(await daoStaking.votingLockTimestamp(user1.address)).to.equal(longerUnlockTime)
+    })
+  })
+
+  describe('Unstaking with Voting Lock', () => {
     beforeEach(async () => {
       await platformToken.connect(user1).approve(await daoStaking.getAddress(), STAKE_AMOUNT)
       await daoStaking.connect(user1).stake(STAKE_AMOUNT)
     })
 
-    it('should allow unstaking after minimum period', async () => {
-      // Fast forward time past minimum staking period
-      await time.increase(MIN_STAKING_PERIOD + 1)
-
+    it('should allow unstaking when no voting lock is set', async () => {
       const initialBalance = await platformToken.balanceOf(user1.address)
       const unstakeAmount = STAKE_AMOUNT / 2n
+      const totalStakedBefore = await daoStaking.totalUserDeposits()
 
       await expect(daoStaking.connect(user1).unstake(unstakeAmount))
         .to.emit(eventEmitter, 'DaoStaking_TokensUnstaked')
@@ -195,55 +260,154 @@ describe('DaoStaking Contract Unit Tests', () => {
           await daoStaking.getAddress(),
           user1.address,
           unstakeAmount,
+          0, // No rewards since no time passed
           STAKE_AMOUNT - unstakeAmount
         )
 
       expect(await daoStaking.stakedAmount(user1.address)).to.equal(STAKE_AMOUNT - unstakeAmount)
-      expect(await daoStaking.totalStaked()).to.equal(STAKE_AMOUNT - unstakeAmount)
+      expect(await daoStaking.totalUserDeposits()).to.equal(totalStakedBefore - unstakeAmount)
       expect(await platformToken.balanceOf(user1.address)).to.equal(initialBalance + unstakeAmount)
     })
 
-    it('should allow full unstaking', async () => {
-      await time.increase(MIN_STAKING_PERIOD + 1)
+    it('should prevent unstaking when voting lock is active', async () => {
+      const currentTime = await time.latest()
+      const unlockTime = currentTime + VOTING_PERIOD
+
+      // Lock the user's tokens
+      await daoStaking.connect(governance).lock(user1.address, unlockTime)
+
+      await expect(
+        daoStaking.connect(user1).unstake(STAKE_AMOUNT)
+      ).to.be.revertedWith('Voting lock period not met')
+    })
+
+    it('should allow unstaking after voting lock expires', async () => {
+      const currentTime = await time.latest()
+      const unlockTime = currentTime + VOTING_PERIOD
+
+      // Lock the user's tokens
+      await daoStaking.connect(governance).lock(user1.address, unlockTime)
+
+      // Fast forward past lock period
+      await time.increaseTo(unlockTime + 1)
 
       const initialBalance = await platformToken.balanceOf(user1.address)
 
-      await daoStaking.connect(user1).unstake(STAKE_AMOUNT)
+      await expect(daoStaking.connect(user1).unstake(STAKE_AMOUNT))
+        .to.emit(eventEmitter, 'DaoStaking_TokensUnstaked')
 
       expect(await daoStaking.stakedAmount(user1.address)).to.equal(0)
-      expect(await daoStaking.totalStaked()).to.equal(0)
       expect(await platformToken.balanceOf(user1.address)).to.equal(initialBalance + STAKE_AMOUNT)
-      expect(await daoStaking.stakingTimestamp(user1.address)).to.equal(0)
-    })
-
-    it('should revert when unstaking before minimum period', async () => {
-      await expect(
-        daoStaking.connect(user1).unstake(STAKE_AMOUNT)
-      ).to.be.revertedWith('Minimum staking period not met')
     })
 
     it('should revert when unstaking zero amount', async () => {
-      await time.increase(MIN_STAKING_PERIOD + 1)
-      
       await expect(
         daoStaking.connect(user1).unstake(0)
       ).to.be.revertedWith('Zero amount')
     })
 
     it('should revert when unstaking more than staked', async () => {
-      await time.increase(MIN_STAKING_PERIOD + 1)
-      
       await expect(
         daoStaking.connect(user1).unstake(STAKE_AMOUNT + 1n)
       ).to.be.revertedWith('Insufficient staked amount')
     })
 
     it('should revert when user has no staked tokens', async () => {
-      await time.increase(MIN_STAKING_PERIOD + 1)
-      
       await expect(
         daoStaking.connect(user2).unstake(STAKE_AMOUNT)
       ).to.be.revertedWith('Insufficient staked amount')
+    })
+  })
+
+  describe('Governance Integration', () => {
+    beforeEach(async () => {
+      // Setup users with enough tokens for proposals and voting
+      await platformToken.connect(testOwner).transfer(user1.address, PROPOSAL_THRESHOLD)
+      await platformToken.connect(testOwner).transfer(user2.address, PROPOSAL_THRESHOLD)
+      
+      await platformToken.connect(user1).approve(await daoStaking.getAddress(), PROPOSAL_THRESHOLD)
+      await platformToken.connect(user2).approve(await daoStaking.getAddress(), PROPOSAL_THRESHOLD)
+      
+      await daoStaking.connect(user1).stake(PROPOSAL_THRESHOLD)
+      await daoStaking.connect(user2).stake(PROPOSAL_THRESHOLD)
+    })
+
+    it('should lock tokens when user votes on proposal', async () => {
+      // Create a proposal
+      const testTarget = '0x1234567890123456789012345678901234567890'
+      const testData = '0x1234'
+      const testDescription = 'Test proposal'
+
+      await governanceContract.connect(user1).propose(testTarget, testData, testDescription)
+      const proposalId = 1
+
+      const currentTime = await time.latest()
+      const proposal = await governanceContract.getProposal(proposalId)
+      const expectedUnlockTime = proposal.endTime
+
+      // Vote on proposal - should trigger lock
+      await expect(
+        governanceContract.connect(user1).vote(proposalId, true, 'Supporting proposal')
+      ).to.emit(eventEmitter, 'DaoStaking_TokensLocked')
+        .withArgs(
+          await daoStaking.getAddress(),
+          user1.address,
+          expectedUnlockTime
+        )
+
+      expect(await daoStaking.votingLockTimestamp(user1.address)).to.equal(expectedUnlockTime)
+
+      // User should not be able to unstake during voting period
+      await expect(
+        daoStaking.connect(user1).unstake(STAKE_AMOUNT)
+      ).to.be.revertedWith('Voting lock period not met')
+    })
+
+    it('should allow unstaking after proposal voting period ends', async () => {
+      // Create a proposal and vote
+      const testTarget = '0x1234567890123456789012345678901234567890'
+      const testData = '0x1234'
+      const testDescription = 'Test proposal'
+
+      await governanceContract.connect(user1).propose(testTarget, testData, testDescription)
+      const proposalId = 1
+
+      await governanceContract.connect(user1).vote(proposalId, true, 'Supporting proposal')
+      
+      const proposal = await governanceContract.getProposal(proposalId)
+      
+      // Fast forward past voting period
+      await time.increaseTo(Number(proposal.endTime) + 1)
+
+      // Should now be able to unstake
+      const initialBalance = await platformToken.balanceOf(user1.address)
+      await daoStaking.connect(user1).unstake(STAKE_AMOUNT)
+      
+      expect(await platformToken.balanceOf(user1.address)).to.equal(initialBalance + STAKE_AMOUNT)
+    })
+
+    it('should extend lock when user votes on multiple proposals', async () => {
+      // Create first proposal
+      const testTarget = '0x1234567890123456789012345678901234567890'
+      const testData = '0x1234'
+      
+      await governanceContract.connect(user1).propose(testTarget, testData, 'First proposal')
+      const firstProposalId = 1
+
+      await governanceContract.connect(user1).vote(firstProposalId, true, 'Vote 1')
+      const firstProposal = await governanceContract.getProposal(firstProposalId)
+
+      // Wait some time and create second proposal
+      await time.increase(VOTING_PERIOD / 2)
+      await governanceContract.connect(user1).propose(testTarget, testData, 'Second proposal')
+      const secondProposalId = 2
+
+      await governanceContract.connect(user1).vote(secondProposalId, true, 'Vote 2')
+      const secondProposal = await governanceContract.getProposal(secondProposalId)
+
+      // Lock should be extended to the later proposal's end time
+      expect(await daoStaking.votingLockTimestamp(user1.address)).to.equal(secondProposal.endTime)
+      expect(secondProposal.endTime).to.be.gt(firstProposal.endTime)
     })
   })
 
@@ -261,31 +425,9 @@ describe('DaoStaking Contract Unit Tests', () => {
       expect(await daoStaking.getVotingPower(testOwner.address)).to.equal(0)
     })
 
-
-    it('should return correct canUnstake status', async () => {
-      expect(await daoStaking.canUnstake(user1.address)).to.be.false
-      expect(await daoStaking.canUnstake(user2.address)).to.be.false
-
-      await time.increase(MIN_STAKING_PERIOD + 1)
-
-      expect(await daoStaking.canUnstake(user1.address)).to.be.true
-      expect(await daoStaking.canUnstake(user2.address)).to.be.true
-    })
-
-    it('should return correct unstake time', async () => {
-      const stakingTime = await daoStaking.stakingTimestamp(user1.address)
-      const expectedUnlockTime = stakingTime + BigInt(MIN_STAKING_PERIOD)
-      const currentTime = BigInt(await time.latest())
-      
-      const unstakeTime = await daoStaking.getUnstakeTime(user1.address)
-      expect(unstakeTime).to.equal(expectedUnlockTime - currentTime)
-
-      await time.increase(MIN_STAKING_PERIOD + 1)
-      expect(await daoStaking.getUnstakeTime(user1.address)).to.equal(0)
-    })
-
-    it('should return zero unstake time for users with no stake', async () => {
-      expect(await daoStaking.getUnstakeTime(testOwner.address)).to.equal(0)
+    it('should return total token supply for voting power calculation', async () => {
+      const totalSupply = await platformToken.totalSupply()
+      expect(await daoStaking.getTotalVotingPower()).to.equal(totalSupply)
     })
   })
 
@@ -298,12 +440,6 @@ describe('DaoStaking Contract Unit Tests', () => {
 
     it('should return correct implementation version', async () => {
       expect(await daoStaking.implementationVersion()).to.equal(1n)
-    })
-
-    it('should return total token supply for voting power calculation', async () => {
-      // getTotalVotingPower should return total token supply, not just staked amount
-      const totalSupply = await platformToken.totalSupply()
-      expect(await daoStaking.getTotalVotingPower()).to.equal(totalSupply)
     })
   })
 
@@ -319,7 +455,7 @@ describe('DaoStaking Contract Unit Tests', () => {
           await newImplementation.getAddress(),
           '0x01'
         )
-      ).to.be.revertedWith('AddressBook: not governance')
+      ).to.be.revertedWith('Only upgradeRole!')
     })
 
     it('should allow governance to authorize upgrades', async () => {
@@ -369,7 +505,6 @@ describe('DaoStaking Contract Unit Tests', () => {
 
     it('should emit DaoStaking_TokensUnstaked event on unstake', async () => {
       await daoStaking.connect(user1).stake(STAKE_AMOUNT)
-      await time.increase(MIN_STAKING_PERIOD + 1)
 
       const unstakeAmount = STAKE_AMOUNT / 2n
       await expect(daoStaking.connect(user1).unstake(unstakeAmount))
@@ -378,7 +513,23 @@ describe('DaoStaking Contract Unit Tests', () => {
           await daoStaking.getAddress(),
           user1.address,
           unstakeAmount,
+          0,
           STAKE_AMOUNT - unstakeAmount
+        )
+    })
+
+    it('should emit DaoStaking_TokensLocked event on lock', async () => {
+      await daoStaking.connect(user1).stake(STAKE_AMOUNT)
+      
+      const currentTime = await time.latest()
+      const unlockTime = currentTime + VOTING_PERIOD
+
+      await expect(daoStaking.connect(governance).lock(user1.address, unlockTime))
+        .to.emit(eventEmitter, 'DaoStaking_TokensLocked')
+        .withArgs(
+          await daoStaking.getAddress(),
+          user1.address,
+          unlockTime
         )
     })
   })
@@ -399,7 +550,6 @@ describe('DaoStaking Contract Unit Tests', () => {
       
       // First cycle
       await daoStaking.connect(user1).stake(STAKE_AMOUNT)
-      await time.increase(MIN_STAKING_PERIOD + 1)
       await daoStaking.connect(user1).unstake(STAKE_AMOUNT)
       
       expect(await daoStaking.stakedAmount(user1.address)).to.equal(0)
@@ -417,7 +567,7 @@ describe('DaoStaking Contract Unit Tests', () => {
       await daoStaking.connect(user1).stake(STAKE_AMOUNT)
       await daoStaking.connect(user2).stake(STAKE_AMOUNT)
       
-      expect(await daoStaking.totalStaked()).to.equal(STAKE_AMOUNT * 2n)
+      expect(await daoStaking.totalUserDeposits()).to.equal(STAKE_AMOUNT * 2n)
     })
   })
 
@@ -431,9 +581,216 @@ describe('DaoStaking Contract Unit Tests', () => {
       
       // Verify platform token connection
       expect(await daoStaking.platformToken()).to.equal(await platformToken.getAddress())
+    })
+  })
+
+  describe('Reward System', () => {
+    const REWARD_DEPOSIT = ethers.parseEther('5000') // 5000 tokens for rewards
+    
+    beforeEach(async () => {
+      // Setup users with tokens
+      await platformToken.connect(user1).approve(await daoStaking.getAddress(), STAKE_AMOUNT)
+      await platformToken.connect(user2).approve(await daoStaking.getAddress(), STAKE_AMOUNT)
       
-      // Verify minimum staking period
-      expect(await daoStaking.MIN_STAKING_PERIOD()).to.equal(MIN_STAKING_PERIOD)
+      // Deposit some rewards to the contract (simulate external deposit)
+      await platformToken.connect(testOwner).transfer(await daoStaking.getAddress(), REWARD_DEPOSIT)
+    })
+
+    it('should calculate available rewards correctly', async () => {
+      // Initially no user deposits, so all contract balance is available for rewards
+      expect(await daoStaking.getAvailableRewards()).to.equal(REWARD_DEPOSIT)
+      
+      // After user stakes, available rewards should decrease
+      await daoStaking.connect(user1).stake(STAKE_AMOUNT)
+      expect(await daoStaking.getAvailableRewards()).to.equal(REWARD_DEPOSIT)
+    })
+
+    it('should calculate pending rewards based on time and annual rate', async () => {
+      // Stake tokens
+      await daoStaking.connect(user1).stake(STAKE_AMOUNT)
+      
+      // Initially no rewards (just staked)
+      expect(await daoStaking.calculatePendingRewards(user1.address)).to.equal(0)
+      
+      // Fast forward 30 days
+      await time.increase(30 * 24 * 60 * 60)
+      
+      // Calculate expected rewards: 1000 tokens * 10% annual rate * 30/365 days
+      const annualRate = await config.daoStakingAnnualRewardRate() // 1000 = 10%
+      const expectedReward = (STAKE_AMOUNT * annualRate * 30n) / (10000n * 365n)
+      
+      const pendingRewards = await daoStaking.calculatePendingRewards(user1.address)
+      expect(pendingRewards).to.be.closeTo(expectedReward, ethers.parseEther('1')) // Allow 1 token tolerance
+    })
+
+    it('should limit rewards to available pool', async () => {
+      // Stake a large amount
+      const largeStake = ethers.parseEther('100000')
+      await platformToken.connect(testOwner).transfer(user1.address, largeStake)
+      await platformToken.connect(user1).approve(await daoStaking.getAddress(), largeStake)
+      await daoStaking.connect(user1).stake(largeStake)
+      
+      // Fast forward 1 year
+      await time.increase(365 * 24 * 60 * 60)
+      
+      // Pending rewards should be limited to available rewards
+      const pendingRewards = await daoStaking.calculatePendingRewards(user1.address)
+      const availableRewards = await daoStaking.getAvailableRewards()
+      
+      expect(pendingRewards).to.equal(availableRewards)
+    })
+
+    it('should reinvest rewards when staking again', async () => {
+      // Initial stake
+      await daoStaking.connect(user1).stake(STAKE_AMOUNT)
+      
+      // Fast forward to accumulate rewards
+      await time.increase(30 * 24 * 60 * 60)
+      
+      const pendingRewards = await daoStaking.calculatePendingRewards(user1.address)
+      expect(pendingRewards).to.be.gt(0)
+      
+      // Stake again - should reinvest rewards
+      const additionalStake = ethers.parseEther('500')
+      await platformToken.connect(user1).approve(await daoStaking.getAddress(), additionalStake)
+      await daoStaking.connect(user1).stake(additionalStake)
+      
+      // User's staked amount should include original stake + additional stake + rewards
+      const expectedTotal = STAKE_AMOUNT + additionalStake + pendingRewards
+      expect(await daoStaking.stakedAmount(user1.address)).to.equal(expectedTotal)
+    })
+
+    it('should handle full unstake with rewards', async () => {
+      // Stake tokens
+      await daoStaking.connect(user1).stake(STAKE_AMOUNT)
+      
+      // Fast forward to accumulate rewards
+      await time.increase(60 * 24 * 60 * 60) // 60 days
+      
+      const pendingRewards = await daoStaking.calculatePendingRewards(user1.address)
+      const initialBalance = await platformToken.balanceOf(user1.address)
+      
+      // Unstake all tokens
+      await expect(daoStaking.connect(user1).unstake(STAKE_AMOUNT))
+        .to.emit(eventEmitter, 'DaoStaking_TokensUnstaked')
+        .withArgs(
+          await daoStaking.getAddress(),
+          user1.address,
+          STAKE_AMOUNT + pendingRewards, // Total withdrawn
+          pendingRewards, // Rewards received
+          0 // New voting power
+        )
+      
+      // User should receive original stake + rewards
+      expect(await platformToken.balanceOf(user1.address)).to.equal(
+        initialBalance + STAKE_AMOUNT + pendingRewards
+      )
+      expect(await daoStaking.stakedAmount(user1.address)).to.equal(0)
+    })
+
+    it('should handle partial unstake with reinvestment', async () => {
+      // Stake tokens
+      await daoStaking.connect(user1).stake(STAKE_AMOUNT)
+      
+      // Fast forward to accumulate rewards
+      await time.increase(60 * 24 * 60 * 60) // 60 days
+      
+      const pendingRewards = await daoStaking.calculatePendingRewards(user1.address)
+      const initialBalance = await platformToken.balanceOf(user1.address)
+      const unstakeAmount = STAKE_AMOUNT / 2n // Unstake half
+      
+      // Partial unstake
+      await expect(daoStaking.connect(user1).unstake(unstakeAmount))
+        .to.emit(eventEmitter, 'DaoStaking_TokensUnstaked')
+        .withArgs(
+          await daoStaking.getAddress(),
+          user1.address,
+          unstakeAmount, // Amount withdrawn
+          pendingRewards, // Rewards received
+          STAKE_AMOUNT - unstakeAmount + pendingRewards // New voting power (remaining + rewards)
+        )
+      
+      // User should receive only the unstaked amount
+      expect(await platformToken.balanceOf(user1.address)).to.equal(initialBalance + unstakeAmount)
+      
+      // Remaining stake should include rewards
+      expect(await daoStaking.stakedAmount(user1.address)).to.equal(
+        STAKE_AMOUNT - unstakeAmount + pendingRewards
+      )
+    })
+
+    it('should reset staking timestamp on reinvestment', async () => {
+      // Stake tokens
+      await daoStaking.connect(user1).stake(STAKE_AMOUNT)
+      const initialTimestamp = await daoStaking.stakingTimestamp(user1.address)
+      
+      // Fast forward
+      await time.increase(30 * 24 * 60 * 60)
+      
+      // Stake again (should reset timestamp)
+      const additionalStake = ethers.parseEther('100')
+      await platformToken.connect(user1).approve(await daoStaking.getAddress(), additionalStake)
+      await daoStaking.connect(user1).stake(additionalStake)
+      
+      const newTimestamp = await daoStaking.stakingTimestamp(user1.address)
+      expect(newTimestamp).to.be.gt(initialTimestamp)
+    })
+
+    it('should handle multiple users with different reward rates', async () => {
+      // User1 stakes first
+      await daoStaking.connect(user1).stake(STAKE_AMOUNT)
+      
+      // Fast forward 30 days
+      await time.increase(30 * 24 * 60 * 60)
+      
+      // User2 stakes later
+      await daoStaking.connect(user2).stake(STAKE_AMOUNT / 2n)
+      
+      // Fast forward another 30 days
+      await time.increase(30 * 24 * 60 * 60)
+      
+      // User1 should have 60 days of rewards, User2 should have 30 days
+      const user1Rewards = await daoStaking.calculatePendingRewards(user1.address)
+      const user2Rewards = await daoStaking.calculatePendingRewards(user2.address)
+      
+      expect(user1Rewards).to.be.gt(user2Rewards)
+      
+      // User1 rewards should be approximately 4x User2 rewards (2x time, 2x amount)
+      expect(user1Rewards).to.be.closeTo(user2Rewards * 4n, ethers.parseEther('10'))
+    })
+
+    it('should handle zero rewards when no time has passed', async () => {
+      await daoStaking.connect(user1).stake(STAKE_AMOUNT)
+      
+      // Immediately check rewards
+      expect(await daoStaking.calculatePendingRewards(user1.address)).to.equal(0)
+    })
+
+    it('should handle rewards when annual rate is zero', async () => {
+      // Set annual reward rate to 0
+      await config.connect(governance).updateDaoStakingAnnualRewardRate(0)
+      
+      await daoStaking.connect(user1).stake(STAKE_AMOUNT)
+      await time.increase(365 * 24 * 60 * 60) // 1 year
+      
+      expect(await daoStaking.calculatePendingRewards(user1.address)).to.equal(0)
+    })
+
+    it('should update totalUserDeposits correctly', async () => {
+      expect(await daoStaking.totalUserDeposits()).to.equal(0)
+      
+      // First user stakes
+      await daoStaking.connect(user1).stake(STAKE_AMOUNT)
+      expect(await daoStaking.totalUserDeposits()).to.equal(STAKE_AMOUNT)
+      
+      // Second user stakes
+      await daoStaking.connect(user2).stake(STAKE_AMOUNT / 2n)
+      expect(await daoStaking.totalUserDeposits()).to.equal(STAKE_AMOUNT + STAKE_AMOUNT / 2n)
+      
+      // First user unstakes partially
+      await daoStaking.connect(user1).unstake(STAKE_AMOUNT / 4n)
+      // totalUserDeposits should reflect the remaining staked amount
+      expect(await daoStaking.totalUserDeposits()).to.be.gt(STAKE_AMOUNT)
     })
   })
 })

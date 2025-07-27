@@ -12,7 +12,7 @@ import { AddressBook } from "../system/AddressBook.sol";
 /// @dev Implements ERC1155 standard with upgradeable functionality
 contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeable {
     /// @notice Address book contract reference
-    AddressBook public addressBook;
+    AddressBook public immutable addressBook;
 
     /// @notice Emergency pause flag
     bool public paused;
@@ -30,13 +30,14 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
     /// @notice Unique token ID amount
     uint256 public tokensLength;
 
-    constructor() UpgradeableContract() {}
+    constructor(address initialAddressBook) UpgradeableContract() {
+        require(initialAddressBook != address(0), "Invalid initialAddressBook");
+        addressBook = AddressBook(initialAddressBook);
+    }
 
     /// @notice Initializes the contract
     /// @dev Can only be called once
-    /// @param initialAddressBook Address of the AddressBook contract
     function initialize(
-        address initialAddressBook,
         address deployer,
         address initialOwner,
         string memory initialEntityId,
@@ -44,12 +45,11 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
         string memory initialEntityOwnerType
     ) external initializer {
         require(initialOwner != address(0), "Invalid owner");
-        require(initialAddressBook != address(0), "Invalid addressBook");
+        addressBook.requireFactory(msg.sender);
 
         __UpgradeableContract_init();
         __ERC1155_init_unchained("");
         __ERC1155Supply_init_unchained();
-        addressBook = AddressBook(initialAddressBook);
         owner = initialOwner;
         entityId = initialEntityId;
         entityOwnerId = initialEntityOwnerId;
@@ -71,7 +71,7 @@ contract RWA is UpgradeableContract, ERC1155Upgradeable, ERC1155SupplyUpgradeabl
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireUpgradeRole(msg.sender);
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(UpgradeableContract, ERC1155Upgradeable) returns (bool) {

@@ -7,17 +7,11 @@ import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 import { AddressBook } from "../system/AddressBook.sol";
 
 /// @title Platform Token Contract
-/// @notice ERC20 token with batch mint functionality
+/// @notice ERC20 token
 /// @dev Upgradeable ERC20 token for platform governance and rewards
 contract PlatformToken is UpgradeableContract, ERC20Upgradeable {
     /// @notice Address book contract reference
     AddressBook public addressBook;
-
-    /// @notice Emitted when tokens are batch minted
-    /// @param operator Address performing the mint
-    /// @param recipients Array of recipient addresses
-    /// @param amounts Array of amounts minted
-    event BatchMint(address indexed operator, address[] recipients, uint256[] amounts);
 
     constructor() UpgradeableContract() {}
 
@@ -53,6 +47,8 @@ contract PlatformToken is UpgradeableContract, ERC20Upgradeable {
     /// @notice Override transfer function to emit additional event
     function _update(address from, address to, uint256 amount) internal virtual override {
         super._update(from, to, amount);
+        
+        addressBook.eventEmitter().emitPlatformToken_Transfer(from, to, amount);
     }
 
     function uniqueContractId() public pure override returns (bytes32) {
@@ -64,6 +60,6 @@ contract PlatformToken is UpgradeableContract, ERC20Upgradeable {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireUpgradeRole(msg.sender);
     }
 }

@@ -20,7 +20,8 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
     AddressBook public addressBook;
 
     mapping(bytes32 => bool) public usedSignatures;
-    mapping(string => bool) public deployedEntities;
+    mapping(string => bool) public deployedRWAs;
+    mapping(string => bool) public deployedPools;
 
     function uniqueContractId() public pure override returns (bytes32) {
         return keccak256("Factory");
@@ -31,12 +32,13 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireUpgradeRole(msg.sender);
     }
 
     constructor() UpgradeableContract() {}
 
     function initialize(address initialAddressBook) external initializer {
+        require(initialAddressBook != address(0), "Invalid address book");
         addressBook = AddressBook(initialAddressBook);
 
         __UpgradeableContract_init();
@@ -54,7 +56,8 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
         uint256 expired
     ) external nonReentrant returns (address) {
         require(block.timestamp <= expired, "Request has expired");
-        require(!deployedEntities[entityId], "Entity already deployed");
+        require(!deployedRWAs[entityId], "RWA already deployed");
+        require(owner != address(0), "Invalid owner");
 
         AddressBook _addressBook = addressBook;
         Config config = _addressBook.config();
@@ -107,8 +110,9 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
         address proxy = address(new ERC1967Proxy(_addressBook.rwaImplementation(), ""));
         RWA rwa = RWA(proxy);
         _addressBook.addRWA(rwa);
-        rwa.initialize(address(_addressBook), msg.sender, owner, entityId, entityOwnerId, entityOwnerType);
+        rwa.initialize(msg.sender, owner, entityId, entityOwnerId, entityOwnerType);
 
+        deployedRWAs[entityId] = true;
         return proxy;
     }
 
@@ -138,7 +142,8 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
         uint256 expired
     ) external nonReentrant returns (address) {
         require(block.timestamp <= expired, "Request has expired");
-        require(!deployedEntities[entityId], "Entity already deployed");
+        require(!deployedPools[entityId], "Pool already deployed");
+        require(address(rwa) != address(0), "Invalid RWA address");
 
         AddressBook _addressBook = addressBook;
         Config config = _addressBook.config();
@@ -188,6 +193,15 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
             entryPeriodStart > block.timestamp - config.maxEntryStartPastOffset() &&
                 entryPeriodStart < block.timestamp + config.maxEntryStartFutureOffset(),
             "Factory: entry period start out of allowed range"
+        );
+
+        require(
+            entryPeriodStart < entryPeriodExpired,
+            "Factory: entry period start must be before entry period expiration"
+        );
+        require(
+            entryPeriodExpired < completionPeriodExpired,
+            "Factory: entry period expiration must be before completion period expiration"
         );
         require(
             outgoingTranches.length >= config.outgoingTranchesMinCount() &&
@@ -364,7 +378,6 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
             msg.sender, // deployer
             address(config.holdToken()),
             address(rwa),
-            _addressBook,
             rwaId,
             entityId,
             rwa.entityOwnerId(),
@@ -391,7 +404,7 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
             incomingTrancheExpired
         );
 
-        deployedEntities[entityId] = true;
+        deployedPools[entityId] = true;
         return proxy;
     }
 

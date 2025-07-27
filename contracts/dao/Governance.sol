@@ -22,6 +22,7 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
         string description;
         uint256 votesFor;
         uint256 votesAgainst;
+        uint256 creationTime;
         uint256 endTime;
         bool executed;
         bool cancelled;
@@ -71,6 +72,7 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
             description: description,
             votesFor: 0,
             votesAgainst: 0,
+            creationTime: block.timestamp,
             endTime: endTime,
             executed: false,
             cancelled: false
@@ -83,8 +85,12 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
             target,
             data,
             description,
-            block.timestamp,
-            endTime
+            0, // votesFor
+            0, // votesAgainst
+            block.timestamp, // creationTime
+            endTime,
+            false, // executed
+            false  // cancelled
         );
     }
 
@@ -114,6 +120,9 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
             proposal.votesAgainst += votes;
         }
 
+        // Lock user's staked tokens until proposal end time
+        daoStaking.lock(msg.sender, proposal.endTime);
+
         EventEmitter eventEmitter = addressBook.eventEmitter();
         eventEmitter.emitGovernance_VoteCast(proposalId, msg.sender, support, votes, reason);
 
@@ -121,14 +130,20 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
         _checkAutoAction(proposalId);
     }
 
-    /// @notice Manual cancel by proposer
+    /// @notice Manual cancel by proposer (within 12 hours) or by governance
     function cancel(uint256 proposalId) external {
         Proposal storage proposal = proposals[proposalId];
-        require(
-            msg.sender == proposal.proposer || msg.sender == address(this),
-            "Not authorized"
-        );
         require(!proposal.executed && !proposal.cancelled, "Proposal finished");
+        
+        if (msg.sender == proposal.proposer) {
+            // Proposer can only cancel within 12 hours of creation
+            require(
+                block.timestamp <= proposal.creationTime + 12 hours,
+                "Proposer can only cancel within 12 hours"
+            );
+        } else if (msg.sender != address(this)) {
+            revert("Not authorized");
+        }
 
         _cancelProposal(proposalId, msg.sender);
     }
@@ -175,12 +190,13 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
 
         // Execute if enough votes FOR
         if (proposal.votesFor >= quorum && proposal.votesFor > proposal.votesAgainst) {
-            (bool success, bytes memory returnData) = proposal.target.call(proposal.data);
-            require(success, _getRevertMsg(returnData));
-
             proposal.executed = true;
             EventEmitter eventEmitter = addressBook.eventEmitter();
             eventEmitter.emitGovernance_ProposalExecuted(proposalId, address(this));
+            
+            (bool success, bytes memory returnData) = proposal.target.call(proposal.data);
+            require(success, _getRevertMsg(returnData));
+
             return;
         }
 
@@ -199,7 +215,7 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireUpgradeRole(msg.sender);
     }
 
     function _getRevertMsg(bytes memory returnData) private pure returns (string memory) {

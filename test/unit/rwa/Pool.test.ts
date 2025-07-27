@@ -28,22 +28,22 @@ async function getCurrentBlockTimestamp(): Promise<number> {
 const testConfigs = {
     // Pool behavior flags
     fixedSellValues: [
-        // { value: true, description: "fixed sell" },
+        { value: true, description: "fixed sell" },
         { value: false, description: "variable sell" }
     ],
 
     allowEntryBurnValues: [
         { value: true, description: "allow entry burn" },
-        // { value: false, description: "no entry burn" }
+        { value: false, description: "no entry burn" }
     ],
 
     awaitCompletionExpiredValues: [
         { value: true, description: "bonus after completion" },
-        // { value: false, description: "bonus after return" }
+        { value: false, description: "bonus after return" }
     ],
 
     floatingOutTranchesTimestampsValues: [
-        // { value: true, description: "floating timestamps" },
+        { value: true, description: "floating timestamps" },
         { value: false, description: "fixed timestamps" }
     ],
 
@@ -90,7 +90,7 @@ const testConfigs = {
 
     // Price impact coefficients (impact percent * 100)
     priceImpactCoefficients: {
-        30000: 1,    // 300%
+        // 30000: 1,    // 300%
         // 12500: 2,    // 125%
         //     7778: 3,     // 77.78%
         //     5625: 4,     // 56.25%
@@ -308,7 +308,7 @@ const testConfigs = {
         //     66: 302,     // 0.66%
         //     65: 306,     // 0.65%
         //     64: 311,     // 0.64%
-        //     63: 316,     // 0.63%
+            63: 316,     // 0.63%
         //     62: 321,     // 0.62%
         //     61: 326,     // 0.61%
         //     60: 332,     // 0.6%

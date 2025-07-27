@@ -77,6 +77,9 @@ contract AddressBook is UpgradeableContract {
     /// @notice Number of authorized signers
     uint256 public signersLength;
 
+    /// @notice The upgrade role address
+    address public upgradeRole;
+
     constructor() UpgradeableContract() {}
 
     /// @notice Initializes the contract setting initial governance
@@ -96,13 +99,14 @@ contract AddressBook is UpgradeableContract {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
     }
 
     /// @notice Checks if an address has governance rights
     /// @dev Reverts if account is not governance
     /// @param account The address to check
     function requireGovernance(address account) public view {
+        // TODO добавить простой переход для апдейта контрактов новая функияпроверки
         require(account == address(governance), "AddressBook: not governance");
     }
 
@@ -111,6 +115,13 @@ contract AddressBook is UpgradeableContract {
     /// @param account The address to check
     function requireTimelock(address account) public view {
         require(account == address(timelock), "Only timelock!");
+    }
+
+    /// @notice Checks if an address has upgradeRole rights
+    /// @dev Reverts if account is not upgradeRole
+    /// @param account The address to check
+    function requireUpgradeRole(address account) public view {
+        require(account == upgradeRole, "Only upgradeRole!");
     }
 
     /// @notice Checks if an address has factory rights

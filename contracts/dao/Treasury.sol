@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 import { AddressBook } from "../system/AddressBook.sol";
 import { EventEmitter } from "../system/EventEmitter.sol";
@@ -11,12 +12,11 @@ import { EventEmitter } from "../system/EventEmitter.sol";
 /// @title DAO Treasury Contract
 /// @notice Manages DAO funds under timelock control
 /// @dev Holds and manages treasury assets for the DAO
-contract Treasury is UpgradeableContract {
+contract Treasury is UpgradeableContract, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
 
     /// @notice Address book contract reference
     AddressBook public addressBook;
-    
 
     constructor() UpgradeableContract() {}
 
@@ -28,6 +28,7 @@ contract Treasury is UpgradeableContract {
         addressBook = AddressBook(initialAddressBook);
 
         __UpgradeableContract_init();
+        __ReentrancyGuard_init_unchained();
     }
 
     /// @notice Withdraws ERC20 tokens
@@ -38,7 +39,7 @@ contract Treasury is UpgradeableContract {
         address token,
         address to,
         uint256 amount
-    ) external {
+    ) external nonReentrant { 
         addressBook.requireTimelock(msg.sender);
         require(to != address(0), "Zero address recipient");
         
@@ -51,7 +52,7 @@ contract Treasury is UpgradeableContract {
     /// @notice Withdraws ETH
     /// @param to Recipient address
     /// @param amount Amount to withdraw
-    function withdrawETH(address to, uint256 amount) external {
+    function withdrawETH(address to, uint256 amount) external nonReentrant {
         addressBook.requireTimelock(msg.sender);
         require(to != address(0), "Zero address recipient");
         require(address(this).balance >= amount, "Insufficient ETH");
@@ -79,7 +80,7 @@ contract Treasury is UpgradeableContract {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireUpgradeRole(msg.sender);
     }
 
     /// @notice Allows receiving ETH

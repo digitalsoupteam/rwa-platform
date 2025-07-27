@@ -48,6 +48,7 @@ contract ReferralTreasury is UpgradeableContract, ReentrancyGuardUpgradeable {
         bytes[] calldata signatures
     ) external nonReentrant {
         require(block.timestamp <= deadline, "Request has expired");
+        require(amount > 0, "Amount must be greater than zero");
         
         AddressBook _addressBook = addressBook;
         Config config = _addressBook.config();
@@ -92,6 +93,7 @@ contract ReferralTreasury is UpgradeableContract, ReentrancyGuardUpgradeable {
     ) external {
         AddressBook _addressBook = addressBook;
         _addressBook.requireGovernance(msg.sender);
+        require(amount > 0, "Amount must be greater than zero");
         
         IERC20(token).safeTransfer(to, amount);
         
@@ -108,10 +110,11 @@ contract ReferralTreasury is UpgradeableContract, ReentrancyGuardUpgradeable {
         bytes[] calldata signatures,
         bytes32 messageHash
     ) internal {
+        AddressBook _addressBook = addressBook;
         for (uint256 i = 0; i < signers.length; i++) {
             bytes32 signatureHash = keccak256(signatures[i]);
             require(!usedSignatures[signatureHash], "Duplicate signature");
-            require(addressBook.signers(signers[i]), "Not an authorized signer");
+            require(_addressBook.signers(signers[i]), "Not an authorized signer");
             require(
                 SignatureChecker.isValidSignatureNow(signers[i], messageHash, signatures[i]),
                 "Invalid signature"
@@ -132,6 +135,6 @@ contract ReferralTreasury is UpgradeableContract, ReentrancyGuardUpgradeable {
 
     /// @notice Verifies authorization for upgrade
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireUpgradeRole(msg.sender);
     }
 }

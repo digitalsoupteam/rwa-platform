@@ -414,8 +414,12 @@ contract EventEmitter is UpgradeableContract {
         address target,
         bytes data,
         string description,
-        uint256 startTime,
-        uint256 endTime
+        uint256 votesFor,
+        uint256 votesAgainst,
+        uint256 creationTime,
+        uint256 endTime,
+        bool executed,
+        bool cancelled
     );
 
     event Governance_VoteCast(
@@ -450,7 +454,14 @@ contract EventEmitter is UpgradeableContract {
         address indexed emittedFrom,
         address indexed staker,
         uint256 amount,
+        uint256 rewardsReceived,
         uint256 newVotingPower
+    );
+
+    event DaoStaking_TokensLocked(
+        address indexed emittedFrom,
+        address indexed user,
+        uint256 unlockTimestamp
     );
 
     event Timelock_TransactionQueued(
@@ -492,8 +503,12 @@ contract EventEmitter is UpgradeableContract {
         address target,
         bytes memory data,
         string memory description,
-        uint256 startTime,
-        uint256 endTime
+        uint256 votesFor,
+        uint256 votesAgainst,
+        uint256 creationTime,
+        uint256 endTime,
+        bool executed,
+        bool cancelled
     ) external {
         addressBook.requireProtocolContract(msg.sender);
         emit Governance_ProposalCreated(
@@ -503,8 +518,12 @@ contract EventEmitter is UpgradeableContract {
             target,
             data,
             description,
-            startTime,
-            endTime
+            votesFor,
+            votesAgainst,
+            creationTime,
+            endTime,
+            executed,
+            cancelled
         );
     }
 
@@ -554,10 +573,19 @@ contract EventEmitter is UpgradeableContract {
     function emitDaoStaking_TokensUnstaked(
         address staker,
         uint256 amount,
+        uint256 rewardsReceived,
         uint256 newVotingPower
     ) external {
         addressBook.requireProtocolContract(msg.sender);
-        emit DaoStaking_TokensUnstaked(msg.sender, staker, amount, newVotingPower);
+        emit DaoStaking_TokensUnstaked(msg.sender, staker, amount, rewardsReceived, newVotingPower);
+    }
+
+    function emitDaoStaking_TokensLocked(
+        address user,
+        uint256 unlockTimestamp
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit DaoStaking_TokensLocked(msg.sender, user, unlockTimestamp);
     }
 
     function emitTimelock_TransactionQueued(
@@ -689,7 +717,7 @@ contract EventEmitter is UpgradeableContract {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireUpgradeRole(msg.sender);
     }
 
 
@@ -741,4 +769,26 @@ contract EventEmitter is UpgradeableContract {
         addressBook.requireProtocolContract(msg.sender);
         emit RWA_Deployed(msg.sender, deployer, owner, entityId);
     }
+
+    // --- PlatformToken Events Start ---
+
+    event PlatformToken_Transfer(
+        address indexed emittedFrom,
+        address indexed from,
+        address indexed to,
+        uint256 amount
+    );
+
+    // --- PlatformToken Emitter Functions Start ---
+
+    function emitPlatformToken_Transfer(
+        address from,
+        address to,
+        uint256 amount
+    ) external {
+        addressBook.requireProtocolContract(msg.sender);
+        emit PlatformToken_Transfer(msg.sender, from, to, amount);
+    }
+
+    // --- PlatformToken Events End ---
 }

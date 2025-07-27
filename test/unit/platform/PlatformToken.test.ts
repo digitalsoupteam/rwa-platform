@@ -149,7 +149,7 @@ describe('PlatformToken Contract Unit Tests', () => {
           await newImplementation.getAddress(),
           '0x01' // Non-empty data required
         )
-      ).to.be.revertedWith('AddressBook: not governance')
+      ).to.be.revertedWith('Only upgradeRole!')
     })
 
     it('should allow governance to authorize upgrades', async () => {

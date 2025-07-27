@@ -71,6 +71,9 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const initialProposalThreshold = ethers.parseEther('1000000') // 1M tokens to create proposal
   const initialTimelockDelay = 2 * 24 * 60 * 60 // 2 days in seconds
 
+  // DAO Staking parameters
+  const initialDaoStakingAnnualRewardRate = 1000 // 10% annual reward rate
+
   // Price impact coefficients mapping
   const priceImpactCoefficients = {
     30000: 1,
@@ -409,6 +412,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             initialQuorumPercentage,
             initialProposalThreshold,
             initialTimelockDelay,
+            initialDaoStakingAnnualRewardRate,
             priceImpactPercentages,
             coefficients
           ],

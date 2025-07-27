@@ -53,6 +53,7 @@ contract Timelock is UpgradeableContract, ReentrancyGuardUpgradeable {
         );
 
         txHash = keccak256(abi.encode(target, data, eta));
+        // TODO исключить потворную поставку в очередь
         require(queuedTransactions[txHash] == 0, "Transaction already queued");
         
         queuedTransactions[txHash] = eta;
@@ -175,9 +176,11 @@ contract Timelock is UpgradeableContract, ReentrancyGuardUpgradeable {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireUpgradeRole(msg.sender);
     }
 
     /// @notice Allows receiving ETH
     receive() external payable {}
+
+    // TODO доабвить функции экстренного вывода средств
 }

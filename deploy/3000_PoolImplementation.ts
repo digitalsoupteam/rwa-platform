@@ -17,6 +17,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const deployment = await deploy('PoolImplementation', {
     contract: 'Pool',
     from: deployer.address,
+    args: [addressBook.address],
   })
   
   await deployments.execute(

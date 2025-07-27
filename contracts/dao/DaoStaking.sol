@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 import { AddressBook } from "../system/AddressBook.sol";
 import { EventEmitter } from "../system/EventEmitter.sol";
+import { Config } from "../system/Config.sol";
 import { PlatformToken } from "../platform/PlatformToken.sol";
 
 /// @title DAO Staking Contract
@@ -21,17 +22,17 @@ contract DaoStaking is UpgradeableContract, ReentrancyGuardUpgradeable {
     /// @notice Platform token used for staking
     PlatformToken public platformToken;
 
-    /// @notice Total amount of tokens staked in the contract
-    uint256 public totalStaked;
-
-    /// @notice Minimum staking period to prevent flash loan attacks (7 days)
-    uint256 public constant MIN_STAKING_PERIOD = 7 days;
+    /// @notice Total amount of tokens deposited by users (for reward calculation)
+    uint256 public totalUserDeposits;
 
     /// @notice Mapping of user addresses to their staked token amounts
     mapping(address => uint256) public stakedAmount;
 
     /// @notice Mapping of user addresses to their staking timestamps
     mapping(address => uint256) public stakingTimestamp;
+
+    /// @notice Mapping of user addresses to their voting lock timestamps
+    mapping(address => uint256) public votingLockTimestamp;
 
     constructor() UpgradeableContract() {}
 
@@ -47,17 +48,80 @@ contract DaoStaking is UpgradeableContract, ReentrancyGuardUpgradeable {
         __ReentrancyGuard_init();
     }
 
-    /// @notice Stakes Platform tokens to gain voting power
+    /// @notice Locks user's staked tokens until specified timestamp (can only be called by governance)
+    /// @param user Address of the user whose tokens to lock
+    /// @param unlockTimestamp Timestamp when tokens can be unlocked
+    function lock(address user, uint256 unlockTimestamp) external {
+        addressBook.requireGovernance(msg.sender);
+        require(stakedAmount[user] > 0, "No staked tokens");
+        require(unlockTimestamp > block.timestamp, "Invalid unlock timestamp");
+        
+        // Only update if new lock is longer than current
+        if (unlockTimestamp > votingLockTimestamp[user]) {
+            votingLockTimestamp[user] = unlockTimestamp;
+        }
+        
+        EventEmitter eventEmitter = addressBook.eventEmitter();
+        eventEmitter.emitDaoStaking_TokensLocked(user, votingLockTimestamp[user]);
+    }
+
+
+
+    /// @notice Calculates pending rewards for a user
+    /// @param user Address of the user
+    /// @return Pending reward amount
+    function calculatePendingRewards(address user) public view returns (uint256) {
+        if (stakedAmount[user] == 0 || stakingTimestamp[user] == 0) {
+            return 0;
+        }
+        
+        Config config = addressBook.config();
+        uint256 annualRewardRate = config.daoStakingAnnualRewardRate();
+        
+        uint256 stakingDuration = block.timestamp - stakingTimestamp[user];
+        uint256 annualReward = (stakedAmount[user] * annualRewardRate) / 10000;
+        uint256 pendingReward = (annualReward * stakingDuration) / 365 days;
+        
+        // Check if there are enough rewards in the pool
+        uint256 availableRewards = getAvailableRewards();
+        return pendingReward > availableRewards ? availableRewards : pendingReward;
+    }
+
+    /// @notice Gets available rewards in the pool
+    /// @return Available reward amount
+    function getAvailableRewards() public view returns (uint256) {
+        uint256 contractBalance = platformToken.balanceOf(address(this));
+        return contractBalance > totalUserDeposits ? contractBalance - totalUserDeposits : 0;
+    }
+
+    /// @notice Stakes Platform tokens to gain voting power with reinvestment
     /// @param amount Amount of Platform tokens to stake
     function stake(uint256 amount) external nonReentrant {
         require(amount > 0, "Zero amount");
         require(platformToken.balanceOf(msg.sender) >= amount, "Insufficient balance");
 
+        // If user already has staked tokens, unstake them first to get rewards
+        uint256 currentStaked = stakedAmount[msg.sender];
+        uint256 rewards = 0;
+        
+        if (currentStaked > 0) {
+            rewards = calculatePendingRewards(msg.sender);
+            // Internal unstake without transferring tokens
+            totalUserDeposits -= currentStaked;
+        }
+
+        // Transfer new tokens from user
         platformToken.safeTransferFrom(msg.sender, address(this), amount);
         
-        stakedAmount[msg.sender] += amount;
-        totalStaked += amount;
+        // Calculate total amount to stake (new amount + previous stake + rewards)
+        uint256 totalToStake = amount + currentStaked + rewards;
+        
+        // Update user's staked amount and timestamp
+        stakedAmount[msg.sender] = totalToStake;
         stakingTimestamp[msg.sender] = block.timestamp;
+        
+        // Update totals
+        totalUserDeposits += totalToStake;
 
         EventEmitter eventEmitter = addressBook.eventEmitter();
         eventEmitter.emitDaoStaking_TokensStaked(
@@ -67,32 +131,56 @@ contract DaoStaking is UpgradeableContract, ReentrancyGuardUpgradeable {
         );
     }
 
-    /// @notice Unstakes Platform tokens after minimum staking period
+    /// @notice Unstakes Platform tokens after voting lock period with reinvestment logic
     /// @param amount Amount of Platform tokens to unstake
     function unstake(uint256 amount) external nonReentrant {
         require(amount > 0, "Zero amount");
         require(stakedAmount[msg.sender] >= amount, "Insufficient staked amount");
         require(
-            block.timestamp >= stakingTimestamp[msg.sender] + MIN_STAKING_PERIOD,
-            "Minimum staking period not met"
+            block.timestamp >= votingLockTimestamp[msg.sender],
+            "Voting lock period not met"
         );
 
-        stakedAmount[msg.sender] -= amount;
-        totalStaked -= amount;
-
-        // Reset staking timestamp if user has no more staked tokens
-        if (stakedAmount[msg.sender] == 0) {
-            stakingTimestamp[msg.sender] = 0;
-        }
-
-        platformToken.safeTransfer(msg.sender, amount);
+        uint256 currentStaked = stakedAmount[msg.sender];
+        uint256 rewards = calculatePendingRewards(msg.sender);
+        uint256 totalWithRewards = currentStaked + rewards;
 
         EventEmitter eventEmitter = addressBook.eventEmitter();
-        eventEmitter.emitDaoStaking_TokensUnstaked(
-            msg.sender,
-            amount,
-            stakedAmount[msg.sender]
-        );
+
+        if (amount >= currentStaked) {
+            // User wants to withdraw everything - give them all tokens + rewards
+            stakedAmount[msg.sender] = 0;
+            totalUserDeposits -= currentStaked;
+            
+            platformToken.safeTransfer(msg.sender, totalWithRewards);
+            
+            eventEmitter.emitDaoStaking_TokensUnstaked(
+                msg.sender,
+                totalWithRewards,
+                rewards,
+                0
+            );
+        } else {
+            // User wants to withdraw partially - reinvest rewards and remainder
+            uint256 toWithdraw = amount;
+            uint256 toReinvest = totalWithRewards - amount;
+            
+            // Update user's staked amount and reset timestamp for reinvestment
+            stakedAmount[msg.sender] = toReinvest;
+            stakingTimestamp[msg.sender] = block.timestamp;
+            
+            // Update totals
+            totalUserDeposits = totalUserDeposits - currentStaked + toReinvest;
+            
+            platformToken.safeTransfer(msg.sender, toWithdraw);
+            
+            eventEmitter.emitDaoStaking_TokensUnstaked(
+                msg.sender,
+                toWithdraw,
+                rewards,
+                stakedAmount[msg.sender]
+            );
+        }
     }
 
     /// @notice Gets the voting power for a specific user
@@ -109,23 +197,6 @@ contract DaoStaking is UpgradeableContract, ReentrancyGuardUpgradeable {
         return platformToken.totalSupply();
     }
 
-    /// @notice Checks if a user can unstake their tokens
-    /// @param user Address of the user to check
-    /// @return True if user can unstake, false otherwise
-    function canUnstake(address user) external view returns (bool) {
-        return block.timestamp >= stakingTimestamp[user] + MIN_STAKING_PERIOD;
-    }
-
-    /// @notice Gets the remaining time until a user can unstake
-    /// @param user Address of the user to check
-    /// @return Remaining time in seconds (0 if can already unstake)
-    function getUnstakeTime(address user) external view returns (uint256) {
-        uint256 unlockTime = stakingTimestamp[user] + MIN_STAKING_PERIOD;
-        if (block.timestamp >= unlockTime) {
-            return 0;
-        }
-        return unlockTime - block.timestamp;
-    }
 
     function uniqueContractId() public pure override returns (bytes32) {
         return keccak256("DaoStaking");
@@ -136,6 +207,6 @@ contract DaoStaking is UpgradeableContract, ReentrancyGuardUpgradeable {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireUpgradeRole(msg.sender);
     }
 }

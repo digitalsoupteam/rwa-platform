@@ -100,6 +100,10 @@ contract Config is UpgradeableContract {
     /// @notice Timelock delay for executing proposals (in seconds)
     uint256 public timelockDelay;
 
+    // --- DAO Staking Configuration ---
+    /// @notice Annual reward rate for DAO staking (in basis points, max 10000 = 100%)
+    uint256 public daoStakingAnnualRewardRate;
+
     // --- Liquidity Coefficient Configuration ---
     /// @notice Mapping of price impact percentage (multiplied by 100) to liquidity coefficient
     /// @dev Example: 1 => 13334 means 0.01% => 13334
@@ -148,6 +152,7 @@ contract Config is UpgradeableContract {
         uint256 initialQuorumPercentage,
         uint256 initialProposalThreshold,
         uint256 initialTimelockDelay,
+        uint256 initialDaoStakingAnnualRewardRate,
         uint256[] memory initialPriceImpactPercentages,
         uint256[] memory initialCoefficients
     ) external initializer {
@@ -234,6 +239,10 @@ contract Config is UpgradeableContract {
         quorumPercentage = initialQuorumPercentage;
         proposalThreshold = initialProposalThreshold;
         timelockDelay = initialTimelockDelay;
+        
+        // Set DAO staking parameters
+        require(initialDaoStakingAnnualRewardRate <= 10000, "Invalid reward rate"); // Max 100%
+        daoStakingAnnualRewardRate = initialDaoStakingAnnualRewardRate;
 
         // Set initial liquidity coefficients
         require(initialPriceImpactPercentages.length == initialCoefficients.length, "Arrays length mismatch");
@@ -254,7 +263,7 @@ contract Config is UpgradeableContract {
     }
 
     function _verifyAuthorizeUpgradeRole() internal view override {
-        addressBook.requireGovernance(msg.sender);
+        addressBook.requireUpgradeRole(msg.sender);
     }
 
     /// @notice Updates base metadata URI
@@ -285,7 +294,10 @@ contract Config is UpgradeableContract {
     /// @param newMax New maximum fee
     function updateCreateRWAFeeRange(uint256 newMin, uint256 newMax) external {
         addressBook.requireGovernance(msg.sender);
+        
         require(newMin < newMax, "Invalid RWA fee range");
+        require(newMax <= 10000, "Fee too high"); 
+        
         createRWAFeeMin = newMin;
         createRWAFeeMax = newMax;
     }
@@ -327,7 +339,7 @@ contract Config is UpgradeableContract {
     function updateEntryFeePercentRange(uint256 newMin, uint256 newMax) external {
         addressBook.requireGovernance(msg.sender);
         require(newMin < newMax, "Invalid entry fee range");
-        require(newMax <= 10000, "Entry fee too high"); // Max 100%
+        require(newMax <= 10000, "Entry fee too high");
         entryFeePercentMin = newMin;
         entryFeePercentMax = newMax;
     }
@@ -338,7 +350,7 @@ contract Config is UpgradeableContract {
     function updateExitFeePercentRange(uint256 newMin, uint256 newMax) external {
         addressBook.requireGovernance(msg.sender);
         require(newMin < newMax, "Invalid exit fee range");
-        require(newMax <= 10000, "Exit fee too high"); // Max 100%
+        require(newMax <= 10000, "Exit fee too high");
         exitFeePercentMin = newMin;
         exitFeePercentMax = newMax;
     }
@@ -349,6 +361,7 @@ contract Config is UpgradeableContract {
     function updateRewardPercentRange(uint256 newMin, uint256 newMax) external {
         addressBook.requireGovernance(msg.sender);
         require(newMin < newMax, "Invalid reward range");
+        require(newMax <= 10000, "Reward too high");
         rewardPercentMin = newMin;
         rewardPercentMax = newMax;
     }
@@ -396,7 +409,8 @@ contract Config is UpgradeableContract {
     ) external {
         addressBook.requireGovernance(msg.sender);
         require(newMinCount > 0 && newMaxCount >= newMinCount, "Invalid count range");
-        require(newMinPercent > 0 && newMaxPercent <= 10000, "Invalid percent range");
+        require(newMinPercent > 0 && newMinPercent < newMaxPercent, "Invalid percent range");
+        require(newMaxPercent <= 10000, "Invalid percent range");
         require(newMinInterval > 0, "Invalid interval");
 
         outgoingTranchesMinCount = newMinCount;
@@ -416,7 +430,8 @@ contract Config is UpgradeableContract {
     ) external {
         addressBook.requireGovernance(msg.sender);
         require(newMinCount > 0 && newMaxCount >= newMinCount, "Invalid count range");
-        require(newMinPercent > 0 && newMaxPercent <= 10000, "Invalid percent range");
+        require(newMinPercent > 0 && newMinPercent < newMaxPercent, "Invalid percent range");
+        require(newMaxPercent <= 10000, "Invalid percent range");
         require(newMinInterval > 0, "Invalid interval");
 
         incomingTranchesMinCount = newMinCount;
@@ -481,6 +496,14 @@ contract Config is UpgradeableContract {
         addressBook.requireGovernance(msg.sender);
         require(newTimelockDelay > 0, "Invalid timelock delay");
         timelockDelay = newTimelockDelay;
+    }
+
+    /// @notice Updates DAO staking annual reward rate
+    /// @param newRewardRate New annual reward rate in basis points
+    function updateDaoStakingAnnualRewardRate(uint256 newRewardRate) external {
+        addressBook.requireGovernance(msg.sender);
+        require(newRewardRate <= 10000, "Invalid reward rate"); // Max 100%
+        daoStakingAnnualRewardRate = newRewardRate;
     }
 
     /// @notice Gets liquidity coefficient for a given price impact percentage

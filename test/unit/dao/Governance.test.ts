@@ -143,8 +143,12 @@ describe('Governance Contract Unit Tests', () => {
           testTarget, // target
           testData, // data
           testDescription, // description
-          currentTime, // startTime 
-          currentTime + VOTING_PERIOD // endTime 
+          0, // votesFor
+          0, // votesAgainst
+          currentTime, // creationTime
+          currentTime + VOTING_PERIOD, // endTime
+          false, // executed
+          false  // cancelled
         )
 
       expect(await governance.proposalCount()).to.equal(1)
@@ -377,6 +381,49 @@ describe('Governance Contract Unit Tests', () => {
       await expect(
         governance.connect(user2).cancel(proposalId)
       ).to.be.revertedWith('Not authorized')
+    })
+
+    it('should allow proposer to cancel within 12 hours', async () => {
+      // Fast forward 6 hours (within 12 hour limit)
+      await time.increase(6 * 60 * 60)
+
+      await expect(
+        governance.connect(user1).cancel(proposalId)
+      ).to.emit(eventEmitter, 'Governance_ProposalCancelled')
+        .withArgs(
+          await governance.getAddress(), // emittedFrom
+          proposalId,
+          user1.address // canceller
+        )
+
+      const proposal = await governance.getProposal(proposalId)
+      expect(proposal.cancelled).to.equal(true)
+    })
+
+    it('should reject proposer cancellation after 12 hours', async () => {
+      // Fast forward 13 hours (beyond 12 hour limit)
+      await time.increase(13 * 60 * 60)
+
+      await expect(
+        governance.connect(user1).cancel(proposalId)
+      ).to.be.revertedWith('Proposer can only cancel within 12 hours')
+    })
+
+    it('should allow governance to cancel at any time', async () => {
+      // Fast forward 24 hours (well beyond 12 hour limit)
+      await time.increase(24 * 60 * 60)
+
+      await expect(
+        governance.connect(governanceSigner).cancel(proposalId)
+      ).to.emit(eventEmitter, 'Governance_ProposalCancelled')
+        .withArgs(
+          await governance.getAddress(), // emittedFrom
+          proposalId,
+          governanceSigner.address // canceller
+        )
+
+      const proposal = await governance.getProposal(proposalId)
+      expect(proposal.cancelled).to.equal(true)
     })
 
     it('should reject cancellation of already executed proposals', async () => {

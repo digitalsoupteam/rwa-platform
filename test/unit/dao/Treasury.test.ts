@@ -320,7 +320,7 @@ describe('Treasury Contract Unit Tests', () => {
           await newImplementation.getAddress(),
           '0x01'
         )
-      ).to.be.revertedWith('AddressBook: not governance')
+      ).to.be.revertedWith('Only upgradeRole!')
     })
 
     it('should only allow governance to authorize upgrades, not timelock', async () => {
@@ -334,7 +334,7 @@ describe('Treasury Contract Unit Tests', () => {
           await newImplementation.getAddress(),
           '0x01'
         )
-      ).to.be.revertedWith('AddressBook: not governance')
+      ).to.be.revertedWith('Only upgradeRole!')
     })
 
     it('should allow governance to authorize upgrades', async () => {

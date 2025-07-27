@@ -31,7 +31,7 @@ abstract contract UpgradeableContract is
         __ERC165_init();
     }
 
-    function __UpgradeableContract_init_unchained(address _addressBook) internal onlyInitializing {}
+    function __UpgradeableContract_init_unchained() internal onlyInitializing {}
 
     function uniqueContractId() public view virtual returns (bytes32);
     function implementationVersion() public view virtual returns (uint256);

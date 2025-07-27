@@ -17,6 +17,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const deployment = await deploy('RWAImplementation', {
     contract: 'RWA',
     from: deployer.address,
+    args: [addressBook.address],
   })
   
   await deployments.execute(

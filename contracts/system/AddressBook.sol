@@ -106,7 +106,6 @@ contract AddressBook is UpgradeableContract {
     /// @dev Reverts if account is not governance
     /// @param account The address to check
     function requireGovernance(address account) public view {
-        // TODO добавить простой переход для апдейта контрактов новая функияпроверки
         require(account == address(governance), "AddressBook: not governance");
     }
 

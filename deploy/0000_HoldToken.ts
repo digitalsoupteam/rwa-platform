@@ -15,6 +15,8 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const deployment = await deploy('HoldToken', {
     contract: 'HoldToken',
     from: deployer.address,
+    log: true,
+    waitConfirmations: 2,
   })
   
 }

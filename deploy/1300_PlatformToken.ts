@@ -17,6 +17,8 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const deployment = await deploy('PlatformToken', {
     contract: 'PlatformToken',
     from: deployer.address,
+    log: true,
+    waitConfirmations: 2,
     proxy: {
       proxyContract: 'UUPS',
       execute: {
@@ -26,8 +28,6 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
             addressBook.address, // initialAddressBook
             'RWA_PLATFORM', // initialName
             'RWAP', // initialSymbol
-            [deployer.address], // initialHolders
-            [ethers.parseEther('21000000')], // initialAmounts
           ],
         },
       },
@@ -36,9 +36,17 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   await deployments.execute(
     'AddressBook',
-    { from: deployer.address },
+    { from: deployer.address, log: true, waitConfirmations: 2 },
     'setPlatformToken',
     deployment.address
+  )
+
+  await deployments.execute(
+    'PlatformToken',
+    { from: deployer.address, log: true, waitConfirmations: 2 },
+    'mint',
+    [deployer.address], // holders
+    [ethers.parseEther('21000000')] // amounts
   )
 }
 

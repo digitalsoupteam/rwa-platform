@@ -17,6 +17,8 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const deployment = await deploy('Governance', {
     contract: 'Governance',
     from: deployer.address,
+    log: true,
+    waitConfirmations: 2,
     proxy: {
       proxyContract: 'UUPS',
       execute: {
@@ -30,7 +32,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   await deployments.execute(
     'AddressBook',
-    { from: deployer.address },
+    { from: deployer.address, log: true, waitConfirmations: 2 },
     'setGovernance',
     deployment.address
   )

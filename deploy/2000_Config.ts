@@ -17,8 +17,8 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   // Base parameters
   // Base parameters
-  const initialBaseMetadataUri = '127.0.0.1/storage/rwa/metadata'
-  const initialHoldToken = '0x66670d16331dc923Ff095f5B0A658F01e6794216' // USDT address
+  const initialBaseMetadataUri = 'https://slices.finance/storage/rwa/metadata'
+  const initialHoldToken = '0x1c0e214bB702572E5582085d6E25c39A2B13510d' // USDT address
   const initialMinSignersRequired = 3
 
   // Fee parameters
@@ -367,6 +367,8 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const deployment = await deploy('Config', {
     contract: 'Config',
     from: deployer.address,
+    log: true,
+    waitConfirmations: 2,
     proxy: {
       proxyContract: 'UUPS',
       execute: {
@@ -423,7 +425,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   await deployments.execute(
     'AddressBook',
-    { from: deployer.address },
+    { from: deployer.address, log: true, waitConfirmations: 2 },
     'setConfig',
     deployment.address
   )

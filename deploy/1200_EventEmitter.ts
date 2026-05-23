@@ -11,13 +11,17 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   const signers = await ethers.getSigners()
   const deployer = signers[0]
-  const backend = signers[1]
+  
+  const balance = await ethers.provider.getBalance(deployer.address)
+  console.log(`Deployer: ${deployer.address}, Balance: ${ethers.formatEther(balance)} BNB`)
 
   const addressBook = await get('AddressBook')
 
   const deployment = await deploy('EventEmitter', {
     contract: 'EventEmitter',
     from: deployer.address,
+    log: true,
+    waitConfirmations: 2,
     proxy: {
       proxyContract: 'UUPS',
       execute: {
@@ -29,9 +33,15 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     },
   })
 
+  console.log('Waiting for network sync...')
+  await new Promise(r => setTimeout(r, 10000))
+
+  const balanceBeforeExecute = await ethers.provider.getBalance(deployer.address)
+  console.log(`Balance before execute: ${ethers.formatEther(balanceBeforeExecute)} BNB`)
+
   await deployments.execute(
     'AddressBook',
-    { from: deployer.address },
+    { from: deployer.address, log: true, waitConfirmations: 2 },
     'setEventEmitter',
     deployment.address
   )

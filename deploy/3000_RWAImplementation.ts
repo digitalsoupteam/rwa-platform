@@ -17,12 +17,14 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const deployment = await deploy('RWAImplementation', {
     contract: 'RWA',
     from: deployer.address,
+    log: true,
+    waitConfirmations: 2,
     args: [addressBook.address],
   })
   
   await deployments.execute(
     'AddressBook',
-    { from: deployer.address },
+    { from: deployer.address, log: true, waitConfirmations: 2 },
     'setRWAImplementation',
     deployment.address
   )

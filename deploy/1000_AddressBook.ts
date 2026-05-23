@@ -31,19 +31,31 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   await deployments.execute(
     'AddressBook',
-    { from: deployer.address },
+    {
+      from: deployer.address,
+      log: true,
+      waitConfirmations: 2,
+    },
     'addSigner',
     signer1.address
   )
   await deployments.execute(
     'AddressBook',
-    { from: deployer.address },
+    {
+      from: deployer.address,
+      log: true,
+      waitConfirmations: 2,
+    },
     'addSigner',
     signer2.address
   )
   await deployments.execute(
     'AddressBook',
-    { from: deployer.address },
+    {
+      from: deployer.address,
+      log: true,
+      waitConfirmations: 2,
+    },
     'addSigner',
     signer3.address
   )

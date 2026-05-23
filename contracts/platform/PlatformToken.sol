@@ -16,31 +16,37 @@ contract PlatformToken is UpgradeableContract, ERC20Upgradeable {
     constructor() UpgradeableContract() {}
 
     /// @notice Initializes the contract
-    /// @dev Mints tokens to multiple addresses
     /// @param initialAddressBook Address of AddressBook contract
     /// @param initialName Token name
     /// @param initialSymbol Token symbol
-    /// @param initialHolders Array of addresses to receive tokens
-    /// @param initialAmounts Array of amounts to mint
     function initialize(
         address initialAddressBook,
         string calldata initialName,
-        string calldata initialSymbol,
-        address[] calldata initialHolders, 
-        uint256[] calldata initialAmounts
+        string calldata initialSymbol
     ) external initializer {
         require(initialAddressBook != address(0), "Invalid address book");
-        require(initialHolders.length == initialAmounts.length, "Arrays length mismatch");
-        require(initialHolders.length > 0, "Empty arrays");
 
         addressBook = AddressBook(initialAddressBook);
 
         __UpgradeableContract_init();
         __ERC20_init_unchained(initialName, initialSymbol);
+    }
 
-        for(uint256 i = 0; i < initialHolders.length; i++) {
-            require(initialHolders[i] != address(0), "Zero address recipient");
-            _mint(initialHolders[i], initialAmounts[i]);
+    /// @notice Mints tokens to multiple addresses
+    /// @dev Can only be called by governance
+    /// @param holders Array of addresses to receive tokens
+    /// @param amounts Array of amounts to mint
+    function mint(
+        address[] calldata holders,
+        uint256[] calldata amounts
+    ) external {
+        addressBook.requireGovernance(msg.sender);
+        require(holders.length == amounts.length, "Arrays length mismatch");
+        require(holders.length > 0, "Empty arrays");
+
+        for(uint256 i = 0; i < holders.length; i++) {
+            require(holders[i] != address(0), "Zero address recipient");
+            _mint(holders[i], amounts[i]);
         }
     }
 

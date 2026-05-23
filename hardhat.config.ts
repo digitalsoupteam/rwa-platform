@@ -45,15 +45,15 @@ const config: HardhatUserConfig = {
       },
     },
     bscTestnet: {
-      url: 'https://rpc.ankr.com/bsc_testnet_chapel/46ed43307df1caf3e5552edd36e32161b6173775e5c6d08575ad9831af6ecbe8',
+      url: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
       chainId: 97,
+      gasPrice: 10000000000, // 10 gwei
       accounts: [
         process.env.DEPLOYER!,
         process.env.SIGNER_1!,
         process.env.SIGNER_2!,
         process.env.SIGNER_3!,
       ],
-      gasPrice: 1000000000,
       verify: {
         etherscan: {
           apiUrl: 'https://api-testnet.bscscan.com',

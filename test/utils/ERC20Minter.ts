@@ -17,7 +17,7 @@ export default class ERC20Minter {
 
     const holders: any = {
       [USDT]: '0x8894E0a0c962CB723c1976a4421c95949bE2D4E3',
-      ['0x66670d16331dc923Ff095f5B0A658F01e6794216']: '0x208aBf72Cd5F40414768A5FD40F005aca71FC698',
+      ['0x1c0e214bB702572E5582085d6E25c39A2B13510d']: '0x208aBf72Cd5F40414768A5FD40F005aca71FC698',
     }
 
     const holderAddress = holders[tokenAddress]

@@ -88,6 +88,7 @@ contract AddressBook is UpgradeableContract {
         __UpgradeableContract_init();
         governance = Governance(msg.sender);
         timelock = Timelock(payable(msg.sender));
+        upgradeRole = msg.sender;
     }
 
     function uniqueContractId() public pure override returns (bytes32) {
@@ -123,6 +124,15 @@ contract AddressBook is UpgradeableContract {
         require(account == upgradeRole, "Only upgradeRole!");
     }
 
+    /// @notice Sets a new upgrade role address
+    /// @dev Can only be called by current upgradeRole
+    /// @param account The address of the new upgrade role
+    function setUpgradeRole(address account) external {
+        requireUpgradeRole(msg.sender);
+        require(account != address(0), "Invalid upgrade role address");
+        upgradeRole = account;
+    }
+
     /// @notice Checks if an address has factory rights
     /// @dev Reverts if account is not factory
     /// @param account The address to check
@@ -131,10 +141,10 @@ contract AddressBook is UpgradeableContract {
     }
 
     /// @notice Updates the governance address
-    /// @dev Can only be called by current governance
+    /// @dev Can only be called by current upgradeRole
     /// @param newGovernance The address of the new governance
     function setGovernance(Governance newGovernance) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         if (address(governance) != address(0)) {
             isProtocolContract[address(governance)] = false;
         }
@@ -143,10 +153,10 @@ contract AddressBook is UpgradeableContract {
     }
 
     /// @notice Sets the config contract address
-    /// @dev Can only be called by governance
+    /// @dev Can only be called by upgradeRole
     /// @param newConfig The address of the new config contract
     function setConfig(Config newConfig) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         if (address(config) != address(0)) {
             isProtocolContract[address(config)] = false;
         }
@@ -155,10 +165,10 @@ contract AddressBook is UpgradeableContract {
     }
 
     /// @notice Sets the DAO staking contract address
-    /// @dev Can only be called by governance
+    /// @dev Can only be called by upgradeRole
     /// @param newDaoStaking The address of the new DAO staking contract
     function setDaoStaking(DaoStaking newDaoStaking) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         if (address(daoStaking) != address(0)) {
             isProtocolContract[address(daoStaking)] = false;
         }
@@ -167,10 +177,10 @@ contract AddressBook is UpgradeableContract {
     }
 
     /// @notice Sets the timelock contract address
-    /// @dev Can only be called by governance
+    /// @dev Can only be called by upgradeRole
     /// @param newTimelock The address of the new timelock contract
     function setTimelock(Timelock newTimelock) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         if (address(timelock) != address(0)) {
             isProtocolContract[address(timelock)] = false;
         }
@@ -179,10 +189,10 @@ contract AddressBook is UpgradeableContract {
     }
 
     /// @notice Sets the treasury contract address
-    /// @dev Can only be called by governance
+    /// @dev Can only be called by upgradeRole
     /// @param newTreasury The address of the new treasury contract
     function setTreasury(Treasury newTreasury) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         if (address(treasury) != address(0)) {
             isProtocolContract[address(treasury)] = false;
         }
@@ -191,10 +201,10 @@ contract AddressBook is UpgradeableContract {
     }
 
     /// @notice Sets the platform token contract address
-    /// @dev Can only be called by governance
+    /// @dev Can only be called by upgradeRole
     /// @param newPlatformToken The address of the new platform token contract
     function setPlatformToken(PlatformToken newPlatformToken) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         if (address(platformToken) != address(0)) {
             isProtocolContract[address(platformToken)] = false;
         }
@@ -203,10 +213,10 @@ contract AddressBook is UpgradeableContract {
     }
 
     /// @notice Sets the referral treasury contract address
-    /// @dev Can only be called by governance
+    /// @dev Can only be called by upgradeRole
     /// @param newReferralTreasury The address of the new referral treasury contract
     function setReferralTreasury(ReferralTreasury newReferralTreasury) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         if (address(referralTreasury) != address(0)) {
             isProtocolContract[address(referralTreasury)] = false;
         }
@@ -215,10 +225,10 @@ contract AddressBook is UpgradeableContract {
     }
 
     /// @notice Sets the factory contract address
-    /// @dev Can only be called by governance
+    /// @dev Can only be called by upgradeRole
     /// @param newFactory The address of the new factory contract
     function setFactory(Factory newFactory) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         if (address(factory) != address(0)) {
             isProtocolContract[address(factory)] = false;
         }
@@ -227,10 +237,10 @@ contract AddressBook is UpgradeableContract {
     }
 
     /// @notice Adds a new signer
-    /// @dev Can only be called by governance
+    /// @dev Can only be called by upgradeRole
     /// @param newSigner The address of the new signer to add
     function addSigner(address newSigner) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         require(newSigner != address(0), "Invalid signer address");
         require(!signers[newSigner], "Signer already exists");
         
@@ -239,10 +249,10 @@ contract AddressBook is UpgradeableContract {
     }
 
     /// @notice Removes an existing signer
-    /// @dev Can only be called by governance
+    /// @dev Can only be called by upgradeRole
     /// @param signer The address of the signer to remove
     function removeSigner(address signer) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         require(signers[signer], "Signer does not exist");
         
         signers[signer] = false;
@@ -257,26 +267,26 @@ contract AddressBook is UpgradeableContract {
     }
 
     /// @notice Sets the event emitter contract address
-    /// @dev Can only be called by governance
+    /// @dev Can only be called by upgradeRole
     /// @param newEventEmitter The address of the new event emitter contract
     function setEventEmitter(EventEmitter newEventEmitter) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         eventEmitter = newEventEmitter;
     }
 
     /// @notice Sets the RWA implementation contract address
-    /// @dev Can only be called by governance
+    /// @dev Can only be called by upgradeRole
     /// @param newImplementation The address of the new RWA implementation
     function setRWAImplementation(address newImplementation) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         rwaImplementation = newImplementation;
     }
 
     /// @notice Sets the Speculation Pool implementation contract address
-    /// @dev Can only be called by governance
+    /// @dev Can only be called by upgradeRole
     /// @param newImplementation The address of the new Speculation Pool implementation
     function setPoolImplementation(address newImplementation) external {
-        requireGovernance(msg.sender);
+        requireUpgradeRole(msg.sender);
         poolImplementation = newImplementation;
     }
 

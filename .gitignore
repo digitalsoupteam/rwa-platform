@@ -1,5 +1,7 @@
 node_modules
 .env
+generated
+deployments/localhost
 
 # Hardhat files
 /cache

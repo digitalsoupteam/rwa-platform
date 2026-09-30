@@ -1,50 +1,63 @@
-import { HardhatUserConfig } from 'hardhat/config'
-import '@nomicfoundation/hardhat-toolbox'
-import '@nomicfoundation/hardhat-ethers'
-import '@nomicfoundation/hardhat-chai-matchers'
-import '@openzeppelin/hardhat-upgrades'
-import '@typechain/hardhat'
-import 'hardhat-deploy'
-import "hardhat-gas-reporter"
-import * as dotenv from 'dotenv'
+import { defineConfig } from 'hardhat/config';
+import hardhatToolboxMochaEthers from '@nomicfoundation/hardhat-toolbox-mocha-ethers';
+import hardhatDeploy from 'hardhat-deploy';
+import * as dotenv from 'dotenv';
 
-dotenv.config()
+dotenv.config();
 
-const config: HardhatUserConfig = {
+export default defineConfig({
+  plugins: [hardhatToolboxMochaEthers, hardhatDeploy],
   solidity: {
-    version: '0.8.28',
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200,
-        details: {
-          yul: true,
+    profiles: {
+      default: {
+        version: '0.8.28',
+        settings: {
+          evmVersion: 'cancun',
+          optimizer: {
+            enabled: true,
+            runs: 200,
+            details: {
+              yul: true,
+            },
+          },
+          viaIR: true,
         },
       },
-      viaIR: true,
+      production: {
+        version: '0.8.28',
+        settings: {
+          evmVersion: 'cancun',
+          optimizer: {
+            enabled: true,
+            runs: 200,
+            details: {
+              yul: true,
+            },
+          },
+          viaIR: true,
+        },
+      },
     },
   },
   networks: {
-    hardhat: {
+    // The `default` network is the one used by in-process tasks (like `hardhat test`).
+    // It is an EDR-simulated chain forked from bscTestnet.
+    default: {
+      type: 'edr-simulated',
       chainId: 1337,
-      forking: {
-        url: 'https://rpc.ankr.com/bsc_testnet_chapel/46ed43307df1caf3e5552edd36e32161b6173775e5c6d08575ad9831af6ecbe8',
-        blockNumber: 48831291,
-      },
-      // mining: {
-      //   auto: true,
-      //   interval: 0,
-      //   mempool: {
-      //     order: "fifo"
-      //   }
-      // },
+      chainType: 'l1',
       allowBlocksWithSameTimestamp: true,
       accounts: {
         count: 10,
         accountsBalance: '1000000000000000000000000000',
       },
+      forking: {
+        url: 'https://bsc-testnet-rpc.publicnode.com',
+      },
     },
     bscTestnet: {
+      type: 'http',
+      chainType: 'l1',
       url: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
       chainId: 97,
       gasPrice: 10000000000, // 10 gwei
@@ -54,21 +67,22 @@ const config: HardhatUserConfig = {
         process.env.SIGNER_2!,
         process.env.SIGNER_3!,
       ],
-      verify: {
-        etherscan: {
-          apiUrl: 'https://api-testnet.bscscan.com',
-        },
+    },
+  },
+  chainDescriptors: {
+    97: {
+      name: 'bscTestnet',
+      chainType: 'l1',
+      hardforkHistory: {
+        berlin: { blockNumber: 31103030 },
+        london: { blockNumber: 31103030 },
+        shanghai: { timestamp: 1702972800 },
+        cancun: { timestamp: 1713330442 },
       },
     },
   },
-
   typechain: {
     outDir: 'typechain-types',
-    target: 'ethers-v6',
+    tsNocheck: true,
   },
-  gasReporter: {
-    enabled: true
-  }
-}
-
-export default config
+});

@@ -1,8 +1,5 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { deployments } from 'hardhat'
-import {  time } from '@nomicfoundation/hardhat-network-helpers'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import {
   Factory,
   Factory__factory,
@@ -13,26 +10,27 @@ import {
   RWA,
   RWA__factory,
   Pool__factory,
-  IERC20,
-  IERC20__factory,
   Treasury,
   Treasury__factory,
   EventEmitter,
   EventEmitter__factory,
-} from '../../../typechain-types'
-import ERC20Minter from '../../utils/ERC20Minter'
-import SignaturesUtils from '../../utils/SignaturesUtils'
+} from '../../../typechain-types/index.js'
+import { HoldToken } from '../../../typechain-types/index.js'
+import { HoldToken__factory } from '../../../typechain-types/index.js'
+import ERC20Minter from '../../utils/ERC20Minter.js'
+import SignaturesUtils from '../../utils/SignaturesUtils.js'
+import { ethers, networkHelpers, deployments, deployAll } from '../../utils/fixture.js'
 
 describe('Factory Contract Tests', () => {
-  let owner: SignerWithAddress
-  let signer1: SignerWithAddress
-  let signer2: SignerWithAddress
-  let signer3: SignerWithAddress
-  let user: SignerWithAddress
+  let owner: HardhatEthersSigner
+  let signer1: HardhatEthersSigner
+  let signer2: HardhatEthersSigner
+  let signer3: HardhatEthersSigner
+  let user: HardhatEthersSigner
   let factory: Factory
   let addressBook: AddressBook
   let config: Config
-  let holdToken: IERC20
+  let holdToken: HoldToken
   let treasury: Treasury
   let eventEmitter: EventEmitter
   let initSnapshot: string
@@ -45,12 +43,12 @@ describe('Factory Contract Tests', () => {
     signer3 = signers[3]
     user = signers[9]
 
-    await deployments.fixture()
+    await networkHelpers.loadFixture(deployAll)
     
     factory = Factory__factory.connect((await deployments.get('Factory')).address, ethers.provider)
     addressBook = AddressBook__factory.connect((await deployments.get('AddressBook')).address, ethers.provider)
     config = Config__factory.connect((await deployments.get('Config')).address, ethers.provider)
-    holdToken = IERC20__factory.connect(await config.holdToken(), ethers.provider)
+    holdToken = HoldToken__factory.connect(await config.holdToken(), ethers.provider)
     treasury = Treasury__factory.connect((await deployments.get('Treasury')).address, ethers.provider)
     eventEmitter = EventEmitter__factory.connect(
       (await deployments.get('EventEmitter')).address,
@@ -168,7 +166,7 @@ describe('Factory Contract Tests', () => {
         const expectedRwaAmount = BigInt(1000000) // 1M RWA
         const priceImpactPercent = BigInt(1) // 0.01% price impact
         const rewardPercent = await config.rewardPercentMin()
-        const entryPeriodStart = BigInt(await time.latest()) + BigInt(3600) // Starts in 1 hour
+        const entryPeriodStart = BigInt(await networkHelpers.time.latest()) + BigInt(3600) // Starts in 1 hour
         const entryPeriodExpired = entryPeriodStart + BigInt(await config.entryPeriodMinDuration())
         const completionPeriodExpired = entryPeriodExpired + BigInt(await config.completionPeriodMinDuration())
         const fixedSell = true

@@ -1,9 +1,5 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { deployments } from 'hardhat'
-import { impersonateAccount, setBalance, time } from '@nomicfoundation/hardhat-network-helpers'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import {
   Timelock,
   Timelock__factory,
@@ -15,7 +11,8 @@ import {
   EventEmitter__factory,
   PlatformToken,
   PlatformToken__factory,
-} from '../../../typechain-types'
+} from '../../../typechain-types/index.js'
+import { ethers, networkHelpers, deployments, deployAll } from '../../utils/fixture.js'
 
 describe('Timelock Contract Unit Tests', () => {
   let timelock: Timelock
@@ -26,7 +23,7 @@ describe('Timelock Contract Unit Tests', () => {
   let testOwner: HardhatEthersSigner
   let user1: HardhatEthersSigner
   let user2: HardhatEthersSigner
-  let governance: SignerWithAddress
+  let governance: HardhatEthersSigner
   let initSnapshot: string
 
   const TEST_TARGET = '0x1234567890123456789012345678901234567890'
@@ -41,7 +38,7 @@ describe('Timelock Contract Unit Tests', () => {
     user2 = signers[2]
 
     // Deploy all contracts using the deployment fixture
-    await deployments.fixture()
+    await networkHelpers.loadFixture(deployAll)
 
     timelock = Timelock__factory.connect(
       (await deployments.get('Timelock')).address,
@@ -70,9 +67,9 @@ describe('Timelock Contract Unit Tests', () => {
 
     // Impersonate governance account
     const governanceAddress = await addressBook.governance()
-    await impersonateAccount(governanceAddress)
+    await networkHelpers.impersonateAccount(governanceAddress)
     governance = await ethers.getSigner(governanceAddress)
-    await setBalance(governance.address, ethers.parseEther('100'))
+    await networkHelpers.setBalance(governance.address, ethers.parseEther('100'))
 
     initSnapshot = await ethers.provider.send('evm_snapshot', [])
   })
@@ -91,7 +88,7 @@ describe('Timelock Contract Unit Tests', () => {
 
   describe('Queue Transaction', () => {
     it('should allow governance to queue transaction', async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       const eta = currentTime + TIMELOCK_DELAY + 100
 
       const expectedTxHash = ethers.keccak256(
@@ -118,7 +115,7 @@ describe('Timelock Contract Unit Tests', () => {
     })
 
     it('should revert when non-governance tries to queue transaction', async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       const eta = currentTime + TIMELOCK_DELAY + 100
 
       await expect(
@@ -127,7 +124,7 @@ describe('Timelock Contract Unit Tests', () => {
     })
 
     it('should revert when ETA is too early', async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       const eta = currentTime + TIMELOCK_DELAY - 100 // Too early
 
       await expect(
@@ -136,7 +133,7 @@ describe('Timelock Contract Unit Tests', () => {
     })
 
     it('should revert when transaction is already queued', async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       const eta = currentTime + TIMELOCK_DELAY + 100
 
       await timelock.connect(governance).queueTransaction(TEST_TARGET, TEST_DATA, eta)
@@ -147,7 +144,7 @@ describe('Timelock Contract Unit Tests', () => {
     })
 
     it('should return correct transaction hash', async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       const eta = currentTime + TIMELOCK_DELAY + 100
 
       const expectedTxHash = ethers.keccak256(
@@ -172,7 +169,7 @@ describe('Timelock Contract Unit Tests', () => {
     let txHash: string
 
     beforeEach(async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       eta = currentTime + TIMELOCK_DELAY + 100
 
       txHash = ethers.keccak256(
@@ -186,7 +183,7 @@ describe('Timelock Contract Unit Tests', () => {
     })
 
     it('should allow anyone to execute transaction after ETA', async () => {
-      await time.increaseTo(eta)
+      await networkHelpers.time.increaseTo(eta)
 
       await expect(
         timelock.connect(user1).executeTransaction(TEST_TARGET, TEST_DATA, eta)
@@ -204,7 +201,7 @@ describe('Timelock Contract Unit Tests', () => {
     })
 
     it('should allow governance to execute transaction after ETA', async () => {
-      await time.increaseTo(eta)
+      await networkHelpers.time.increaseTo(eta)
 
       await expect(
         timelock.connect(governance).executeTransaction(TEST_TARGET, TEST_DATA, eta)
@@ -222,10 +219,10 @@ describe('Timelock Contract Unit Tests', () => {
     })
 
     it('should revert when transaction is not queued', async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       const differentEta = currentTime + TIMELOCK_DELAY + 200
 
-      await time.increaseTo(differentEta)
+      await networkHelpers.time.increaseTo(differentEta)
 
       await expect(
         timelock.connect(governance).executeTransaction(TEST_TARGET, TEST_DATA, differentEta)
@@ -239,7 +236,7 @@ describe('Timelock Contract Unit Tests', () => {
     })
 
     it('should revert when transaction is expired (after grace period)', async () => {
-      await time.increaseTo(eta + GRACE_PERIOD + 1)
+      await networkHelpers.time.increaseTo(eta + GRACE_PERIOD + 1)
 
       await expect(
         timelock.connect(governance).executeTransaction(TEST_TARGET, TEST_DATA, eta)
@@ -254,7 +251,7 @@ describe('Timelock Contract Unit Tests', () => {
         transferAmount
       ])
 
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       const realEta = currentTime + TIMELOCK_DELAY + 100
 
       // Queue the real transaction
@@ -270,7 +267,7 @@ describe('Timelock Contract Unit Tests', () => {
         transferAmount
       )
 
-      await time.increaseTo(realEta)
+      await networkHelpers.time.increaseTo(realEta)
 
       const initialBalance = await platformToken.balanceOf(user1.address)
 
@@ -292,7 +289,7 @@ describe('Timelock Contract Unit Tests', () => {
     let txHash: string
 
     beforeEach(async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       eta = currentTime + TIMELOCK_DELAY + 100
 
       txHash = ethers.keccak256(
@@ -328,7 +325,7 @@ describe('Timelock Contract Unit Tests', () => {
     })
 
     it('should revert when transaction is not queued', async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       const differentEta = currentTime + TIMELOCK_DELAY + 200
 
       await expect(
@@ -341,7 +338,7 @@ describe('Timelock Contract Unit Tests', () => {
     let eta: number
 
     beforeEach(async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       eta = currentTime + TIMELOCK_DELAY + 100
       await timelock.connect(governance).queueTransaction(TEST_TARGET, TEST_DATA, eta)
     })
@@ -365,17 +362,17 @@ describe('Timelock Contract Unit Tests', () => {
       expect(await timelock.isTransactionReady(TEST_TARGET, TEST_DATA, eta)).to.be.false
       
       // At ETA
-      await time.increaseTo(eta)
+      await networkHelpers.time.increaseTo(eta)
       expect(await timelock.isTransactionReady(TEST_TARGET, TEST_DATA, eta)).to.be.true
       
       // After grace period
-      await time.increaseTo(eta + GRACE_PERIOD + 1)
+      await networkHelpers.time.increaseTo(eta + GRACE_PERIOD + 1)
       expect(await timelock.isTransactionReady(TEST_TARGET, TEST_DATA, eta)).to.be.false
     })
 
     it('should return false for non-queued transaction ready status', async () => {
       const differentEta = eta + 100
-      await time.increaseTo(differentEta)
+      await networkHelpers.time.increaseTo(differentEta)
       expect(await timelock.isTransactionReady(TEST_TARGET, TEST_DATA, differentEta)).to.be.false
     })
   })
@@ -404,7 +401,7 @@ describe('Timelock Contract Unit Tests', () => {
           await newImplementation.getAddress(),
           '0x01'
         )
-      ).to.be.revertedWith('Only timelock!')
+      ).to.be.revertedWith('Only upgradeRole!')
     })
 
     it('should allow governance to authorize upgrades', async () => {
@@ -453,19 +450,19 @@ describe('Timelock Contract Unit Tests', () => {
 
   describe('Edge Cases', () => {
     it('should handle transaction with empty data', async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       const eta = currentTime + TIMELOCK_DELAY + 100
       const emptyData = '0x'
 
       await expect(
         timelock.connect(governance).queueTransaction(TEST_TARGET, emptyData, eta)
-      ).to.not.be.reverted
+      ).to.not.be.revert(ethers)
 
       expect(await timelock.isTransactionQueued(TEST_TARGET, emptyData, eta)).to.be.true
     })
 
     it('should handle multiple transactions with different parameters', async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       const eta1 = currentTime + TIMELOCK_DELAY + 100
       const eta2 = currentTime + TIMELOCK_DELAY + 200
       const data1 = '0x1234'
@@ -480,17 +477,17 @@ describe('Timelock Contract Unit Tests', () => {
     })
 
     it('should handle transaction execution at exact grace period boundary by any user', async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
       const eta = currentTime + TIMELOCK_DELAY + 100
 
       await timelock.connect(governance).queueTransaction(TEST_TARGET, TEST_DATA, eta)
 
       // Execute at the last second of grace period by any user
-      await time.increaseTo(eta + GRACE_PERIOD)
+      await networkHelpers.time.increaseTo(eta + GRACE_PERIOD)
       
       await expect(
         timelock.connect(user1).executeTransaction(TEST_TARGET, TEST_DATA, eta)
-      ).to.not.be.reverted
+      ).to.not.be.revert(ethers)
     })
   })
 

@@ -1,9 +1,5 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { deployments } from 'hardhat'
-import { impersonateAccount, setBalance } from '@nomicfoundation/hardhat-network-helpers'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import {
   Treasury,
   Treasury__factory,
@@ -15,7 +11,8 @@ import {
   PlatformToken__factory,
   Timelock,
   Timelock__factory,
-} from '../../../typechain-types'
+} from '../../../typechain-types/index.js'
+import { ethers, networkHelpers, deployments, deployAll } from '../../utils/fixture.js'
 
 describe('Treasury Contract Unit Tests', () => {
   let treasury: Treasury
@@ -26,8 +23,8 @@ describe('Treasury Contract Unit Tests', () => {
   let testOwner: HardhatEthersSigner
   let user1: HardhatEthersSigner
   let user2: HardhatEthersSigner
-  let governance: SignerWithAddress
-  let timelockSigner: SignerWithAddress
+  let governance: HardhatEthersSigner
+  let timelockSigner: HardhatEthersSigner
   let initSnapshot: string
 
   const WITHDRAWAL_AMOUNT = ethers.parseEther('100')
@@ -40,7 +37,7 @@ describe('Treasury Contract Unit Tests', () => {
     user2 = signers[2]
 
     // Deploy all contracts using the deployment fixture
-    await deployments.fixture()
+    await networkHelpers.loadFixture(deployAll)
 
     treasury = Treasury__factory.connect(
       (await deployments.get('Treasury')).address,
@@ -69,14 +66,14 @@ describe('Treasury Contract Unit Tests', () => {
 
     // Impersonate governance and timelock accounts
     const governanceAddress = await addressBook.governance()
-    await impersonateAccount(governanceAddress)
+    await networkHelpers.impersonateAccount(governanceAddress)
     governance = await ethers.getSigner(governanceAddress)
-    await setBalance(governance.address, ethers.parseEther('100'))
+    await networkHelpers.setBalance(governance.address, ethers.parseEther('100'))
 
     const timelockAddress = await addressBook.timelock()
-    await impersonateAccount(timelockAddress)
+    await networkHelpers.impersonateAccount(timelockAddress)
     timelockSigner = await ethers.getSigner(timelockAddress)
-    await setBalance(timelockSigner.address, ethers.parseEther('100'))
+    await networkHelpers.setBalance(timelockSigner.address, ethers.parseEther('100'))
 
     // Fund treasury with tokens and ETH for testing
     await platformToken.connect(testOwner).transfer(await treasury.getAddress(), WITHDRAWAL_AMOUNT * 2n)
@@ -123,7 +120,7 @@ describe('Treasury Contract Unit Tests', () => {
           user1.address,
           WITHDRAWAL_AMOUNT
         )
-      ).to.emit(eventEmitter, 'Treasury_TreasuryWithdrawal')
+      ).to.emit(eventEmitter, 'Treasury_Withdrawal')
         .withArgs(
           await treasury.getAddress(), // emittedFrom
           user1.address, // to
@@ -191,7 +188,7 @@ describe('Treasury Contract Unit Tests', () => {
           user1.address,
           0
         )
-      ).to.emit(eventEmitter, 'Treasury_TreasuryWithdrawal')
+      ).to.emit(eventEmitter, 'Treasury_Withdrawal')
         .withArgs(
           await treasury.getAddress(),
           user1.address,
@@ -211,7 +208,7 @@ describe('Treasury Contract Unit Tests', () => {
 
       await expect(
         treasury.connect(timelockSigner).withdrawETH(user1.address, withdrawAmount)
-      ).to.emit(eventEmitter, 'Treasury_TreasuryWithdrawal')
+      ).to.emit(eventEmitter, 'Treasury_Withdrawal')
         .withArgs(
           await treasury.getAddress(), // emittedFrom
           user1.address, // to
@@ -253,7 +250,7 @@ describe('Treasury Contract Unit Tests', () => {
 
       await expect(
         treasury.connect(timelockSigner).withdrawETH(user1.address, 0)
-      ).to.emit(eventEmitter, 'Treasury_TreasuryWithdrawal')
+      ).to.emit(eventEmitter, 'Treasury_Withdrawal')
         .withArgs(
           await treasury.getAddress(),
           user1.address,
@@ -447,7 +444,7 @@ describe('Treasury Contract Unit Tests', () => {
           user1.address,
           WITHDRAWAL_AMOUNT
         )
-      ).to.emit(eventEmitter, 'Treasury_TreasuryWithdrawal')
+      ).to.emit(eventEmitter, 'Treasury_Withdrawal')
         .withArgs(
           await treasury.getAddress(),
           user1.address,
@@ -461,7 +458,7 @@ describe('Treasury Contract Unit Tests', () => {
       
       await expect(
         treasury.connect(timelockSigner).withdrawETH(user1.address, ethAmount)
-      ).to.emit(eventEmitter, 'Treasury_TreasuryWithdrawal')
+      ).to.emit(eventEmitter, 'Treasury_Withdrawal')
         .withArgs(
           await treasury.getAddress(),
           user1.address,

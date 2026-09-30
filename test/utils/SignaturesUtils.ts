@@ -1,8 +1,7 @@
-import { ethers } from 'hardhat'
-import { time } from '@nomicfoundation/hardhat-network-helpers'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import { Factory } from '../../typechain-types'
-import { RWA } from '../../typechain-types'
+import { ethers, networkHelpers } from './fixture.js'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
+import { Factory } from '../../typechain-types/index.js'
+import { RWA } from '../../typechain-types/index.js'
 import { BigNumberish } from 'ethers'
 
 export interface SignatureData {
@@ -11,19 +10,17 @@ export interface SignatureData {
   signers: string[]
 }
 
-
-
 export default class SignaturesUtils {
   public static async signRWADeployment(params: {
     entityId: string
     entityOwnerId: string
     entityOwnerType: string
-    owner: SignerWithAddress
+    owner: HardhatEthersSigner
     createRWAFee: bigint
     chainId?: number
     factory: Factory
-    user: SignerWithAddress
-    signers: SignerWithAddress[]
+    user: HardhatEthersSigner
+    signers: HardhatEthersSigner[]
     expireIn?: number
   }): Promise<SignatureData> {
     const {
@@ -38,7 +35,7 @@ export default class SignaturesUtils {
       expireIn = 3600
     } = params
 
-    const expired = (await time.latest()) + expireIn
+    const expired = (await networkHelpers.time.latest()) + expireIn
 
     const dataHash = ethers.solidityPackedKeccak256(
       ['uint256', 'address', 'address', 'string', 'uint256', 'string', 'string', 'string', 'address'],
@@ -74,8 +71,8 @@ export default class SignaturesUtils {
   public static async signPoolDeployment(params: {
     chainId?: number
     factory: Factory
-    user: SignerWithAddress
-    signers: SignerWithAddress[]
+    user: HardhatEthersSigner
+    signers: HardhatEthersSigner[]
     expireIn?: number
     createPoolFeeRatio: bigint
     entityId: string
@@ -123,7 +120,7 @@ export default class SignaturesUtils {
       expireIn = 3600
     } = params
 
-    const expired = (await time.latest()) + expireIn
+    const expired = (await networkHelpers.time.latest()) + expireIn
 
     const dataHash = ethers.solidityPackedKeccak256(
       [

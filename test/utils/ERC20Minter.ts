@@ -1,35 +1,31 @@
-import { ethers, network } from 'hardhat'
-import { setBalance } from '@nomicfoundation/hardhat-network-helpers'
-import { USDT } from '../../constants/addresses'
-import { IERC20Metadata__factory } from '../../typechain-types'
+import { ethers, networkHelpers } from './fixture.js';
+import { USDT } from '../../constants/addresses.js';
+import { HoldToken__factory } from '../../typechain-types/index.js';
 
 export default class ERC20Minter {
   public static async mint(
     tokenAddress: string,
     recipient: string,
     maxAmountFormated?: number,
-  ): Promise<BigInt> {
+  ): Promise<bigint> {
     if (tokenAddress == ethers.ZeroAddress) {
       const amount = ethers.parseUnits(`${maxAmountFormated}`, 18)
-      await setBalance(recipient, amount)
+      await networkHelpers.setBalance(recipient, amount)
       return amount
     }
 
     const holders: any = {
       [USDT]: '0x8894E0a0c962CB723c1976a4421c95949bE2D4E3',
-      ['0x1c0e214bB702572E5582085d6E25c39A2B13510d']: '0x208aBf72Cd5F40414768A5FD40F005aca71FC698',
+      ['0x1c0e214bB702572E5582085d6E25c39A2B13510d']: '0xAA9A2BbCAAa096d17098582CF60098032CdCDc4b',
     }
 
     const holderAddress = holders[tokenAddress]
-    await network.provider.request({
-      method: 'hardhat_impersonateAccount',
-      params: [holderAddress],
-    })
+    await networkHelpers.impersonateAccount(holderAddress)
     const holder = await ethers.getSigner(holderAddress)
 
-    await setBalance(holderAddress, ethers.parseEther('0.1'))
+    await networkHelpers.setBalance(holderAddress, ethers.parseEther('0.1'))
 
-    const token = IERC20Metadata__factory.connect(tokenAddress, holder)
+    const token = HoldToken__factory.connect(tokenAddress, holder)
     const tokenDecimals = await token.decimals()
     const amount = ethers.parseUnits(`${maxAmountFormated}`, tokenDecimals)
 
@@ -41,7 +37,6 @@ export default class ERC20Minter {
       await (await token.transfer(recipient, amount)).wait()
     } else {
       throw 'ERC20Minter low balance'
-      await (await token.transfer(recipient, holderBalance)).wait()
     }
 
     const balanceAfter = await token.balanceOf(recipient)

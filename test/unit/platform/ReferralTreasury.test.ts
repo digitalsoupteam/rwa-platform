@@ -1,9 +1,5 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { deployments } from 'hardhat'
-import { impersonateAccount, setBalance, time } from '@nomicfoundation/hardhat-network-helpers'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import {
   ReferralTreasury,
   ReferralTreasury__factory,
@@ -15,8 +11,9 @@ import {
   PlatformToken__factory,
   EventEmitter,
   EventEmitter__factory,
-} from '../../../typechain-types'
-import ERC20Minter from '../../utils/ERC20Minter'
+} from '../../../typechain-types/index.js'
+import ERC20Minter from '../../utils/ERC20Minter.js'
+import { ethers, networkHelpers, deployments, deployAll } from '../../utils/fixture.js'
 
 describe('ReferralTreasury Contract Unit Tests', () => {
   let referralTreasury: ReferralTreasury
@@ -27,11 +24,11 @@ describe('ReferralTreasury Contract Unit Tests', () => {
   let testOwner: HardhatEthersSigner
   let user1: HardhatEthersSigner
   let user2: HardhatEthersSigner
-  let signer1: SignerWithAddress
-  let signer2: SignerWithAddress
-  let signer3: SignerWithAddress
-  let governance: SignerWithAddress
-  let timelock: SignerWithAddress
+  let signer1: HardhatEthersSigner
+  let signer2: HardhatEthersSigner
+  let signer3: HardhatEthersSigner
+  let governance: HardhatEthersSigner
+  let timelock: HardhatEthersSigner
   let initSnapshot: string
 
   const WITHDRAWAL_AMOUNT = ethers.parseEther('100')
@@ -47,7 +44,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
     signer3 = signers[3]
 
     // Deploy all contracts using the deployment fixture
-    await deployments.fixture()
+    await networkHelpers.loadFixture(deployAll)
 
     referralTreasury = ReferralTreasury__factory.connect(
       (await deployments.get('ReferralTreasury')).address,
@@ -76,14 +73,14 @@ describe('ReferralTreasury Contract Unit Tests', () => {
 
     // Impersonate governance and timelock accounts
     const governanceAddress = await addressBook.governance()
-    await impersonateAccount(governanceAddress)
+    await networkHelpers.impersonateAccount(governanceAddress)
     governance = await ethers.getSigner(governanceAddress)
-    await setBalance(governance.address, ethers.parseEther('100'))
+    await networkHelpers.setBalance(governance.address, ethers.parseEther('100'))
 
     const timelockAddress = await addressBook.timelock()
-    await impersonateAccount(timelockAddress)
+    await networkHelpers.impersonateAccount(timelockAddress)
     timelock = await ethers.getSigner(timelockAddress)
-    await setBalance(timelock.address, ethers.parseEther('100'))
+    await networkHelpers.setBalance(timelock.address, ethers.parseEther('100'))
 
     // Fund treasury with tokens for testing
     await platformToken.connect(testOwner).transfer(await referralTreasury.getAddress(), TREASURY_FUNDING)
@@ -128,7 +125,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
       amount: bigint,
       deadline: bigint,
       user: string,
-      signers: SignerWithAddress[]
+      signers: HardhatEthersSigner[]
     ) {
       const innerHash = ethers.solidityPackedKeccak256(
         ['uint256', 'address', 'address', 'string', 'address', 'uint256'],
@@ -165,7 +162,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
     }
 
     it('should allow withdrawal with sufficient valid signatures and emit events', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n // 1 hour from now
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n // 1 hour from now
       const initialUserBalance = await platformToken.balanceOf(user1.address)
       const initialTreasuryBalance = await platformToken.balanceOf(await referralTreasury.getAddress())
 
@@ -204,7 +201,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
     })
 
     it('should revert with insufficient signatures', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n
       
       const signData = await createWithdrawSignatures(
         await platformToken.getAddress(),
@@ -226,7 +223,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
     })
 
     it('should revert with expired signature', async () => {
-      const deadline = BigInt(await time.latest()) - 1n // Already expired
+      const deadline = BigInt(await networkHelpers.time.latest()) - 1n // Already expired
       
       const signData = await createWithdrawSignatures(
         await platformToken.getAddress(),
@@ -248,7 +245,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
     })
 
     it('should revert with mismatched signers and signatures arrays', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n
       
       const signData = await createWithdrawSignatures(
         await platformToken.getAddress(),
@@ -273,7 +270,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
     })
 
     it('should revert with unauthorized signer', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n
       const unauthorizedSigner = await ethers.getSigner(user2.address)
       
       const signData = await createWithdrawSignatures(
@@ -296,7 +293,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
     })
 
     it('should revert with duplicate signature', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n
       
       const signData = await createWithdrawSignatures(
         await platformToken.getAddress(),
@@ -328,7 +325,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
     })
 
     it('should revert with invalid signature', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n
       
       const signData = await createWithdrawSignatures(
         await platformToken.getAddress(),
@@ -352,8 +349,8 @@ describe('ReferralTreasury Contract Unit Tests', () => {
       ).to.be.revertedWith('Invalid signature')
     })
 
-    it('should handle zero amount withdrawal', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n
+    it('should revert on zero amount withdrawal', async () => {
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n
       const initialUserBalance = await platformToken.balanceOf(user1.address)
       
       const signData = await createWithdrawSignatures(
@@ -364,28 +361,21 @@ describe('ReferralTreasury Contract Unit Tests', () => {
         [signer1, signer2, signer3]
       )
 
-      const tx = referralTreasury.connect(user1).withdraw(
-        await platformToken.getAddress(),
-        0,
-        deadline,
-        signData.signers,
-        signData.signatures
-      )
-
-      await expect(tx)
-        .to.emit(eventEmitter, 'ReferralTreasury_Withdrawn')
-        .withArgs(
-          await referralTreasury.getAddress(),
-          user1.address,
+      await expect(
+        referralTreasury.connect(user1).withdraw(
           await platformToken.getAddress(),
-          0
+          0,
+          deadline,
+          signData.signers,
+          signData.signatures
         )
+      ).to.be.revertedWith('Amount must be greater than zero')
 
       expect(await platformToken.balanceOf(user1.address)).to.equal(initialUserBalance)
     })
 
     it('should revert when withdrawing more tokens than treasury balance', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n
       const treasuryBalance = await platformToken.balanceOf(await referralTreasury.getAddress())
       const excessiveAmount = treasuryBalance + 1n
       
@@ -409,7 +399,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
     })
 
     it('should allow multiple users to withdraw with different signatures', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n
       
       // User1 withdrawal
       const signData1 = await createWithdrawSignatures(
@@ -519,7 +509,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
           await newImplementation.getAddress(),
           '0x01'
         )
-      ).to.be.revertedWith('Only timelock!')
+      ).to.be.revertedWith('Only upgradeRole!')
     })
 
     it('should only allow timelock to authorize upgrades, not governance', async () => {
@@ -531,7 +521,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
           await newImplementation.getAddress(),
           '0x01'
         )
-      ).to.be.revertedWith('Only timelock!')
+      ).to.be.revertedWith('Only upgradeRole!')
     })
 
     it('should allow timelock to authorize upgrades', async () => {
@@ -563,7 +553,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
 
   describe('Events', () => {
     it('should emit ReferralTreasury_Withdrawn event on successful withdrawal', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n
       
       const signData = await createWithdrawSignatures(
         await platformToken.getAddress(),
@@ -610,7 +600,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
 
   describe('Edge Cases', () => {
     it('should handle withdrawal of entire treasury balance', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n
       const totalBalance = await platformToken.balanceOf(await referralTreasury.getAddress())
       
       const signData = await createWithdrawSignatures(
@@ -634,7 +624,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
     })
 
     it('should handle consecutive withdrawals with different signatures', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n
       const withdrawAmount = ethers.parseEther('10')
       
       // First withdrawal
@@ -676,7 +666,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
     })
 
     it('should track used signatures correctly', async () => {
-      const deadline = BigInt(await time.latest()) + 3600n
+      const deadline = BigInt(await networkHelpers.time.latest()) + 3600n
       
       const signData = await createWithdrawSignatures(
         await platformToken.getAddress(),
@@ -725,7 +715,7 @@ describe('ReferralTreasury Contract Unit Tests', () => {
     amount: bigint,
     deadline: bigint,
     user: string,
-    signers: SignerWithAddress[]
+    signers: HardhatEthersSigner[]
   ) {
     const innerHash = ethers.solidityPackedKeccak256(
       ['uint256', 'address', 'address', 'string', 'address', 'uint256'],

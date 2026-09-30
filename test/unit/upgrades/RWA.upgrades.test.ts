@@ -1,36 +1,34 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { deployments } from 'hardhat'
-import { impersonateAccount, setBalance } from '@nomicfoundation/hardhat-network-helpers'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import {
-    RWA,
-    RWA__factory,
-    AddressBook,
-    AddressBook__factory,
-    RWANewImplementation,
-    RWANewImplementation__factory,
-    Factory,
-    Factory__factory,
-    Config__factory,
-    Config,
-    IERC20__factory,
-    IERC20
-} from '../../../typechain-types'
-import SignaturesUtils from '../../utils/SignaturesUtils'
-import ERC20Minter from '../../utils/ERC20Minter'
+  RWA,
+  RWA__factory,
+  AddressBook,
+  AddressBook__factory,
+  RWANewImplementation,
+  RWANewImplementation__factory,
+  Factory,
+  Factory__factory,
+  Config__factory,
+  Config,
+} from '../../../typechain-types/index.js'
+import { HoldToken } from '../../../typechain-types/index.js'
+import { HoldToken__factory } from '../../../typechain-types/index.js'
+import SignaturesUtils from '../../utils/SignaturesUtils.js'
+import ERC20Minter from '../../utils/ERC20Minter.js'
+import { ethers, networkHelpers, deployments, deployAll } from '../../utils/fixture.js'
 
 describe('RWA Upgrade Tests', () => {
-    let owner: SignerWithAddress
-    let user: SignerWithAddress
-    let governance: SignerWithAddress
-    let signer1: SignerWithAddress
-    let signer2: SignerWithAddress
-    let signer3: SignerWithAddress
+    let owner: HardhatEthersSigner
+    let user: HardhatEthersSigner
+    let governance: HardhatEthersSigner
+    let signer1: HardhatEthersSigner
+    let signer2: HardhatEthersSigner
+    let signer3: HardhatEthersSigner
     let rwa: RWA
     let addressBook: AddressBook
     let configContract: Config
-    let holdToken: IERC20
+    let holdToken: HoldToken
     let factory: Factory
     let initSnapshot: string
 
@@ -42,17 +40,17 @@ describe('RWA Upgrade Tests', () => {
         signer3 = signers[3]
         user = signers[9]
 
-        await deployments.fixture()
+        await networkHelpers.loadFixture(deployAll)
 
         factory = Factory__factory.connect((await deployments.get('Factory')).address, ethers.provider)
         addressBook = AddressBook__factory.connect((await deployments.get('AddressBook')).address, ethers.provider)
         configContract = Config__factory.connect((await deployments.get('Config')).address, ethers.provider);
-        holdToken = IERC20__factory.connect(await configContract.holdToken(), ethers.provider)
+        holdToken = HoldToken__factory.connect(await configContract.holdToken(), ethers.provider)
 
-        const timelockAddress = await addressBook.timelock()
-        await impersonateAccount(timelockAddress)
-        await setBalance(timelockAddress, ethers.parseEther('1'))
-        governance = await ethers.getSigner(timelockAddress)
+        const upgradeRoleAddress = await addressBook.upgradeRole()
+        await networkHelpers.impersonateAccount(upgradeRoleAddress)
+        await networkHelpers.setBalance(upgradeRoleAddress, ethers.parseEther('100'))
+        governance = await ethers.getSigner(upgradeRoleAddress)
 
         // Deploy RWA
         const entityId = "test_entity"
@@ -202,7 +200,7 @@ describe('RWA Upgrade Tests', () => {
                 await newImplementation.getAddress(),
                 newImplementation.interface.encodeFunctionData('initialize')
             )
-        ).to.be.revertedWith('Only timelock!')
+        ).to.be.revertedWith('Only upgradeRole!')
     })
 
     it('should not allow upgrade with wrong uniqueContractId', async () => {

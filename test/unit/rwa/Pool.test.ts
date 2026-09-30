@@ -1,24 +1,22 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { deployments } from 'hardhat'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import {
-    Pool,
-    Pool__factory,
-    RWA,
-    RWA__factory,
-    IERC20,
-    IERC20__factory,
-    Config,
-    Config__factory,
-    Factory,
-    Factory__factory,
-    AddressBook,
-    AddressBook__factory
-} from '../../../typechain-types'
-import ERC20Minter from '../../utils/ERC20Minter'
-import SignaturesUtils from '../../utils/SignaturesUtils'
-import { setBalance } from '@nomicfoundation/hardhat-network-helpers'
+  Pool,
+  Pool__factory,
+  RWA,
+  RWA__factory,
+  Config,
+  Config__factory,
+  Factory,
+  Factory__factory,
+  AddressBook,
+  AddressBook__factory,
+} from '../../../typechain-types/index.js'
+import { HoldToken } from '../../../typechain-types/index.js'
+import { HoldToken__factory } from '../../../typechain-types/index.js'
+import ERC20Minter from '../../utils/ERC20Minter.js'
+import SignaturesUtils from '../../utils/SignaturesUtils.js'
+import { ethers, networkHelpers, deployments, deployAll } from '../../utils/fixture.js'
 
 async function getCurrentBlockTimestamp(): Promise<number> {
     return (await ethers.provider.getBlock('latest'))!.timestamp!;
@@ -426,16 +424,16 @@ const testConfigs = {
 };
 
 describe("Pool tests", () => {
-    let holdToken: IERC20;
+    let holdToken: HoldToken;
     let rwaToken: RWA;
     let configContract: Config;
     let factory: Factory;
     let addressBook: AddressBook;
-    let owner: SignerWithAddress;
-    let user: SignerWithAddress;
-    let signer1: SignerWithAddress;
-    let signer2: SignerWithAddress;
-    let signer3: SignerWithAddress;
+    let owner: HardhatEthersSigner;
+    let user: HardhatEthersSigner;
+    let signer1: HardhatEthersSigner;
+    let signer2: HardhatEthersSigner;
+    let signer3: HardhatEthersSigner;
     const tokenId = 1;
 
     let initSnapshot: string;
@@ -449,12 +447,12 @@ describe("Pool tests", () => {
         signer2 = signers[2];
         signer3 = signers[3];
 
-        await deployments.fixture();
+        await networkHelpers.loadFixture(deployAll);
 
         factory = Factory__factory.connect((await deployments.get('Factory')).address, ethers.provider);
         addressBook = AddressBook__factory.connect((await deployments.get('AddressBook')).address, ethers.provider);
         configContract = Config__factory.connect((await deployments.get('Config')).address, ethers.provider);
-        holdToken = IERC20__factory.connect(await configContract.holdToken(), ethers.provider);
+        holdToken = HoldToken__factory.connect(await configContract.holdToken(), ethers.provider);
 
         // Mint USDT to user
         await ERC20Minter.mint(await holdToken.getAddress(), user.address, 1000000);
@@ -1288,7 +1286,7 @@ describe("Pool tests", () => {
 
             describe("Security and edge cases", () => {
                 let governanceAddress: string;
-                let governanceSigner: SignerWithAddress;
+                let governanceSigner: HardhatEthersSigner;
 
                 beforeEach(async () => {
                     // Get governance address from AddressBook
@@ -1299,7 +1297,7 @@ describe("Pool tests", () => {
                     governanceSigner = await ethers.getSigner(governanceAddress);
                     
                     // Fund governance account with ETH for gas
-                    await setBalance(governanceAddress, ethers.parseEther("1.0"))
+                    await networkHelpers.setBalance(governanceAddress, ethers.parseEther("1.0"))
                 });
 
                 it("should enforce pause controls", async () => {

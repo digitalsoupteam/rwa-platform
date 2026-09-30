@@ -1,9 +1,5 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { deployments } from 'hardhat'
-import { impersonateAccount, setBalance } from '@nomicfoundation/hardhat-network-helpers'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import {
   EventEmitter,
   EventEmitter__factory,
@@ -11,7 +7,8 @@ import {
   AddressBook__factory,
   Config,
   Config__factory,
-} from '../../../typechain-types'
+} from '../../../typechain-types/index.js'
+import { ethers, networkHelpers, deployments, deployAll } from '../../utils/fixture.js'
 
 describe('EventEmitter Contract Unit Tests', () => {
   let eventEmitter: EventEmitter
@@ -19,7 +16,7 @@ describe('EventEmitter Contract Unit Tests', () => {
   let config: Config
   let testOwner: HardhatEthersSigner
   let user: HardhatEthersSigner
-  let impersonatedConfig: SignerWithAddress
+  let impersonatedConfig: HardhatEthersSigner
   let initSnapshot: string
 
   before(async () => {
@@ -28,7 +25,7 @@ describe('EventEmitter Contract Unit Tests', () => {
     user = signers[9]
 
     // Deploy all contracts using the deployment fixture
-    await deployments.fixture()
+    await networkHelpers.loadFixture(deployAll)
 
     eventEmitter = EventEmitter__factory.connect(
       (await deployments.get('EventEmitter')).address,
@@ -46,9 +43,9 @@ describe('EventEmitter Contract Unit Tests', () => {
     )
 
     // Impersonate Config contract since it's already registered as protocol contract
-    await impersonateAccount(await config.getAddress())
+    await networkHelpers.impersonateAccount(await config.getAddress())
     impersonatedConfig = await ethers.getSigner(await config.getAddress())
-    await setBalance(impersonatedConfig.address, ethers.parseEther('100'))
+    await networkHelpers.setBalance(impersonatedConfig.address, ethers.parseEther('100'))
 
     initSnapshot = await ethers.provider.send('evm_snapshot', [])
   })

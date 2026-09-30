@@ -1,7 +1,5 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { deployments } from 'hardhat'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import {
   Factory,
   Factory__factory,
@@ -13,22 +11,23 @@ import {
   RWA__factory,
   Pool,
   Pool__factory,
-  IERC20,
-  IERC20__factory,
-} from '../../../typechain-types'
-import ERC20Minter from '../../utils/ERC20Minter'
-import { USDT } from '../../../constants/addresses'
+} from '../../../typechain-types/index.js'
+import { HoldToken } from '../../../typechain-types/index.js'
+import { HoldToken__factory } from '../../../typechain-types/index.js'
+import ERC20Minter from '../../utils/ERC20Minter.js'
+import { USDT } from '../../../constants/addresses.js'
+import { ethers, networkHelpers, deployments, deployAll } from '../../utils/fixture.js'
 
 describe('RWA Token URI Tests', () => {
-  let owner: SignerWithAddress
-  let signer1: SignerWithAddress
-  let signer2: SignerWithAddress
-  let signer3: SignerWithAddress
-  let productOwner: SignerWithAddress
+  let owner: HardhatEthersSigner
+  let signer1: HardhatEthersSigner
+  let signer2: HardhatEthersSigner
+  let signer3: HardhatEthersSigner
+  let productOwner: HardhatEthersSigner
   let factory: Factory
   let addressBook: AddressBook
   let config: Config
-  let holdToken: IERC20
+  let holdToken: HoldToken
   let rwa: RWA
   let pool: Pool
   let initSnapshot: string
@@ -41,12 +40,12 @@ describe('RWA Token URI Tests', () => {
     signer3 = signers[3]
     productOwner = signers[7]
 
-    await deployments.fixture()
+    await networkHelpers.loadFixture(deployAll)
 
     factory = Factory__factory.connect((await deployments.get('Factory')).address, ethers.provider)
     addressBook = AddressBook__factory.connect((await deployments.get('AddressBook')).address, ethers.provider)
     config = Config__factory.connect((await deployments.get('Config')).address, ethers.provider)
-    holdToken = IERC20__factory.connect(await config.holdToken(), ethers.provider)
+    holdToken = HoldToken__factory.connect(await config.holdToken(), ethers.provider)
 
     await ERC20Minter.mint(await holdToken.getAddress(), productOwner.address, 1000000)
     await holdToken.connect(productOwner).approve(await factory.getAddress(), ethers.MaxUint256)
@@ -92,7 +91,7 @@ describe('RWA Token URI Tests', () => {
     const poolEntityId = "test-pool-entity-id"
     const expectedHoldAmount = await config.expectedHoldAmountMin()
     const expectedRwaAmount = await config.expectedRwaAmountMin()
-    const priceImpactPercent = 100 // 1%
+    const priceImpactPercent = 99 // 0.99% (100 is not a valid key in config priceImpactCoefficients)
     const rewardPercent = await config.rewardPercentMin()
     const entryPeriodStart = Math.floor(Date.now() / 1000) + 3600 // 1 hour from now
     const entryPeriodExpired = entryPeriodStart + Number(await config.entryPeriodMinDuration())

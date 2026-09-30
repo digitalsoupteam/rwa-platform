@@ -1,9 +1,5 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { deployments } from 'hardhat'
-import { impersonateAccount, setBalance, time } from '@nomicfoundation/hardhat-network-helpers'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import {
   Governance,
   Governance__factory,
@@ -19,7 +15,8 @@ import {
   PlatformToken__factory,
   Treasury,
   Treasury__factory,
-} from '../../../typechain-types'
+} from '../../../typechain-types/index.js'
+import { ethers, networkHelpers, deployments, deployAll } from '../../utils/fixture.js'
 
 describe('Governance Contract Unit Tests', () => {
   let governance: Governance
@@ -33,7 +30,7 @@ describe('Governance Contract Unit Tests', () => {
   let user1: HardhatEthersSigner
   let user2: HardhatEthersSigner
   let user3: HardhatEthersSigner
-  let governanceSigner: SignerWithAddress
+  let governanceSigner: HardhatEthersSigner
   let initSnapshot: string
 
   // Test constants from config
@@ -51,7 +48,7 @@ describe('Governance Contract Unit Tests', () => {
     user3 = signers[3]
 
     // Deploy all contracts using the deployment fixture
-    await deployments.fixture()
+    await networkHelpers.loadFixture(deployAll)
 
     governance = Governance__factory.connect(
       (await deployments.get('Governance')).address,
@@ -90,9 +87,9 @@ describe('Governance Contract Unit Tests', () => {
 
     // Impersonate governance account
     const governanceAddress = await addressBook.governance()
-    await impersonateAccount(governanceAddress)
+    await networkHelpers.impersonateAccount(governanceAddress)
     governanceSigner = await ethers.getSigner(governanceAddress)
-    await setBalance(governanceSigner.address, ethers.parseEther('100'))
+    await networkHelpers.setBalance(governanceSigner.address, ethers.parseEther('100'))
 
     // Setup users with tokens and staking for voting power
     // Total supply: 21M tokens, 40% quorum = 8.4M tokens needed
@@ -131,7 +128,7 @@ describe('Governance Contract Unit Tests', () => {
     const testDescription = 'Test proposal description'
 
     it('should allow users with sufficient voting power to create proposals', async () => {
-      const currentTime = await time.latest()
+      const currentTime = await networkHelpers.time.latest()
 
       await expect(
         governance.connect(user1).propose(testTarget, testData, testDescription)
@@ -181,9 +178,9 @@ describe('Governance Contract Unit Tests', () => {
     })
 
     it('should create proposals with instant start time', async () => {
-      const beforeProposal = await time.latest()
+      const beforeProposal = await networkHelpers.time.latest()
       await governance.connect(user1).propose(testTarget, testData, testDescription)
-      const afterProposal = await time.latest()
+      const afterProposal = await networkHelpers.time.latest()
 
       const proposal = await governance.getProposal(1)
       expect(Number(proposal.endTime) - beforeProposal).to.be.closeTo(VOTING_PERIOD, 2)
@@ -267,7 +264,7 @@ describe('Governance Contract Unit Tests', () => {
 
     it('should reject votes after voting period ends', async () => {
       // Fast forward past voting period
-      await time.increase(VOTING_PERIOD + 1)
+      await networkHelpers.time.increase(VOTING_PERIOD + 1)
 
       await expect(
         governance.connect(user1).vote(proposalId, true, 'Too late')
@@ -385,7 +382,7 @@ describe('Governance Contract Unit Tests', () => {
 
     it('should allow proposer to cancel within 12 hours', async () => {
       // Fast forward 6 hours (within 12 hour limit)
-      await time.increase(6 * 60 * 60)
+      await networkHelpers.time.increase(6 * 60 * 60)
 
       await expect(
         governance.connect(user1).cancel(proposalId)
@@ -402,7 +399,7 @@ describe('Governance Contract Unit Tests', () => {
 
     it('should reject proposer cancellation after 12 hours', async () => {
       // Fast forward 13 hours (beyond 12 hour limit)
-      await time.increase(13 * 60 * 60)
+      await networkHelpers.time.increase(13 * 60 * 60)
 
       await expect(
         governance.connect(user1).cancel(proposalId)
@@ -411,7 +408,7 @@ describe('Governance Contract Unit Tests', () => {
 
     it('should allow governance to cancel at any time', async () => {
       // Fast forward 24 hours (well beyond 12 hour limit)
-      await time.increase(24 * 60 * 60)
+      await networkHelpers.time.increase(24 * 60 * 60)
 
       await expect(
         governance.connect(governanceSigner).cancel(proposalId)
@@ -475,7 +472,7 @@ describe('Governance Contract Unit Tests', () => {
     })
 
     it('should correctly identify inactive proposals after voting period ends', async () => {
-      await time.increase(VOTING_PERIOD + 1)
+      await networkHelpers.time.increase(VOTING_PERIOD + 1)
       expect(await governance.isActive(proposalId)).to.equal(false)
     })
   })

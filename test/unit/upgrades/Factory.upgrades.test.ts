@@ -1,8 +1,5 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { deployments } from 'hardhat'
-import { impersonateAccount, setBalance } from '@nomicfoundation/hardhat-network-helpers'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import {
     Factory,
     Factory__factory,
@@ -10,12 +7,13 @@ import {
     AddressBook__factory,
     FactoryNewImplementation,
     FactoryNewImplementation__factory
-} from '../../../typechain-types'
+} from '../../../typechain-types/index.js'
+import { ethers, networkHelpers, deployments, deployAll } from '../../utils/fixture.js'
 
 describe('Factory Upgrade Tests', () => {
-    let owner: SignerWithAddress
-    let user: SignerWithAddress
-    let timelock: SignerWithAddress
+    let owner: HardhatEthersSigner
+    let user: HardhatEthersSigner
+    let timelock: HardhatEthersSigner
     let factory: Factory
     let addressBook: AddressBook
     let initSnapshot: string
@@ -25,15 +23,15 @@ describe('Factory Upgrade Tests', () => {
         owner = signers[0]
         user = signers[9]
 
-        await deployments.fixture()
+        await networkHelpers.loadFixture(deployAll)
         
         addressBook = AddressBook__factory.connect((await deployments.get('AddressBook')).address, ethers.provider)
         factory = Factory__factory.connect((await deployments.get('Factory')).address, ethers.provider)
 
-        const timelockAddress = await addressBook.timelock()
-        await impersonateAccount(timelockAddress)
-        await setBalance(timelockAddress, ethers.parseEther('1'))
-        timelock = await ethers.getSigner(timelockAddress)
+        const upgradeRoleAddress = await addressBook.upgradeRole()
+        await networkHelpers.impersonateAccount(upgradeRoleAddress)
+        await networkHelpers.setBalance(upgradeRoleAddress, ethers.parseEther('100'))
+        timelock = await ethers.getSigner(upgradeRoleAddress)
 
         initSnapshot = await ethers.provider.send('evm_snapshot', [])
     })
@@ -165,6 +163,6 @@ describe('Factory Upgrade Tests', () => {
                 await newImplementation.getAddress(),
                 newImplementation.interface.encodeFunctionData('initialize')
             )
-        ).to.be.revertedWith('Only timelock!')
+        ).to.be.revertedWith('Only upgradeRole!')
     })
 })

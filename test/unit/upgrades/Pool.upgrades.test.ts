@@ -1,45 +1,42 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { deployments } from 'hardhat'
-import { impersonateAccount, setBalance } from '@nomicfoundation/hardhat-network-helpers'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import {
-    Pool,
-    Pool__factory,
-    AddressBook,
-    AddressBook__factory,
-    PoolNewImplementation,
-    PoolNewImplementation__factory,
-    Factory,
-    Factory__factory,
-    Config,
-    Config__factory,
-    RWA,
-    RWA__factory,
-    IERC20,
-    IERC20__factory,
-    Treasury,
-    Treasury__factory,
-    EventEmitter,
-    EventEmitter__factory
-} from '../../../typechain-types'
-import ERC20Minter from '../../utils/ERC20Minter'
-import SignaturesUtils from '../../utils/SignaturesUtils'
-import { time } from '@nomicfoundation/hardhat-network-helpers'
+  Pool,
+  Pool__factory,
+  AddressBook,
+  AddressBook__factory,
+  PoolNewImplementation,
+  PoolNewImplementation__factory,
+  Factory,
+  Factory__factory,
+  Config,
+  Config__factory,
+  RWA,
+  RWA__factory,
+  Treasury,
+  Treasury__factory,
+  EventEmitter,
+  EventEmitter__factory,
+} from '../../../typechain-types/index.js'
+import { HoldToken } from '../../../typechain-types/index.js'
+import { HoldToken__factory } from '../../../typechain-types/index.js'
+import ERC20Minter from '../../utils/ERC20Minter.js'
+import SignaturesUtils from '../../utils/SignaturesUtils.js'
+import { ethers, networkHelpers, deployments, deployAll } from '../../utils/fixture.js'
 
 describe('Pool Upgrade Tests', () => {
-    let owner: SignerWithAddress
-    let user: SignerWithAddress
-    let governance: SignerWithAddress
-    let signer1: SignerWithAddress
-    let signer2: SignerWithAddress
-    let signer3: SignerWithAddress
+    let owner: HardhatEthersSigner
+    let user: HardhatEthersSigner
+    let governance: HardhatEthersSigner
+    let signer1: HardhatEthersSigner
+    let signer2: HardhatEthersSigner
+    let signer3: HardhatEthersSigner
     let pool: Pool
     let rwa: RWA
     let addressBook: AddressBook
     let config: Config
     let factory: Factory
-    let holdToken: IERC20
+    let holdToken: HoldToken
     let treasury: Treasury
     let eventEmitter: EventEmitter
     let initSnapshot: string
@@ -52,19 +49,19 @@ describe('Pool Upgrade Tests', () => {
         signer3 = signers[3]
         user = signers[9]
 
-        await deployments.fixture()
+        await networkHelpers.loadFixture(deployAll)
         
         factory = Factory__factory.connect((await deployments.get('Factory')).address, ethers.provider)
         addressBook = AddressBook__factory.connect((await deployments.get('AddressBook')).address, ethers.provider)
         config = Config__factory.connect((await deployments.get('Config')).address, ethers.provider)
-        holdToken = IERC20__factory.connect(await config.holdToken(), ethers.provider)
+        holdToken = HoldToken__factory.connect(await config.holdToken(), ethers.provider)
         treasury = Treasury__factory.connect((await deployments.get('Treasury')).address, ethers.provider)
         eventEmitter = EventEmitter__factory.connect((await deployments.get('EventEmitter')).address, ethers.provider)
 
-        const timelockAddress = await addressBook.timelock()
-        await impersonateAccount(timelockAddress)
-        await setBalance(timelockAddress, ethers.parseEther('1'))
-        governance = await ethers.getSigner(timelockAddress)
+        const upgradeRoleAddress = await addressBook.upgradeRole()
+        await networkHelpers.impersonateAccount(upgradeRoleAddress)
+        await networkHelpers.setBalance(upgradeRoleAddress, ethers.parseEther('100'))
+        governance = await ethers.getSigner(upgradeRoleAddress)
 
         // Mint HOLD tokens to user
         await ERC20Minter.mint(await holdToken.getAddress(), user.address, 1000000)
@@ -106,7 +103,7 @@ describe('Pool Upgrade Tests', () => {
         const expectedRwaAmount = BigInt(1000000)
         const priceImpactPercent = BigInt(1)
         const rewardPercent = await config.rewardPercentMin()
-        const entryPeriodStart = BigInt(await time.latest()) + BigInt(3600)
+        const entryPeriodStart = BigInt(await networkHelpers.time.latest()) + BigInt(3600)
         const entryPeriodExpired = entryPeriodStart + BigInt(await config.entryPeriodMinDuration())
         const completionPeriodExpired = entryPeriodExpired + BigInt(await config.completionPeriodMinDuration())
         const fixedSell = true
@@ -300,7 +297,7 @@ describe('Pool Upgrade Tests', () => {
                 await newImplementation.getAddress(),
                 newImplementation.interface.encodeFunctionData('initialize')
             )
-        ).to.be.revertedWith('Only timelock!')
+        ).to.be.revertedWith('Only upgradeRole!')
     })
     
     it('should not allow upgrade with wrong uniqueContractId', async () => {

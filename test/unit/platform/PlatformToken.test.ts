@@ -1,15 +1,12 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { deployments } from 'hardhat'
-import { impersonateAccount, setBalance } from '@nomicfoundation/hardhat-network-helpers'
-import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers'
+import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/types'
 import {
   PlatformToken,
   PlatformToken__factory,
   AddressBook,
   AddressBook__factory,
-} from '../../../typechain-types'
+} from '../../../typechain-types/index.js'
+import { ethers, networkHelpers, deployments, deployAll } from '../../utils/fixture.js'
 
 describe('PlatformToken Contract Unit Tests', () => {
   let platformToken: PlatformToken
@@ -17,7 +14,7 @@ describe('PlatformToken Contract Unit Tests', () => {
   let testOwner: HardhatEthersSigner
   let user1: HardhatEthersSigner
   let user2: HardhatEthersSigner
-  let governance: SignerWithAddress
+  let governance: HardhatEthersSigner
   let initSnapshot: string
 
   before(async () => {
@@ -27,7 +24,7 @@ describe('PlatformToken Contract Unit Tests', () => {
     user2 = signers[2]
 
     // Deploy all contracts using the deployment fixture
-    await deployments.fixture()
+    await networkHelpers.loadFixture(deployAll)
 
     platformToken = PlatformToken__factory.connect(
       (await deployments.get('PlatformToken')).address,
@@ -41,9 +38,9 @@ describe('PlatformToken Contract Unit Tests', () => {
 
     // Impersonate governance account for upgrade tests
     const governanceAddress = await addressBook.governance()
-    await impersonateAccount(governanceAddress)
+    await networkHelpers.impersonateAccount(governanceAddress)
     governance = await ethers.getSigner(governanceAddress)
-    await setBalance(governance.address, ethers.parseEther('100'))
+    await networkHelpers.setBalance(governance.address, ethers.parseEther('100'))
 
     initSnapshot = await ethers.provider.send('evm_snapshot', [])
   })

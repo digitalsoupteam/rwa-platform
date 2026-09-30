@@ -1,25 +1,16 @@
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { DeployFunction } from 'hardhat-deploy/types'
-import { AddressBook__factory } from '../typechain-types'
+import { deployScript, artifacts } from '../rocketh/deploy.js';
 
-const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const { ethers, deployments } = hre
-  const { deploy, get, getOrNull } = deployments
+export default deployScript(
+  async ({ deploy, getOrNull, namedAccounts }) => {
+    if (getOrNull('HoldToken')) return;
 
-  const alreadyDeployed = (await getOrNull('HoldToken')) != null
-  if (alreadyDeployed) return
+    const { deployer } = namedAccounts;
 
-  const signers = await ethers.getSigners()
-  const deployer = signers[0]
-  
-  const deployment = await deploy('HoldToken', {
-    contract: 'HoldToken',
-    from: deployer.address,
-    log: true,
-    waitConfirmations: 2,
-  })
-  
-}
-
-deploy.tags = ['HoldToken']
-export default deploy
+    await deploy('HoldToken', {
+      account: deployer,
+      artifact: artifacts.HoldToken,
+      args: [],
+    });
+  },
+  { tags: ['HoldToken'] },
+);

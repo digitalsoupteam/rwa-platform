@@ -1,35 +1,26 @@
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { DeployFunction } from 'hardhat-deploy/types'
-import { AddressBook__factory } from '../typechain-types'
+import { deployScript, artifacts } from '../rocketh/deploy.js';
 
-const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const { ethers, deployments } = hre
-  const { deploy, get, getOrNull } = deployments
+export default deployScript(
+  async ({ deploy, execute, get, getOrNull, namedAccounts }) => {
+    if (getOrNull('PoolImplementation')) return;
 
-  const alreadyDeployed = (await getOrNull('PoolImplementation')) != null
-  if (alreadyDeployed) return
+    const { deployer } = namedAccounts;
 
-  const signers = await ethers.getSigners()
-  const deployer = signers[0]
+    const addressBook = get('AddressBook');
 
-  const addressBook = await get('AddressBook')
-  
-  const deployment = await deploy('PoolImplementation', {
-    contract: 'Pool',
-    from: deployer.address,
-    log: true,
-    waitConfirmations: 2,
-    args: [addressBook.address],
-  })
-  
-  await deployments.execute(
-    'AddressBook',
-    { from: deployer.address, log: true, waitConfirmations: 2 },
-    'setPoolImplementation',
-    deployment.address
-  )
-}
+    await deploy('PoolImplementation', {
+      account: deployer,
+      artifact: artifacts.Pool,
+      args: [addressBook.address],
+    });
 
-deploy.tags = ['PoolImplementation']
-deploy.dependencies = ['Config']
-export default deploy
+    const poolImplementation = get('PoolImplementation');
+
+    await execute(addressBook, {
+      functionName: 'setPoolImplementation',
+      args: [poolImplementation.address],
+      account: deployer,
+    });
+  },
+  { tags: ['PoolImplementation'], dependencies: ['Config'] },
+);

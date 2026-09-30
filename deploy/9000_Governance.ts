@@ -1,43 +1,36 @@
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { DeployFunction } from 'hardhat-deploy/types'
-import { AddressBook__factory } from '../typechain-types'
+import { deployScript, artifacts } from '../rocketh/deploy.js';
 
-const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const { ethers, deployments } = hre
-  const { deploy, get, getOrNull } = deployments
+export default deployScript(
+  async ({ deployViaProxy, execute, get, getOrNull, namedAccounts }) => {
+    if (getOrNull('Governance')) return;
 
-  const alreadyDeployed = (await getOrNull('Governance')) != null
-  if (alreadyDeployed) return
+    const { deployer } = namedAccounts;
 
-  const signers = await ethers.getSigners()
-  const deployer = signers[0]
+    const addressBook = get('AddressBook');
 
-  const addressBook = await get('AddressBook')
-
-  const deployment = await deploy('Governance', {
-    contract: 'Governance',
-    from: deployer.address,
-    log: true,
-    waitConfirmations: 2,
-    proxy: {
-      proxyContract: 'UUPS',
-      execute: {
-        init: {
+    await deployViaProxy(
+      'Governance',
+      {
+        account: deployer,
+        artifact: artifacts.Governance,
+        args: [],
+      },
+      {
+        proxyContract: 'UUPS',
+        execute: {
           methodName: 'initialize',
           args: [addressBook.address],
         },
       },
-    },
-  })
+    );
 
-  await deployments.execute(
-    'AddressBook',
-    { from: deployer.address, log: true, waitConfirmations: 2 },
-    'setGovernance',
-    deployment.address
-  )
-}
+    const governance = get('Governance');
 
-deploy.tags = ['Governance']
-deploy.dependencies = ['Factory']
-export default deploy
+    await execute(addressBook, {
+      functionName: 'setGovernance',
+      args: [governance.address],
+      account: deployer,
+    });
+  },
+  { tags: ['Governance'], dependencies: ['Factory'] },
+);

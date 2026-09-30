@@ -1,65 +1,44 @@
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { DeployFunction } from 'hardhat-deploy/types'
-import { AddressBook__factory } from '../typechain-types'
+import { deployScript, artifacts } from '../rocketh/deploy.js';
 
-const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const { ethers, deployments } = hre
-  const { deploy, getOrNull } = deployments
+export default deployScript(
+  async ({ deployViaProxy, execute, get, getOrNull, namedAccounts }) => {
+    if (getOrNull('AddressBook')) return;
 
-  const signers = await ethers.getSigners()
-  const deployer = signers[0]
-  const signer1 = signers[1]
-  const signer2 = signers[2]
-  const signer3 = signers[3]
+    const { deployer, signer1, signer2, signer3 } = namedAccounts;
 
-  const alreadyDeployed = (await getOrNull('AddressBook')) != null
-  if (alreadyDeployed) return
-
-  const deployment = await deploy('AddressBook', {
-    contract: 'AddressBook',
-    from: deployer.address,
-    proxy: {
-      proxyContract: 'UUPS',
-      execute: {
-        init: {
+    await deployViaProxy(
+      'AddressBook',
+      {
+        account: deployer,
+        artifact: artifacts.AddressBook,
+        args: [],
+      },
+      {
+        proxyContract: 'UUPS',
+        execute: {
           methodName: 'initialize',
           args: [],
         },
       },
-    },
-  })
+    );
 
-  await deployments.execute(
-    'AddressBook',
-    {
-      from: deployer.address,
-      log: true,
-      waitConfirmations: 2,
-    },
-    'addSigner',
-    signer1.address
-  )
-  await deployments.execute(
-    'AddressBook',
-    {
-      from: deployer.address,
-      log: true,
-      waitConfirmations: 2,
-    },
-    'addSigner',
-    signer2.address
-  )
-  await deployments.execute(
-    'AddressBook',
-    {
-      from: deployer.address,
-      log: true,
-      waitConfirmations: 2,
-    },
-    'addSigner',
-    signer3.address
-  )
-}
+    const addressBook = get('AddressBook');
 
-deploy.tags = ['AddressBook']
-export default deploy
+    await execute(addressBook, {
+      functionName: 'addSigner',
+      args: [signer1],
+      account: deployer,
+    });
+    await execute(addressBook, {
+      functionName: 'addSigner',
+      args: [signer2],
+      account: deployer,
+    });
+    await execute(addressBook, {
+      functionName: 'addSigner',
+      args: [signer3],
+      account: deployer,
+    });
+  },
+  { tags: ['AddressBook'] },
+);

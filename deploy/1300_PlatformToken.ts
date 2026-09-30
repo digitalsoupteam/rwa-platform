@@ -1,28 +1,23 @@
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
-import { DeployFunction } from 'hardhat-deploy/types'
-import { AddressBook__factory } from '../typechain-types'
+import { deployScript, artifacts } from '../rocketh/deploy.js';
 
-const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const { ethers, deployments } = hre
-  const { deploy, get, getOrNull } = deployments
+export default deployScript(
+  async ({ deployViaProxy, execute, get, getOrNull, namedAccounts }) => {
+    if (getOrNull('PlatformToken')) return;
 
-  const alreadyDeployed = (await getOrNull('PlatformToken')) != null
-  if (alreadyDeployed) return
+    const { deployer } = namedAccounts;
 
-  const signers = await ethers.getSigners()
-  const deployer = signers[0]
+    const addressBook = get('AddressBook');
 
-  const addressBook = await get('AddressBook')
-
-  const deployment = await deploy('PlatformToken', {
-    contract: 'PlatformToken',
-    from: deployer.address,
-    log: true,
-    waitConfirmations: 2,
-    proxy: {
-      proxyContract: 'UUPS',
-      execute: {
-        init: {
+    await deployViaProxy(
+      'PlatformToken',
+      {
+        account: deployer,
+        artifact: artifacts.PlatformToken,
+        args: [],
+      },
+      {
+        proxyContract: 'UUPS',
+        execute: {
           methodName: 'initialize',
           args: [
             addressBook.address, // initialAddressBook
@@ -31,25 +26,21 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
           ],
         },
       },
-    },
-  })
+    );
 
-  await deployments.execute(
-    'AddressBook',
-    { from: deployer.address, log: true, waitConfirmations: 2 },
-    'setPlatformToken',
-    deployment.address
-  )
+    const platformToken = get('PlatformToken');
 
-  await deployments.execute(
-    'PlatformToken',
-    { from: deployer.address, log: true, waitConfirmations: 2 },
-    'mint',
-    [deployer.address], // holders
-    [ethers.parseEther('21000000')] // amounts
-  )
-}
+    await execute(addressBook, {
+      functionName: 'setPlatformToken',
+      args: [platformToken.address],
+      account: deployer,
+    });
 
-deploy.tags = ['PlatformToken']
-deploy.dependencies = ['EventEmitter']
-export default deploy
+    await execute(platformToken, {
+      functionName: 'mint',
+      args: [[deployer], [10n ** 18n * 21000000n]], // holders, amounts
+      account: deployer,
+    });
+  },
+  { tags: ['PlatformToken'], dependencies: ['EventEmitter'] },
+);

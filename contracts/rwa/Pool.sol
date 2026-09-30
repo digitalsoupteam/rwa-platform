@@ -3,13 +3,13 @@ pragma solidity 0.8.28;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { RWA } from "./RWA.sol";
-import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { AddressBook } from "../system/AddressBook.sol";
 import { Config } from "../system/Config.sol";
 import { EventEmitter } from "../system/EventEmitter.sol";
 import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 
-contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
+contract Pool is UpgradeableContract, ReentrancyGuard {
     // --- Static Configuration Parameters ---
     // Variables set during initialization and then immutable.
 
@@ -225,7 +225,6 @@ contract Pool is UpgradeableContract, ReentrancyGuardUpgradeable {
         parentId = RWA(_rwaToken).entityId();
 
         __UpgradeableContract_init();
-        __ReentrancyGuard_init_unchained();
 
         priceImpactPercent = _priceImpactPercent;
         liquidityCoefficient = _liquidityCoefficient;

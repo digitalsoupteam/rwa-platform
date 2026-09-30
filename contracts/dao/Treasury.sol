@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 import { AddressBook } from "../system/AddressBook.sol";
 import { EventEmitter } from "../system/EventEmitter.sol";
@@ -12,7 +12,7 @@ import { EventEmitter } from "../system/EventEmitter.sol";
 /// @title DAO Treasury Contract
 /// @notice Manages DAO funds under timelock control
 /// @dev Holds and manages treasury assets for the DAO
-contract Treasury is UpgradeableContract, ReentrancyGuardUpgradeable {
+contract Treasury is UpgradeableContract, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /// @notice Address book contract reference
@@ -28,7 +28,6 @@ contract Treasury is UpgradeableContract, ReentrancyGuardUpgradeable {
         addressBook = AddressBook(initialAddressBook);
 
         __UpgradeableContract_init();
-        __ReentrancyGuard_init_unchained();
     }
 
     /// @notice Withdraws ERC20 tokens

@@ -2,10 +2,9 @@
 pragma solidity 0.8.28;
 
 import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { SignatureChecker } from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
@@ -13,10 +12,11 @@ import { AddressBook } from "../system/AddressBook.sol";
 import { RWA } from "./RWA.sol";
 import { Config } from "../system/Config.sol";
 import { Pool } from "./Pool.sol";
+import { UninitializedERC1967Proxy } from "../utils/UninitializedERC1967Proxy.sol";
 import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 import { EventEmitter } from "../system/EventEmitter.sol";
 
-contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
+contract Factory is UpgradeableContract, ReentrancyGuard {
     AddressBook public addressBook;
 
     mapping(bytes32 => bool) public usedSignatures;
@@ -42,7 +42,6 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
         addressBook = AddressBook(initialAddressBook);
 
         __UpgradeableContract_init();
-        __ReentrancyGuard_init();
     }
 
     function deployRWA(
@@ -107,7 +106,7 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
 
         _validateSignatures(signers, signatures, messageHash);
 
-        address proxy = address(new ERC1967Proxy(_addressBook.rwaImplementation(), ""));
+        address proxy = address(new UninitializedERC1967Proxy(_addressBook.rwaImplementation(), ""));
         RWA rwa = RWA(proxy);
         _addressBook.addRWA(rwa);
         rwa.initialize(msg.sender, owner, entityId, entityOwnerId, entityOwnerType);
@@ -365,7 +364,7 @@ contract Factory is UpgradeableContract, ReentrancyGuardUpgradeable {
         address implementation = _addressBook.poolImplementation();
         require(implementation != address(0), "Pool implementation not set");
 
-        address proxy = address(new ERC1967Proxy(implementation, ""));
+        address proxy = address(new UninitializedERC1967Proxy(implementation, ""));
         uint256 rwaId = rwa.createToken(proxy);
 
         _addressBook.addPool(Pool(proxy));

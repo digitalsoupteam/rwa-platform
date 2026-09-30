@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -13,7 +13,7 @@ import { EventEmitter } from "../system/EventEmitter.sol";
 /// @title DAO Timelock Contract
 /// @notice Enforces delay on governance actions for security
 /// @dev Implements timelock mechanism for governance proposals
-contract Timelock is UpgradeableContract, ReentrancyGuardUpgradeable {
+contract Timelock is UpgradeableContract, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /// @notice Address book contract reference
@@ -35,7 +35,6 @@ contract Timelock is UpgradeableContract, ReentrancyGuardUpgradeable {
         addressBook = AddressBook(initialAddressBook);
 
         __UpgradeableContract_init();
-        __ReentrancyGuard_init();
     }
 
     /// @notice Queues a transaction for future execution

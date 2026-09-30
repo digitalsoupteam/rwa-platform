@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import { AddressBook } from "../system/AddressBook.sol";
 import { Config } from "../system/Config.sol";
@@ -14,7 +14,7 @@ import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 
 /// @title Referral Treasury Contract
 /// @notice Stores tokens and allows withdrawal with multiple signature verification
-contract ReferralTreasury is UpgradeableContract, ReentrancyGuardUpgradeable {
+contract ReferralTreasury is UpgradeableContract, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /// @notice Address book contract reference
@@ -30,7 +30,6 @@ contract ReferralTreasury is UpgradeableContract, ReentrancyGuardUpgradeable {
     /// @param initialAddressBook Address of AddressBook contract
     function initialize(address initialAddressBook) external initializer {
         __UpgradeableContract_init();
-        __ReentrancyGuard_init();
         addressBook = AddressBook(initialAddressBook);
     }
 

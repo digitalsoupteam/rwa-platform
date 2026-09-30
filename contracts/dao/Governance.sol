@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
 import { AddressBook } from "../system/AddressBook.sol";
@@ -11,7 +11,7 @@ import { DaoStaking } from "./DaoStaking.sol";
 
 /// @title DAO Governance Contract
 /// @notice Simple governance with instant proposals and automatic execution/cancellation
-contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
+contract Governance is UpgradeableContract, ReentrancyGuard {
     AddressBook public addressBook;
     uint256 public proposalCount;
 
@@ -43,7 +43,6 @@ contract Governance is UpgradeableContract, ReentrancyGuardUpgradeable {
         require(initialAddressBook != address(0), "Invalid address book");
         addressBook = AddressBook(initialAddressBook);
         __UpgradeableContract_init();
-        __ReentrancyGuard_init();
     }
 
     /// @notice Creates proposal with instant start

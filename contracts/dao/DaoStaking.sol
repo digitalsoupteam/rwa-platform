@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { UpgradeableContract } from "../utils/UpgradeableContract.sol";
@@ -13,7 +13,7 @@ import { PlatformToken } from "../platform/PlatformToken.sol";
 /// @title DAO Staking Contract
 /// @notice Manages Platform Token staking for governance voting power
 /// @dev Allows users to stake Platform tokens to gain voting power in DAO governance
-contract DaoStaking is UpgradeableContract, ReentrancyGuardUpgradeable {
+contract DaoStaking is UpgradeableContract, ReentrancyGuard {
     using SafeERC20 for PlatformToken;
 
     /// @notice Address book contract reference
@@ -45,7 +45,6 @@ contract DaoStaking is UpgradeableContract, ReentrancyGuardUpgradeable {
         platformToken = addressBook.platformToken();
 
         __UpgradeableContract_init();
-        __ReentrancyGuard_init();
     }
 
     /// @notice Locks user's staked tokens until specified timestamp (can only be called by governance)

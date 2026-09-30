@@ -27,7 +27,6 @@ abstract contract UpgradeableContract is
     }
 
     function __UpgradeableContract_init() internal onlyInitializing {
-        __UUPSUpgradeable_init();
         __ERC165_init();
     }
 

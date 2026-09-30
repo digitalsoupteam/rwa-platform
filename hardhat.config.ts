@@ -55,6 +55,27 @@ export default defineConfig({
         url: 'https://bsc-testnet-rpc.publicnode.com',
       },
     },
+    // Local development node for the backend e2e stand (npx hardhat node).
+    // chainId 97 matches the backend scanner and e2e tests; forking provides the
+    // live testnet USDT mock referenced by Config; interval mining keeps the chain
+    // head growing so scanner confirmations mature even without traffic.
+    node: {
+      type: 'edr-simulated',
+      chainId: 97,
+      chainType: 'l1',
+      allowBlocksWithSameTimestamp: true,
+      mining: {
+        auto: true,
+        interval: 1000,
+      },
+      forking: {
+        url: 'https://bsc-testnet-rpc.publicnode.com',
+      },
+      accounts: {
+        count: 20,
+        accountsBalance: '1000000000000000000000000000',
+      },
+    },
     bscTestnet: {
       type: 'http',
       chainType: 'l1',

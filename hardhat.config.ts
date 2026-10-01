@@ -1,9 +1,25 @@
 import { defineConfig } from 'hardhat/config';
 import hardhatToolboxMochaEthers from '@nomicfoundation/hardhat-toolbox-mocha-ethers';
 import hardhatDeploy from 'hardhat-deploy';
+import { HDNodeWallet } from 'ethers';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
+
+// The local stand node (`npx hardhat node`) keeps the built-in dev accounts
+// (backend e2e tests sign with indexes 0..8) and additionally unlocks the
+// bscTestnet deployer/signer keys from .env, so tests and scripts can send
+// transactions from them — the deployer holds the stand PLATFORM/HOLD supply
+// on the forked testnet state.
+const DEV_MNEMONIC = 'test test test test test test test test test test test junk';
+const DEV_ACCOUNT_BALANCE = '1000000000000000000000000000'; // 1e9 BNB each
+const devAccounts = Array.from({ length: 20 }, (_, i) => ({
+  privateKey: HDNodeWallet.fromPhrase(DEV_MNEMONIC, '', `m/44'/60'/0'/0/${i}`).privateKey,
+  balance: DEV_ACCOUNT_BALANCE,
+}));
+const envAccounts = [process.env.DEPLOYER, process.env.SIGNER_1, process.env.SIGNER_2, process.env.SIGNER_3]
+  .filter((privateKey): privateKey is string => typeof privateKey === 'string' && privateKey.length > 0)
+  .map((privateKey) => ({ privateKey, balance: DEV_ACCOUNT_BALANCE }));
 
 export default defineConfig({
   plugins: [hardhatToolboxMochaEthers, hardhatDeploy],
@@ -70,11 +86,9 @@ export default defineConfig({
       },
       forking: {
         url: 'https://bsc-testnet-rpc.publicnode.com',
+        // blockNumber: 134141910
       },
-      accounts: {
-        count: 20,
-        accountsBalance: '1000000000000000000000000000',
-      },
+      accounts: [...devAccounts, ...envAccounts],
     },
     bscTestnet: {
       type: 'http',
